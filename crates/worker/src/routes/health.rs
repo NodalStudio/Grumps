@@ -1,1 +1,2 @@
-// TODO: implement in Task 12
+use worker::*;
+pub fn handle(_: Request, _: RouteContext<()>) -> Result<Response> { Response::ok("ok") }
