@@ -272,6 +272,61 @@ impl<'a> WorkspaceDb<'a> {
         extract_rows(&resp)
     }
 
+    // --- Reminders ---
+
+    /// Insert a reminder.
+    pub async fn insert_reminder(&self, title: &str, remind_at: &str, recurrence: Option<&str>, target_member: &str, created_by: &str) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        self.q(
+            "INSERT INTO reminders (id, title, remind_at, recurrence, target_member, status, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'active', ?6, datetime('now'))",
+            vec![id.clone().into(), title.into(), remind_at.into(), recurrence.unwrap_or("").into(), target_member.into(), created_by.into()],
+        ).await?;
+        Ok(id)
+    }
+
+    /// Get active reminders that should fire now (remind_at <= now).
+    pub async fn get_due_reminders(&self) -> Result<Vec<ReminderRow>> {
+        let resp = self.q(
+            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND remind_at <= datetime('now')",
+            vec![],
+        ).await?;
+        extract_rows(&resp)
+    }
+
+    /// Mark a reminder as fired. If recurring, update remind_at to next occurrence.
+    pub async fn fire_reminder(&self, reminder_id: &str, recurrence: Option<&str>) -> Result<()> {
+        if let Some(rec) = recurrence {
+            if !rec.is_empty() {
+                let interval = if rec.contains("daily") || rec.contains("every day") {
+                    "+1 day"
+                } else if rec.contains("weekly") || rec.contains("every week") || rec.contains("every monday") || rec.contains("every tuesday") || rec.contains("every wednesday") || rec.contains("every thursday") || rec.contains("every friday") || rec.contains("every saturday") || rec.contains("every sunday") {
+                    "+7 days"
+                } else {
+                    return self.q("UPDATE reminders SET status = 'fired' WHERE id = ?1", vec![reminder_id.into()]).await.map(|_| ());
+                };
+                self.q(
+                    &format!("UPDATE reminders SET remind_at = datetime(remind_at, '{}') WHERE id = ?1", interval),
+                    vec![reminder_id.into()],
+                ).await?;
+                return Ok(());
+            }
+        }
+        self.q("UPDATE reminders SET status = 'fired' WHERE id = ?1", vec![reminder_id.into()]).await?;
+        Ok(())
+    }
+
+    /// List active reminders.
+    pub async fn get_active_reminders(&self) -> Result<Vec<ReminderRow>> {
+        let resp = self.q("SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' ORDER BY remind_at ASC", vec![]).await?;
+        extract_rows(&resp)
+    }
+
+    /// Cancel a reminder.
+    pub async fn cancel_reminder(&self, reminder_id: &str) -> Result<()> {
+        self.q("UPDATE reminders SET status = 'cancelled' WHERE id = ?1", vec![reminder_id.into()]).await?;
+        Ok(())
+    }
+
     // --- Status counts ---
 
     pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
@@ -321,6 +376,16 @@ pub struct ActivityRow {
     pub target_id: Option<String>,
     pub source: String,
     pub created_at: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct ReminderRow {
+    pub id: String,
+    pub title: String,
+    pub remind_at: String,
+    pub recurrence: Option<String>,
+    pub target_member: Option<String>,
+    pub created_by: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]

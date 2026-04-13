@@ -10,3 +10,5 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 INSERT OR IGNORE INTO settings VALUES ('language', 'en');
 INSERT OR IGNORE INTO settings VALUES ('timezone', 'Europe/Paris');
 INSERT OR IGNORE INTO settings VALUES ('quiet_mode', 'false');
+CREATE TABLE IF NOT EXISTS reminders (id TEXT PRIMARY KEY, title TEXT NOT NULL, remind_at TEXT NOT NULL, recurrence TEXT, target_member TEXT, status TEXT DEFAULT 'active', created_by TEXT, created_at TEXT DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_reminders_fire ON reminders(remind_at) WHERE status = 'active';

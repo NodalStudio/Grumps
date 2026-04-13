@@ -300,15 +300,25 @@ async fn handle_llm_result(
             handle_add_note(note, ws_db, member_id).await
         }
         NluIntent::SetReminder => {
-            // Reminders not yet implemented (Task 40) — create a todo with deadline as fallback
-            let mut todo = original_todo;
-            if let Some(title) = nlu.entities.title {
-                todo.title = title;
-            }
-            if let Some(deadline) = nlu.entities.deadline {
-                todo.deadline_text = Some(deadline);
-            }
-            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug).await
+            let title = nlu.entities.title.unwrap_or("Reminder".into());
+            let remind_at = nlu.entities.deadline.unwrap_or_else(|| "tomorrow 9:00".into());
+            let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
+            let recurrence = nlu.entities.recurrence.as_deref();
+
+            let id = ws_db.insert_reminder(&title, &remind_at, recurrence, target, member_id).await?;
+            ws_db.log_activity(member_id, "reminder.created", "reminder", &id, "chat").await?;
+
+            let rec_text = recurrence.map(|r| format!(" ({})", r)).unwrap_or_default();
+            let target_text = if target != member_id {
+                format!(" for @{}", nlu.entities.assignee.as_deref().unwrap_or(""))
+            } else {
+                String::new()
+            };
+
+            Ok(HandlerResult::one(
+                format!("\u{23f0} Reminder set{}: \"{}\"\n\u{1f4c5} {}{}", target_text, title, remind_at, rec_text),
+                Some(msg_id.to_string()),
+            ))
         }
         NluIntent::ListTodos => {
             handle_list_todos(ListFilter::Open, ws_db, member_id).await

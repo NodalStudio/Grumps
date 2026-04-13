@@ -1,5 +1,6 @@
 use worker::*;
 
+mod cron;
 mod d1_rest;
 mod db;
 mod error;
@@ -8,6 +9,13 @@ mod middleware;
 mod provisioning;
 mod llm_client;
 mod routes;
+
+#[event(scheduled)]
+pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
+    if let Err(e) = cron::handle_cron(&env).await {
+        console_log!("Cron error: {:?}", e);
+    }
+}
 
 #[event(fetch, respond_with_errors)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
