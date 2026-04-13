@@ -96,6 +96,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &member_id,
         &workspace.slug,
         llm_client.as_ref(),
+        &workspace.plan,
     ).await?;
 
     // 8. Send each message + track bot message IDs

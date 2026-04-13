@@ -327,6 +327,53 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    // --- LLM call tracking ---
+
+    /// Increment LLM call counter for this month. Uses settings table.
+    pub async fn increment_llm_calls(&self) -> Result<i64> {
+        let month_key = {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            // Approximate year/month from epoch seconds (good enough for monthly bucketing)
+            let days = secs / 86400;
+            let year = 1970 + days / 365;
+            let day_of_year = days % 365;
+            let month = day_of_year / 30 + 1;
+            format!("llm_calls_{}_{:02}", year, month.min(12))
+        };
+
+        // Upsert counter
+        self.q(
+            "INSERT INTO settings (key, value) VALUES (?1, '1') ON CONFLICT(key) DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)",
+            vec![month_key.clone().into()],
+        ).await?;
+
+        // Get current count
+        #[derive(serde::Deserialize)]
+        struct Row { value: String }
+        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![month_key.into()]).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.and_then(|r| r.value.parse().ok()).unwrap_or(1))
+    }
+
+    /// Get current LLM call count for this month.
+    pub async fn get_llm_calls_this_month(&self) -> Result<i64> {
+        let month_key = {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let days = secs / 86400;
+            let year = 1970 + days / 365;
+            let day_of_year = days % 365;
+            let month = day_of_year / 30 + 1;
+            format!("llm_calls_{}_{:02}", year, month.min(12))
+        };
+        #[derive(serde::Deserialize)]
+        struct Row { value: String }
+        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![month_key.into()]).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.and_then(|r| r.value.parse().ok()).unwrap_or(0))
+    }
+
     // --- Settings ---
 
     /// Get a setting value by key, returns None if missing.

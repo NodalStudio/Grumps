@@ -30,31 +30,40 @@ pub async fn handle_message(
     member_id: &str,
     workspace_slug: &str,
     llm_client: Option<&LlmClient>,
+    ws_plan: &str,
 ) -> worker::Result<HandlerResult> {
+    let plan = crate::billing::Plan::from_str(ws_plan);
     match parse_result {
-        ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug).await,
+        ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
         ParseResult::AddSingleTodo(todo) => {
             // If LLM client is available, classify free text instead of blindly creating a todo
             if let Some(llm) = llm_client {
+                // Check LLM quota before making the call
+                let llm_calls = ws_db.get_llm_calls_this_month().await.unwrap_or(0);
+                if let Err(msg) = crate::billing::check_llm_quota(&plan, llm_calls) {
+                    return Ok(HandlerResult::one(msg, Some(inbound_message_id.to_string())));
+                }
+
                 let original_text = &todo.title;
                 let open_todos = ws_db.get_open_todos().await?;
                 let todo_pairs: Vec<(i64, String)> = open_todos.iter().map(|(_, title, seq)| (*seq, title.clone())).collect();
 
                 match llm.classify(original_text, sender_name, &todo_pairs).await {
                     Ok(nlu) => {
-                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug).await;
+                        let _ = ws_db.increment_llm_calls().await;
+                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await;
                     }
                     Err(e) => {
                         worker::console_log!("LLM classify error: {}, falling back to AddSingleTodo", e);
                     }
                 }
             }
-            handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug).await
+            handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug, &plan).await
         }
         ParseResult::CompleteTodos(items) => handle_complete_todos(items, ws_db, member_id, inbound_message_id).await,
         ParseResult::CompleteSingle(target) => handle_complete_single(target, ws_db, member_id, inbound_message_id).await,
         ParseResult::DeleteTodo(seq) => handle_delete(seq, ws_db, member_id).await,
-        ParseResult::AddNote(note) => handle_add_note(note, ws_db, member_id).await,
+        ParseResult::AddNote(note) => handle_add_note(note, ws_db, member_id, &plan).await,
         ParseResult::ListTodos(filter) => handle_list_todos(filter, ws_db, member_id).await,
         ParseResult::ListNotes => handle_list_notes(ws_db).await,
         ParseResult::SearchNotes(query) => handle_search_notes(&query, ws_db).await,
@@ -62,14 +71,20 @@ pub async fn handle_message(
         ParseResult::Help => Ok(HandlerResult::one(formatter::help_text(), None)),
         ParseResult::WorkspaceLink => Ok(HandlerResult::one(format!("grumps.io/w/{}", workspace_slug), None)),
         ParseResult::Status => handle_status(ws_db, workspace_slug).await,
-        ParseResult::QuotedTodo => handle_quoted_todo(inbound_quoted_message_text, inbound_message_id, ws_db, member_id, workspace_slug).await,
-        ParseResult::QuotedNote => handle_quoted_note(inbound_quoted_message_text, ws_db, member_id).await,
+        ParseResult::QuotedTodo => handle_quoted_todo(inbound_quoted_message_text, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
+        ParseResult::QuotedNote => handle_quoted_note(inbound_quoted_message_text, ws_db, member_id, &plan).await,
         ParseResult::TaskCardReply(action) => handle_card_reply(action, inbound_quoted_message_id, inbound_message_id, ws_db, member_id).await,
         ParseResult::Ignore => Ok(HandlerResult::none()),
     }
 }
 
-async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str) -> worker::Result<HandlerResult> {
+async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+    // Check todo quota before inserting
+    let (open_count, _, _, _) = ws_db.get_status_counts().await?;
+    if let Err(msg) = crate::billing::check_todo_quota(plan, open_count) {
+        return Ok(HandlerResult::one(msg, Some(msg_id.to_string())));
+    }
+
     let mut messages = Vec::new();
 
     // Summary first
@@ -156,7 +171,13 @@ async fn handle_delete(seq: i64, ws_db: &WorkspaceDb<'_>, member_id: &str) -> wo
     }
 }
 
-async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+    // Check note quota
+    let (_, _, note_count, _) = ws_db.get_status_counts().await?;
+    if let Err(msg) = crate::billing::check_note_quota(plan, note_count) {
+        return Ok(HandlerResult::one(msg, None));
+    }
+
     let title = note.title.as_deref().unwrap_or("");
     let note_id = ws_db.insert_note(title, &note.content, "chat", member_id).await?;
     ws_db.log_activity(member_id, "note.created", "note", &note_id, "chat").await?;
@@ -197,22 +218,22 @@ async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str) -> worker::Result<Ha
     Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug), None))
 }
 
-async fn handle_quoted_todo(quoted_text: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str) -> worker::Result<HandlerResult> {
+async fn handle_quoted_todo(quoted_text: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     let content = quoted_text.unwrap_or("");
     if content.is_empty() {
         return Ok(HandlerResult::one("\u{2753} No message content to turn into a todo.".into(), None));
     }
     let parsed = entity::extract_todo_from_line(content);
-    handle_add_todos(vec![parsed], msg_id, ws_db, member_id, slug).await
+    handle_add_todos(vec![parsed], msg_id, ws_db, member_id, slug, plan).await
 }
 
-async fn handle_quoted_note(quoted_text: Option<&str>, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_quoted_note(quoted_text: Option<&str>, ws_db: &WorkspaceDb<'_>, member_id: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     let content = quoted_text.unwrap_or("");
     if content.is_empty() {
         return Ok(HandlerResult::one("\u{2753} No message content to save as a note.".into(), None));
     }
     let note = ParsedNote { title: None, content: content.to_string() };
-    handle_add_note(note, ws_db, member_id).await
+    handle_add_note(note, ws_db, member_id, plan).await
 }
 
 async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
@@ -254,6 +275,7 @@ async fn handle_llm_result(
     ws_db: &WorkspaceDb<'_>,
     member_id: &str,
     slug: &str,
+    plan: &crate::billing::Plan,
 ) -> worker::Result<HandlerResult> {
     use grumps_core::todo::Priority;
 
@@ -280,7 +302,7 @@ async fn handle_llm_result(
             if !nlu.entities.tags.is_empty() {
                 todo.tags = nlu.entities.tags;
             }
-            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug).await
+            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug, plan).await
         }
         NluIntent::CompleteTodo => {
             if let Some(seq) = nlu.entities.target_id {
@@ -297,7 +319,7 @@ async fn handle_llm_result(
                 title: nlu.entities.title.clone(),
                 content: nlu.entities.title.unwrap_or(original_todo.title),
             };
-            handle_add_note(note, ws_db, member_id).await
+            handle_add_note(note, ws_db, member_id, plan).await
         }
         NluIntent::SetReminder => {
             let title = nlu.entities.title.unwrap_or("Reminder".into());
