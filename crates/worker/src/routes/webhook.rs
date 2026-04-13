@@ -2,7 +2,7 @@ use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::whatsapp::WhatsAppAdapter;
 use grumps_nlu::parser;
-use crate::{db, d1_rest::D1RestClient, provisioning, handler};
+use crate::{db, d1_rest::D1RestClient, provisioning, handler, llm_client::LlmClient};
 
 pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let wa = build_adapter(&ctx)?;
@@ -63,6 +63,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let role = if is_first { "admin" } else { "member" };
     let _ = db::upsert_index_user(&index_db, &inbound.sender_id, &workspace.slug, role).await;
 
+    // 5b. Create LLM client (optional — works without API keys)
+    let llm_client = LlmClient::from_env(&ctx.env).ok();
+
     // 6. Parse message text
     let text = match &inbound.text {
         Some(t) => t.as_str(),
@@ -88,9 +91,11 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &inbound.message_id,
         inbound.quoted_message_id.as_deref(),
         inbound.quoted_message_text.as_deref(),
+        &inbound.sender_name,
         &ws_db,
         &member_id,
         &workspace.slug,
+        llm_client.as_ref(),
     ).await?;
 
     // 8. Send each message + track bot message IDs

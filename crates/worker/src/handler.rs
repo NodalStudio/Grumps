@@ -4,7 +4,9 @@ use grumps_messaging::formatter;
 use grumps_nlu::parser::*;
 use grumps_nlu::matcher;
 use grumps_nlu::entity;
+use grumps_nlu::llm::{NluIntent, NluResponse};
 use crate::db::WorkspaceDb;
+use crate::llm_client::LlmClient;
 
 pub struct HandlerResult {
     pub messages: Vec<OutboundMessage>,
@@ -23,13 +25,32 @@ pub async fn handle_message(
     inbound_message_id: &str,
     inbound_quoted_message_id: Option<&str>,
     inbound_quoted_message_text: Option<&str>,
+    sender_name: &str,
     ws_db: &WorkspaceDb<'_>,
     member_id: &str,
     workspace_slug: &str,
+    llm_client: Option<&LlmClient>,
 ) -> worker::Result<HandlerResult> {
     match parse_result {
         ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug).await,
-        ParseResult::AddSingleTodo(todo) => handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug).await,
+        ParseResult::AddSingleTodo(todo) => {
+            // If LLM client is available, classify free text instead of blindly creating a todo
+            if let Some(llm) = llm_client {
+                let original_text = &todo.title;
+                let open_todos = ws_db.get_open_todos().await?;
+                let todo_pairs: Vec<(i64, String)> = open_todos.iter().map(|(_, title, seq)| (*seq, title.clone())).collect();
+
+                match llm.classify(original_text, sender_name, &todo_pairs).await {
+                    Ok(nlu) => {
+                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug).await;
+                    }
+                    Err(e) => {
+                        worker::console_log!("LLM classify error: {}, falling back to AddSingleTodo", e);
+                    }
+                }
+            }
+            handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug).await
+        }
         ParseResult::CompleteTodos(items) => handle_complete_todos(items, ws_db, member_id, inbound_message_id).await,
         ParseResult::CompleteSingle(target) => handle_complete_single(target, ws_db, member_id, inbound_message_id).await,
         ParseResult::DeleteTodo(seq) => handle_delete(seq, ws_db, member_id).await,
@@ -224,4 +245,99 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
     };
 
     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
+}
+
+async fn handle_llm_result(
+    nlu: NluResponse,
+    original_todo: ParsedTodo,
+    msg_id: &str,
+    ws_db: &WorkspaceDb<'_>,
+    member_id: &str,
+    slug: &str,
+) -> worker::Result<HandlerResult> {
+    use grumps_core::todo::Priority;
+
+    match nlu.intent {
+        NluIntent::AddTodo => {
+            // Use LLM-extracted entities to enrich the todo
+            let mut todo = original_todo;
+            if let Some(title) = nlu.entities.title {
+                todo.title = title;
+            }
+            if let Some(assignee) = nlu.entities.assignee {
+                todo.assignee_mention = Some(assignee);
+            }
+            if let Some(deadline) = nlu.entities.deadline {
+                todo.deadline_text = Some(deadline);
+            }
+            if let Some(ref p) = nlu.entities.priority {
+                todo.priority = match p.as_str() {
+                    "high" => Priority::High,
+                    "low" => Priority::Low,
+                    _ => Priority::Normal,
+                };
+            }
+            if !nlu.entities.tags.is_empty() {
+                todo.tags = nlu.entities.tags;
+            }
+            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug).await
+        }
+        NluIntent::CompleteTodo => {
+            if let Some(seq) = nlu.entities.target_id {
+                handle_complete_single(CompletionTarget::BySeqNum(seq), ws_db, member_id, msg_id).await
+            } else if let Some(title) = nlu.entities.title {
+                handle_complete_single(CompletionTarget::ByText(title), ws_db, member_id, msg_id).await
+            } else {
+                // Fall back to treating original text as completion target
+                handle_complete_todos(vec![original_todo.title], ws_db, member_id, msg_id).await
+            }
+        }
+        NluIntent::AddNote => {
+            let note = ParsedNote {
+                title: nlu.entities.title.clone(),
+                content: nlu.entities.title.unwrap_or(original_todo.title),
+            };
+            handle_add_note(note, ws_db, member_id).await
+        }
+        NluIntent::SetReminder => {
+            // Reminders not yet implemented (Task 40) — create a todo with deadline as fallback
+            let mut todo = original_todo;
+            if let Some(title) = nlu.entities.title {
+                todo.title = title;
+            }
+            if let Some(deadline) = nlu.entities.deadline {
+                todo.deadline_text = Some(deadline);
+            }
+            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug).await
+        }
+        NluIntent::ListTodos => {
+            handle_list_todos(ListFilter::Open, ws_db, member_id).await
+        }
+        NluIntent::ListNotes => {
+            handle_list_notes(ws_db).await
+        }
+        NluIntent::SearchNotes => {
+            let query = nlu.entities.search_query.unwrap_or(original_todo.title);
+            handle_search_notes(&query, ws_db).await
+        }
+        NluIntent::DeleteTodo => {
+            if let Some(seq) = nlu.entities.target_id {
+                handle_delete(seq, ws_db, member_id).await
+            } else {
+                Ok(HandlerResult::one("Which todo do you want to delete? Use `delete #N`.".into(), Some(msg_id.to_string())))
+            }
+        }
+        NluIntent::Summarize => {
+            Ok(HandlerResult::one("Summarize is coming soon!".into(), Some(msg_id.to_string())))
+        }
+        NluIntent::Help => {
+            Ok(HandlerResult::one(grumps_messaging::formatter::help_text(), None))
+        }
+        NluIntent::Status => {
+            handle_status(ws_db, slug).await
+        }
+        NluIntent::Irrelevant => {
+            Ok(HandlerResult::none())
+        }
+    }
 }

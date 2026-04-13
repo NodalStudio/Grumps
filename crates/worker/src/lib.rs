@@ -6,6 +6,7 @@ mod error;
 mod handler;
 mod middleware;
 mod provisioning;
+mod llm_client;
 mod routes;
 
 #[event(fetch, respond_with_errors)]

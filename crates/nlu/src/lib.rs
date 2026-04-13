@@ -4,3 +4,4 @@ pub mod command_parser;
 pub mod reply_parser;
 pub mod entity;
 pub mod matcher;
+pub mod llm;
