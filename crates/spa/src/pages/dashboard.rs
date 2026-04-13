@@ -1,6 +1,38 @@
 use leptos::prelude::*;
+use crate::auth::use_auth;
+use crate::components::header::PageHeader;
 
 #[component]
 pub fn DashboardPage() -> impl IntoView {
-    view! { <div class="p-8">"Dashboard — coming soon"</div> }
+    let auth = use_auth();
+    let workspaces = auth.workspaces;
+
+    view! {
+        <div class="min-h-screen" style="background: var(--cream);">
+            <PageHeader title="My Workspaces".into() subtitle="All your groups in one place".to_string() />
+            <div class="p-8">
+                <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                    <For
+                        each=move || workspaces.get()
+                        key=|ws| ws.slug.clone()
+                        children=move |ws| {
+                            let href = format!("/w/{}", ws.slug);
+                            view! {
+                                <a href=href class="block p-6 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5" style="background: var(--cream-light);">
+                                    <h3 class="font-display text-lg font-bold">{ws.name.clone().unwrap_or(ws.slug.clone())}</h3>
+                                    <p class="text-[11px] font-semibold uppercase tracking-wider mt-1" style="color: var(--ink-40);">"WhatsApp"</p>
+                                </a>
+                            }
+                        }
+                    />
+                    // Add group placeholder
+                    <div class="p-6 border-2 border-dashed rounded-sm opacity-50 text-center" style="border-color: var(--ink-15);">
+                        <h3 class="font-display text-lg font-bold" style="color: var(--ink-40);">"Add a group"</h3>
+                        <p class="text-[11px] uppercase tracking-wider mt-1" style="color: var(--ink-40);">"Add @grumps to a WhatsApp group"</p>
+                        <div class="text-3xl mt-4" style="color: var(--ink-15);">"+"</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
