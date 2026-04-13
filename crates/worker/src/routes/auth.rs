@@ -1,5 +1,6 @@
 use worker::*;
 use serde::{Deserialize, Serialize};
+use grumps_messaging::adapter::MessagingPlatform;
 use crate::{db, middleware};
 
 #[derive(Deserialize)]
@@ -67,7 +68,7 @@ pub async fn handle_send_otp(mut req: Request, ctx: RouteContext<()>) -> Result<
     headers.set("Content-Type", "application/json")?;
 
     let mut init = RequestInit::new();
-    init.with_method(Method::Post).with_headers(headers).with_body(Some(body_str.into()));
+    init.with_method(Method::Post).with_headers(headers).with_body(Some(worker::wasm_bindgen::JsValue::from_str(&body_str)));
     let send_req = Request::new_with_init(&url, &init)?;
     let _ = Fetch::Request(send_req).send().await?;
 

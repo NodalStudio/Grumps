@@ -16,9 +16,30 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }
 
     Router::new()
+        // Health
         .get("/health", routes::health::handle)
+        // WhatsApp webhook
         .get_async("/webhook/whatsapp", routes::webhook::handle_verify)
         .post_async("/webhook/whatsapp", routes::webhook::handle_incoming)
+        // Auth
+        .post_async("/auth/otp", routes::auth::handle_send_otp)
+        .post_async("/auth/verify", routes::auth::handle_verify_otp)
+        // Workspaces
+        .get_async("/api/workspaces", routes::workspace_api::list_my_workspaces)
+        .get_async("/api/w/:slug", routes::workspace_api::workspace_info)
+        .get_async("/api/w/:slug/history", routes::workspace_api::workspace_history)
+        .get_async("/api/w/:slug/members", routes::workspace_api::workspace_members)
+        // Todos
+        .get_async("/api/w/:slug/todos", routes::todos::list_todos)
+        .post_async("/api/w/:slug/todos", routes::todos::create_todo)
+        .patch_async("/api/w/:slug/todos/:id", routes::todos::update_todo)
+        .delete_async("/api/w/:slug/todos/:id", routes::todos::delete_todo)
+        // Notes
+        .get_async("/api/w/:slug/notes", routes::notes::list_notes)
+        .post_async("/api/w/:slug/notes", routes::notes::create_note)
+        .get_async("/api/w/:slug/notes/:id", routes::notes::get_note)
+        .put_async("/api/w/:slug/notes/:id", routes::notes::update_note)
+        .delete_async("/api/w/:slug/notes/:id", routes::notes::delete_note)
         .run(req, env)
         .await
 }
