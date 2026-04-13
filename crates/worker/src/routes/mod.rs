@@ -1,5 +1,6 @@
 pub mod webhook;
 pub mod webhook_telegram;
+pub mod webhook_discord;
 pub mod health;
 pub mod auth;
 pub mod todos;

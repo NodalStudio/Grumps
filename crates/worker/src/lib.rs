@@ -33,6 +33,8 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/webhook/whatsapp", routes::webhook::handle_incoming)
         // Telegram webhook
         .post_async("/webhook/telegram", routes::webhook_telegram::handle_incoming)
+        // Discord webhook
+        .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
         // Auth
         .post_async("/auth/otp", routes::auth::handle_send_otp)
         .post_async("/auth/verify", routes::auth::handle_verify_otp)
