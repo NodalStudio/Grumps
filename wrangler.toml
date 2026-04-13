@@ -1,0 +1,20 @@
+name = "grumps-api"
+main = "build/worker/shim.mjs"
+compatibility_date = "2024-12-01"
+
+[build]
+command = "cargo install -q worker-build && worker-build --release"
+
+[vars]
+ENVIRONMENT = "development"
+WA_PHONE_NUMBER_ID = ""
+WA_VERIFY_TOKEN = ""
+
+[[d1_databases]]
+binding = "INDEX_DB"
+database_name = "grumps-index"
+database_id = ""
+
+[[kv_namespaces]]
+binding = "KV"
+id = ""

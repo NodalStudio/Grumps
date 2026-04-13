@@ -1,0 +1,13 @@
+[package]
+name = "grumps-nlu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+grumps-core = { path = "../core" }
+serde.workspace = true
+chrono.workspace = true
+strsim = "0.11"
+
+[dev-dependencies]
+pretty_assertions = "1"

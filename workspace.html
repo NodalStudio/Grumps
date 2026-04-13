@@ -1,0 +1,2529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grumps — Roommates</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================
+   GRUMPS DESIGN SYSTEM
+   Warm Brutalism · Slab Serif Character
+   ============================================ */
+
+:root {
+  /* Colors */
+  --cream:        #F5F0E8;
+  --cream-light:  #FAF8F4;
+  --ink:          #1A1915;
+  --ink-70:       rgba(26, 25, 21, 0.7);
+  --ink-40:       rgba(26, 25, 21, 0.4);
+  --ink-15:       rgba(26, 25, 21, 0.15);
+  --ink-08:       rgba(26, 25, 21, 0.08);
+  --brick:        #C0392B;
+  --brick-hover:  #A93226;
+  --teal:         #1B6B5A;
+  --teal-light:   #E8F5F0;
+  --ochre:        #D4940A;
+  --ochre-light:  #FFF8E7;
+  --warm-gray:    #D5CFC3;
+  --warm-gray-light: #E8E4DB;
+
+  /* Typography */
+  --font-display: 'Bitter', Georgia, serif;
+  --font-body:    'DM Sans', -apple-system, sans-serif;
+
+  /* Sizing */
+  --border:       2px solid var(--ink);
+  --border-light: 1.5px solid var(--ink-15);
+  --radius:       3px;
+  --radius-lg:    6px;
+
+  /* Sidebar */
+  --sidebar-w: 260px;
+}
+
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Grain texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ============================================
+   LAYOUT SHELL
+   ============================================ */
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--cream-light);
+  border-right: var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  padding: 24px 20px 20px;
+  border-bottom: var(--border);
+}
+
+.sidebar-brand h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+}
+
+.sidebar-brand h1 span {
+  color: var(--brick);
+}
+
+.sidebar-brand .tagline {
+  font-size: 11px;
+  color: var(--ink-40);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* Workspace selector */
+.workspace-selector {
+  padding: 16px 20px;
+  border-bottom: var(--border-light);
+}
+
+.workspace-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.workspace-name .dot {
+  width: 8px;
+  height: 8px;
+  background: var(--teal);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workspace-name .chevron {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--ink-40);
+}
+
+.workspace-members {
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-top: 4px;
+  padding-left: 16px;
+}
+
+/* Nav */
+.sidebar-nav {
+  padding: 12px 0;
+  flex: 1;
+}
+
+.nav-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--ink-40);
+  padding: 16px 20px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-70);
+  transition: all 0.1s;
+  border-left: 3px solid transparent;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--ink-08);
+  color: var(--ink);
+}
+
+.nav-item.active {
+  color: var(--ink);
+  background: var(--ink-08);
+  border-left-color: var(--brick);
+  font-weight: 600;
+}
+
+.nav-item .icon {
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.nav-item .badge {
+  margin-left: auto;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 2px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.nav-item .badge.urgent {
+  background: var(--brick);
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: var(--border-light);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--ink);
+  color: var(--cream);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.sidebar-footer .user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-footer .user-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-footer .user-role {
+  font-size: 11px;
+  color: var(--ink-40);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* ============================================
+   MAIN CONTENT
+   ============================================ */
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Page header */
+.page-header {
+  padding: 24px 32px 20px;
+  border-bottom: var(--border);
+  background: var(--cream-light);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-header h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.page-header .subtitle {
+  font-size: 13px;
+  color: var(--ink-40);
+  margin-top: 2px;
+}
+
+/* Header actions */
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: var(--border);
+  background: var(--cream-light);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.1s;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.btn-primary:hover {
+  background: var(--brick);
+  border-color: var(--brick);
+}
+
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--ink-08);
+  border-color: transparent;
+}
+
+.btn-small {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+/* View toggle */
+.view-toggle {
+  display: flex;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.view-toggle button {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border: none;
+  background: var(--cream-light);
+  color: var(--ink-40);
+  cursor: pointer;
+  transition: all 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.view-toggle button:not(:last-child) {
+  border-right: var(--border);
+}
+
+.view-toggle button.active {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.view-toggle button:hover:not(.active) {
+  background: var(--ink-08);
+  color: var(--ink);
+}
+
+/* ============================================
+   PAGE BODY
+   ============================================ */
+
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 32px 48px;
+}
+
+/* ============================================
+   FILTER BAR
+   ============================================ */
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border: 1.5px solid var(--ink-15);
+  background: transparent;
+  color: var(--ink-70);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.1s;
+}
+
+.filter-chip:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.filter-chip.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.filter-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--ink-15);
+  margin: 0 4px;
+}
+
+.search-input {
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--ink-15);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 2px;
+  outline: none;
+  width: 200px;
+  margin-left: auto;
+}
+
+.search-input::placeholder {
+  color: var(--ink-40);
+}
+
+.search-input:focus {
+  border-color: var(--ink);
+}
+
+/* ============================================
+   TODO LIST VIEW
+   ============================================ */
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border: var(--border);
+  background: var(--cream-light);
+  cursor: pointer;
+  transition: all 0.08s;
+  border-radius: var(--radius);
+}
+
+.todo-item:hover {
+  background: var(--ink-08);
+  transform: translateX(3px);
+}
+
+.todo-item + .todo-item {
+  margin-top: 6px;
+}
+
+/* Custom checkbox */
+.todo-check {
+  width: 20px;
+  height: 20px;
+  border: var(--border);
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  background: var(--cream-light);
+}
+
+.todo-check:hover {
+  background: var(--teal-light);
+  border-color: var(--teal);
+}
+
+.todo-item.done .todo-check {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.todo-item.done .todo-check::after {
+  content: '✓';
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.todo-item.done .todo-title {
+  text-decoration: line-through;
+  color: var(--ink-40);
+}
+
+.todo-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.todo-title {
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.3;
+}
+
+.todo-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--ink-40);
+  flex-wrap: wrap;
+}
+
+.todo-meta .assignee {
+  font-weight: 600;
+  color: var(--ink-70);
+}
+
+.todo-id {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-40);
+  min-width: 30px;
+}
+
+/* Priority indicators */
+.priority-high {
+  border-left: 4px solid var(--brick);
+}
+
+.priority-low {
+  border-left: 4px solid var(--warm-gray);
+}
+
+/* Tags */
+.tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border: 1.5px solid var(--ink-15);
+  border-radius: 2px;
+  color: var(--ink-70);
+  text-transform: lowercase;
+}
+
+.tag-brick {
+  border-color: var(--brick);
+  color: var(--brick);
+}
+
+.tag-teal {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+/* Deadline */
+.deadline {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.deadline.overdue {
+  color: var(--brick);
+  font-weight: 600;
+}
+
+.deadline.soon {
+  color: var(--ochre);
+  font-weight: 600;
+}
+
+/* ============================================
+   KANBAN VIEW
+   ============================================ */
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  display: none;
+}
+
+.kanban-board.active {
+  display: grid;
+}
+
+.kanban-column {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.kanban-column-header {
+  padding: 14px 16px;
+  border-bottom: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kanban-column-header h3 {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kanban-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--cream);
+  padding: 1px 8px;
+  border-radius: 2px;
+}
+
+.kanban-cards {
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-card {
+  padding: 12px 14px;
+  border: 1.5px solid var(--ink-15);
+  border-radius: var(--radius);
+  cursor: grab;
+  background: var(--cream);
+  transition: all 0.1s;
+}
+
+.kanban-card:hover {
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.kanban-card .card-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.kanban-card .card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-40);
+}
+
+.kanban-card .card-avatar {
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+}
+
+.kanban-card.priority-high {
+  border-left: 3px solid var(--brick);
+}
+
+/* Column accent colors */
+.kanban-column.col-todo .kanban-column-header { background: var(--ochre-light); }
+.kanban-column.col-progress .kanban-column-header { background: #E8EFFA; }
+.kanban-column.col-done .kanban-column-header { background: var(--teal-light); }
+.kanban-column.col-done .kanban-count { background: var(--teal); }
+
+/* ============================================
+   NOTES PAGE
+   ============================================ */
+
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.note-card {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.1s;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  background: var(--ink-08);
+}
+
+.note-card.pinned {
+  border-color: var(--ochre);
+  border-width: 2px;
+}
+
+.note-card .note-pin {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ochre);
+  margin-bottom: 8px;
+}
+
+.note-card h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+.note-card .note-excerpt {
+  font-size: 13px;
+  color: var(--ink-70);
+  line-height: 1.5;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-card .note-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink-15);
+  font-size: 11px;
+  color: var(--ink-40);
+}
+
+.note-card .note-source {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+}
+
+/* ============================================
+   FILES PAGE
+   ============================================ */
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.file-card {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  background: var(--ink-08);
+}
+
+.file-preview {
+  height: 140px;
+  background: var(--warm-gray-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: var(--border);
+  font-size: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.file-preview.img-preview {
+  background-size: cover;
+  background-position: center;
+}
+
+.file-preview .file-type-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  background: var(--ink);
+  color: var(--cream);
+  border-radius: 2px;
+}
+
+.file-info {
+  padding: 12px 14px;
+}
+
+.file-info .file-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-info .file-meta {
+  font-size: 11px;
+  color: var(--ink-40);
+  margin-top: 3px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 2px dashed var(--ink-15);
+  border-radius: var(--radius);
+  padding: 40px;
+  text-align: center;
+  margin-bottom: 20px;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.upload-zone:hover {
+  border-color: var(--ink);
+  background: var(--ink-08);
+}
+
+.upload-zone .upload-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.upload-zone .upload-text {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.upload-zone .upload-hint {
+  font-size: 12px;
+  color: var(--ink-40);
+}
+
+/* ============================================
+   HISTORY / ACTIVITY LOG
+   ============================================ */
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ink-08);
+  align-items: flex-start;
+}
+
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-15);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.activity-dot.action-create { background: var(--teal); }
+.activity-dot.action-complete { background: var(--teal); }
+.activity-dot.action-update { background: var(--ochre); }
+.activity-dot.action-delete { background: var(--brick); }
+.activity-dot.action-upload { background: #5B7FD1; }
+
+.activity-text {
+  flex: 1;
+  font-size: 13.5px;
+}
+
+.activity-text strong {
+  font-weight: 600;
+}
+
+.activity-text .activity-target {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.activity-time {
+  font-size: 11px;
+  color: var(--ink-40);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.activity-source-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--ink-15);
+  border-radius: 2px;
+  color: var(--ink-40);
+  margin-left: 8px;
+}
+
+/* ============================================
+   DASHBOARD (workspaces list)
+   ============================================ */
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.workspace-card {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.workspace-card:hover {
+  background: var(--ink-08);
+  transform: translateY(-2px);
+}
+
+.workspace-card h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.workspace-card .ws-platform {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-40);
+  margin-bottom: 16px;
+}
+
+.workspace-card .ws-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.ws-stat {
+  text-align: center;
+}
+
+.ws-stat .stat-num {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.ws-stat .stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-40);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.workspace-card .ws-members-row {
+  display: flex;
+  align-items: center;
+  gap: -6px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ink-15);
+}
+
+.ws-members-row .avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 10px;
+  margin-right: -6px;
+  border: 2px solid var(--cream-light);
+}
+
+.ws-members-row .member-count {
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-left: 12px;
+}
+
+/* ============================================
+   SETTINGS PAGE
+   ============================================ */
+
+.settings-sections {
+  max-width: 640px;
+}
+
+.settings-section {
+  margin-bottom: 32px;
+}
+
+.settings-section h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: var(--border);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--ink-08);
+}
+
+.setting-label {
+  font-weight: 500;
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-top: 2px;
+}
+
+.setting-value {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-70);
+}
+
+/* Toggle switch */
+.toggle {
+  width: 40px;
+  height: 22px;
+  border: var(--border);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  background: var(--cream);
+  transition: all 0.15s;
+}
+
+.toggle.on {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink);
+  top: 2px;
+  left: 3px;
+  transition: all 0.15s;
+}
+
+.toggle.on::after {
+  transform: translateX(17px);
+  background: white;
+}
+
+/* ============================================
+   EMPTY STATES
+   ============================================ */
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.empty-state .empty-icon {
+  font-size: 40px;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+
+.empty-state h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 13px;
+  color: var(--ink-40);
+  line-height: 1.5;
+}
+
+/* ============================================
+   STATS BAR (workspace overview)
+   ============================================ */
+
+.stats-bar {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stat-block {
+  flex: 1;
+  padding: 16px 20px;
+  background: var(--cream-light);
+  border-right: var(--border);
+}
+
+.stat-block:last-child {
+  border-right: none;
+}
+
+.stat-block .stat-number {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.stat-block .stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-40);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.stat-block .stat-detail {
+  font-size: 12px;
+  color: var(--ink-70);
+  margin-top: 2px;
+}
+
+/* ============================================
+   LOGIN PAGE
+   ============================================ */
+
+.login-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--cream);
+  position: relative;
+}
+
+.login-card {
+  width: 380px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  overflow: hidden;
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.login-header {
+  padding: 32px 32px 24px;
+  text-align: center;
+  border-bottom: var(--border);
+}
+
+.login-header h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+
+.login-header h1 span { color: var(--brick); }
+
+.login-header .login-tagline {
+  font-size: 12px;
+  color: var(--ink-40);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.login-body {
+  padding: 28px 32px 32px;
+}
+
+.login-body label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-70);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.login-input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding: 12px 14px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+.login-input:focus {
+  border-color: var(--brick);
+}
+
+.login-input::placeholder {
+  color: var(--ink-40);
+}
+
+.login-btn {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 13px;
+  border: var(--border);
+  background: var(--ink);
+  color: var(--cream);
+  cursor: pointer;
+  border-radius: var(--radius);
+  margin-top: 16px;
+  transition: all 0.1s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.login-btn:hover {
+  background: var(--brick);
+  border-color: var(--brick);
+}
+
+.login-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-top: 16px;
+  line-height: 1.5;
+}
+
+/* OTP step */
+.otp-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.otp-digit {
+  width: 46px;
+  height: 54px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+.otp-digit:focus {
+  border-color: var(--brick);
+}
+
+.otp-resend {
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-top: 20px;
+}
+
+.otp-resend a {
+  color: var(--brick);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.page.active {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.page.active .todo-item,
+.page.active .note-card,
+.page.active .file-card,
+.page.active .activity-item,
+.page.active .workspace-card {
+  animation: fadeInUp 0.3s ease-out both;
+}
+
+.page.active .todo-item:nth-child(1),
+.page.active .note-card:nth-child(1),
+.page.active .file-card:nth-child(1),
+.page.active .activity-item:nth-child(1),
+.page.active .workspace-card:nth-child(1) { animation-delay: 0.02s; }
+
+.page.active .todo-item:nth-child(2),
+.page.active .note-card:nth-child(2),
+.page.active .file-card:nth-child(2),
+.page.active .activity-item:nth-child(2),
+.page.active .workspace-card:nth-child(2) { animation-delay: 0.05s; }
+
+.page.active .todo-item:nth-child(3),
+.page.active .note-card:nth-child(3),
+.page.active .file-card:nth-child(3),
+.page.active .activity-item:nth-child(3) { animation-delay: 0.08s; }
+
+.page.active .todo-item:nth-child(4),
+.page.active .note-card:nth-child(4),
+.page.active .file-card:nth-child(4),
+.page.active .activity-item:nth-child(4) { animation-delay: 0.11s; }
+
+.page.active .todo-item:nth-child(5),
+.page.active .note-card:nth-child(5),
+.page.active .file-card:nth-child(5),
+.page.active .activity-item:nth-child(5) { animation-delay: 0.14s; }
+
+.page.active .todo-item:nth-child(6),
+.page.active .note-card:nth-child(6),
+.page.active .file-card:nth-child(6),
+.page.active .activity-item:nth-child(6) { animation-delay: 0.17s; }
+
+.page.active .todo-item:nth-child(7),
+.page.active .note-card:nth-child(7) { animation-delay: 0.20s; }
+
+.page.active .todo-item:nth-child(8) { animation-delay: 0.23s; }
+.page.active .todo-item:nth-child(9) { animation-delay: 0.26s; }
+
+/* Sidebar animation */
+.sidebar { animation: slideInLeft 0.3s ease-out; }
+
+/* ============================================
+   TOAST NOTIFICATIONS
+   ============================================ */
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  padding: 12px 20px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 13px;
+  font-weight: 600;
+  animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 2.5s forwards;
+  max-width: 320px;
+}
+
+.toast.toast-success {
+  border-left: 4px solid var(--teal);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+/* ============================================
+   PROGRESS BAR (storage, usage)
+   ============================================ */
+
+.progress-bar {
+  width: 120px;
+  height: 6px;
+  background: var(--ink-08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease-out;
+}
+
+.progress-fill.low { background: var(--teal); }
+.progress-fill.mid { background: var(--ochre); }
+.progress-fill.high { background: var(--brick); }
+
+/* ============================================
+   PAGE-SPECIFIC HIDES
+   ============================================ */
+
+.page { display: none; }
+.page.active { display: block; }
+.todo-list-view.active { display: flex; flex-direction: column; gap: 2px; }
+
+/* ============================================
+   INLINE CREATE
+   ============================================ */
+
+.inline-create {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: 2px dashed var(--ink-15);
+  border-radius: var(--radius);
+  margin-top: 12px;
+  cursor: text;
+  transition: all 0.1s;
+}
+
+.inline-create:hover {
+  border-color: var(--ink-40);
+}
+
+.inline-create .plus {
+  font-size: 18px;
+  color: var(--ink-40);
+  font-weight: 300;
+}
+
+.inline-create input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+}
+
+.inline-create input::placeholder {
+  color: var(--ink-40);
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--ink-15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-40); }
+
+</style>
+</head>
+
+<body>
+
+<!-- ===== LOGIN PAGE ===== -->
+<div class="login-shell" id="login-page" style="display: none;">
+  <div class="login-card">
+    <!-- Step 1: Phone -->
+    <div id="login-step-phone">
+      <div class="login-header">
+        <h1>Grumps<span>.</span></h1>
+        <div class="login-tagline">Gets it done. No small talk.</div>
+      </div>
+      <div class="login-body">
+        <label for="phone-input">Your WhatsApp number</label>
+        <input type="tel" id="phone-input" class="login-input" placeholder="+33 6 12 34 56 78" value="+33 6 12 34 56 78">
+        <button class="login-btn" onclick="showOtpStep()">Send code</button>
+        <div class="login-hint">We'll send a 6-digit code to verify you're in the group.</div>
+      </div>
+    </div>
+    <!-- Step 2: OTP -->
+    <div id="login-step-otp" style="display: none;">
+      <div class="login-header">
+        <h1>Grumps<span>.</span></h1>
+        <div class="login-tagline">Check your WhatsApp</div>
+      </div>
+      <div class="login-body">
+        <label>Enter the 6-digit code</label>
+        <div class="otp-inputs">
+          <input type="text" class="otp-digit" maxlength="1" value="4" readonly>
+          <input type="text" class="otp-digit" maxlength="1" value="8" readonly>
+          <input type="text" class="otp-digit" maxlength="1" value="2" readonly>
+          <input type="text" class="otp-digit" maxlength="1" value="9" readonly>
+          <input type="text" class="otp-digit" maxlength="1" value="1" readonly>
+          <input type="text" class="otp-digit" maxlength="1" value="7" readonly>
+        </div>
+        <button class="login-btn" onclick="completeLogin()">Verify</button>
+        <div class="otp-resend">Didn't get it? <a href="#" onclick="return false;">Resend code</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WORKSPACE APP ===== -->
+<div class="app-shell" id="app-shell">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>Grumps<span>.</span></h1>
+      <div class="tagline">Gets it done. No small talk.</div>
+    </div>
+
+    <div class="workspace-selector">
+      <div class="workspace-name">
+        <span class="dot"></span>
+        Roommates
+        <span class="chevron">▼</span>
+      </div>
+      <div class="workspace-members">5 members · WhatsApp</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Workspace</div>
+      <a class="nav-item" data-page="overview" onclick="showPage('overview')">
+        <span class="icon">◫</span> Overview
+      </a>
+      <a class="nav-item active" data-page="todos" onclick="showPage('todos')">
+        <span class="icon">☐</span> Todos
+        <span class="badge urgent">3</span>
+      </a>
+      <a class="nav-item" data-page="notes" onclick="showPage('notes')">
+        <span class="icon">¶</span> Notes
+        <span class="badge">7</span>
+      </a>
+      <a class="nav-item" data-page="files" onclick="showPage('files')">
+        <span class="icon">◰</span> Files
+      </a>
+      <a class="nav-item" data-page="history" onclick="showPage('history')">
+        <span class="icon">↻</span> History
+      </a>
+
+      <div class="nav-section-label">Manage</div>
+      <a class="nav-item" data-page="settings" onclick="showPage('settings')">
+        <span class="icon">⚙</span> Settings
+      </a>
+      <a class="nav-item" data-page="dashboard" onclick="showPage('dashboard')">
+        <span class="icon">⊞</span> My Workspaces
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">A</div>
+      <div class="user-info">
+        <div class="user-name">Alice Martin</div>
+        <div class="user-role">Admin</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main-content">
+
+    <!-- ==================== OVERVIEW ==================== -->
+    <div class="page" id="page-overview">
+      <div class="page-header">
+        <div>
+          <h2>Roommates</h2>
+          <div class="subtitle">WhatsApp group · 5 members · Created Mar 2026</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="stats-bar">
+          <div class="stat-block" style="cursor:pointer" onclick="showPage('todos')">
+            <div class="stat-number" style="color: var(--brick)">12</div>
+            <div class="stat-label">Open todos</div>
+            <div class="stat-detail">3 high priority</div>
+          </div>
+          <div class="stat-block" style="cursor:pointer" onclick="showPage('notes')">
+            <div class="stat-number">7</div>
+            <div class="stat-label">Notes</div>
+            <div class="stat-detail">2 pinned</div>
+          </div>
+          <div class="stat-block" style="cursor:pointer" onclick="showPage('files')">
+            <div class="stat-number">9</div>
+            <div class="stat-label">Files</div>
+            <div class="stat-detail">24 MB used</div>
+          </div>
+          <div class="stat-block">
+            <div class="stat-number" style="color: var(--teal)">3</div>
+            <div class="stat-label">Reminders</div>
+            <div class="stat-detail">1 tomorrow</div>
+          </div>
+        </div>
+
+        <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 14px;">Recent Activity</h3>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-dot action-complete"></div>
+            <div class="activity-text"><strong>Bob</strong> completed <span class="activity-target">"Buy toilet paper"</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">12 min ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Alice</strong> created <span class="activity-target">"Call the plumber about the leak"</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">1h ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-upload"></div>
+            <div class="activity-text"><strong>Claire</strong> uploaded <span class="activity-target">electricity-bill-march.pdf</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">3h ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-update"></div>
+            <div class="activity-text"><strong>Alice</strong> edited note <span class="activity-target">"WiFi password"</span><span class="activity-source-badge">web</span></div>
+            <div class="activity-time">yesterday</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Dan</strong> created <span class="activity-target">"Buy birthday gift for Eve"</span> and assigned to <strong>Alice</strong><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">yesterday</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TODOS ==================== -->
+    <div class="page active" id="page-todos">
+      <div class="page-header">
+        <div>
+          <h2>Todos</h2>
+          <div class="subtitle">12 open · 5 completed this week</div>
+        </div>
+        <div class="header-actions">
+          <div class="view-toggle">
+            <button class="active" onclick="toggleTodoView('list')">List</button>
+            <button onclick="toggleTodoView('kanban')">Kanban</button>
+          </div>
+          <button class="btn btn-primary" onclick="return false;">+ Add todo</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="filter-bar">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Open</button>
+          <button class="filter-chip">In progress</button>
+          <button class="filter-chip">Done</button>
+          <span class="filter-separator"></span>
+          <button class="filter-chip">Mine</button>
+          <button class="filter-chip">Unassigned</button>
+          <input type="text" class="search-input" placeholder="Search todos...">
+        </div>
+
+        <!-- LIST VIEW -->
+        <div class="todo-list todo-list-view active" id="todo-list-view">
+          <div class="todo-item priority-high">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Ship the project</div>
+              <div class="todo-meta">
+                <span class="todo-id">#42</span>
+                <span class="assignee">→ Pierre</span>
+                <span class="deadline overdue">⏰ Overdue (Apr 11)</span>
+                <span class="tag tag-brick">#urgent</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item priority-high">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Call the plumber about the leak</div>
+              <div class="todo-meta">
+                <span class="todo-id">#12</span>
+                <span class="assignee">→ Alice</span>
+                <span class="deadline soon">⏰ Tomorrow</span>
+                <span class="tag">#house</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item priority-high">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Fix the prod bug</div>
+              <div class="todo-meta">
+                <span class="todo-id">#15</span>
+                <span class="assignee">→ Sarah</span>
+                <span class="tag tag-brick">#urgent</span>
+                <span class="tag">#frontend</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Pay the electricity bill</div>
+              <div class="todo-meta">
+                <span class="todo-id">#24</span>
+                <span class="assignee">→ Bob</span>
+                <span class="deadline">⏰ Friday Apr 18</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Buy birthday gift for Eve</div>
+              <div class="todo-meta">
+                <span class="todo-id">#38</span>
+                <span class="assignee">→ Alice</span>
+                <span class="deadline">⏰ Apr 22</span>
+                <span class="tag">#personal</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Research new internet provider</div>
+              <div class="todo-meta">
+                <span class="todo-id">#39</span>
+                <span class="tag">#house</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Schedule apartment deep clean</div>
+              <div class="todo-meta">
+                <span class="todo-id">#40</span>
+                <span class="assignee">→ Dan</span>
+                <span class="deadline">⏰ Apr 25</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item priority-low done">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Buy toilet paper</div>
+              <div class="todo-meta">
+                <span class="todo-id">#23</span>
+                <span class="assignee">→ Bob</span>
+                <span style="color: var(--teal); font-weight: 600;">✓ Done 12m ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="todo-item priority-low done">
+            <div class="todo-check"></div>
+            <div class="todo-body">
+              <div class="todo-title">Take out the trash</div>
+              <div class="todo-meta">
+                <span class="todo-id">#21</span>
+                <span class="assignee">→ Claire</span>
+                <span style="color: var(--teal); font-weight: 600;">✓ Done yesterday</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="inline-create">
+            <span class="plus">+</span>
+            <input type="text" placeholder="Add a todo...">
+          </div>
+        </div>
+
+        <!-- KANBAN VIEW -->
+        <div class="kanban-board" id="kanban-view">
+          <div class="kanban-column col-todo">
+            <div class="kanban-column-header">
+              <h3>To Do</h3>
+              <span class="kanban-count">5</span>
+            </div>
+            <div class="kanban-cards">
+              <div class="kanban-card priority-high">
+                <div class="card-title">Ship the project</div>
+                <div class="card-footer">
+                  <span class="tag tag-brick" style="font-size:10px">#urgent</span>
+                  <div class="avatar card-avatar">P</div>
+                </div>
+              </div>
+              <div class="kanban-card">
+                <div class="card-title">Pay the electricity bill</div>
+                <div class="card-footer">
+                  <span style="font-size:11px; color:var(--ink-40)">⏰ Apr 18</span>
+                  <div class="avatar card-avatar">B</div>
+                </div>
+              </div>
+              <div class="kanban-card">
+                <div class="card-title">Buy birthday gift for Eve</div>
+                <div class="card-footer">
+                  <span style="font-size:11px; color:var(--ink-40)">⏰ Apr 22</span>
+                  <div class="avatar card-avatar">A</div>
+                </div>
+              </div>
+              <div class="kanban-card">
+                <div class="card-title">Research new internet provider</div>
+                <div class="card-footer">
+                  <span class="tag" style="font-size:10px">#house</span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-column col-progress">
+            <div class="kanban-column-header">
+              <h3>In Progress</h3>
+              <span class="kanban-count">3</span>
+            </div>
+            <div class="kanban-cards">
+              <div class="kanban-card priority-high">
+                <div class="card-title">Call the plumber about the leak</div>
+                <div class="card-footer">
+                  <span class="deadline soon" style="font-size:11px">⏰ Tomorrow</span>
+                  <div class="avatar card-avatar">A</div>
+                </div>
+              </div>
+              <div class="kanban-card priority-high">
+                <div class="card-title">Fix the prod bug</div>
+                <div class="card-footer">
+                  <span class="tag tag-brick" style="font-size:10px">#urgent</span>
+                  <div class="avatar card-avatar">S</div>
+                </div>
+              </div>
+              <div class="kanban-card">
+                <div class="card-title">Schedule apartment deep clean</div>
+                <div class="card-footer">
+                  <span style="font-size:11px; color:var(--ink-40)">⏰ Apr 25</span>
+                  <div class="avatar card-avatar">D</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="kanban-column col-done">
+            <div class="kanban-column-header">
+              <h3>Done</h3>
+              <span class="kanban-count">2</span>
+            </div>
+            <div class="kanban-cards">
+              <div class="kanban-card">
+                <div class="card-title" style="color: var(--ink-40);">Buy toilet paper</div>
+                <div class="card-footer">
+                  <span style="font-size:11px; color:var(--teal);">✓ 12m ago</span>
+                  <div class="avatar card-avatar" style="background:var(--ink-40);">B</div>
+                </div>
+              </div>
+              <div class="kanban-card">
+                <div class="card-title" style="color: var(--ink-40);">Take out the trash</div>
+                <div class="card-footer">
+                  <span style="font-size:11px; color:var(--teal);">✓ yesterday</span>
+                  <div class="avatar card-avatar" style="background:var(--ink-40);">C</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== NOTES ==================== -->
+    <div class="page" id="page-notes">
+      <div class="page-header">
+        <div>
+          <h2>Notes</h2>
+          <div class="subtitle">7 notes · 2 pinned</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary">+ New note</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="filter-bar">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Pinned</button>
+          <button class="filter-chip">From chat</button>
+          <input type="text" class="search-input" placeholder="Search notes...">
+        </div>
+
+        <div class="notes-grid">
+          <div class="note-card pinned">
+            <div class="note-pin">📌 Pinned</div>
+            <h3>WiFi Password</h3>
+            <div class="note-excerpt">Network: Roommates_5G<br>Password: XYZ123-apartment<br><br>Router is in the hallway closet, top shelf. Reset button is on the back.</div>
+            <div class="note-footer">
+              <span>Updated 2 days ago</span>
+              <span class="note-source">chat</span>
+            </div>
+          </div>
+
+          <div class="note-card pinned">
+            <div class="note-pin">📌 Pinned</div>
+            <h3>House Rules</h3>
+            <div class="note-excerpt">1. Quiet hours after 10pm on weekdays<br>2. Clean your dishes same day<br>3. Take turns with trash (Mon=Alice, Wed=Bob...)</div>
+            <div class="note-footer">
+              <span>Updated 1 week ago</span>
+              <span class="note-source">web</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <h3>Apartment Inventory</h3>
+            <div class="note-excerpt">Living room: couch (Bob's), TV (shared purchase), bookshelf (Alice's). Kitchen: all cookware is shared except the red Le Creuset pot (Claire's).</div>
+            <div class="note-footer">
+              <span>Updated 3 days ago</span>
+              <span class="note-source">web</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <h3>Landlord Contact Info</h3>
+            <div class="note-excerpt">Mr. Dupont — +33 6 12 34 56 78<br>Email: dupont@example.com<br>Emergency maintenance: call before 8pm</div>
+            <div class="note-footer">
+              <span>Apr 8</span>
+              <span class="note-source">chat</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <h3>Grocery List Template</h3>
+            <div class="note-excerpt">Staples we always need: toilet paper, dish soap, sponges, trash bags, paper towels, coffee, milk, eggs, bread, butter...</div>
+            <div class="note-footer">
+              <span>Apr 5</span>
+              <span class="note-source">web</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <h3>Dinner Party Ideas</h3>
+            <div class="note-excerpt">Eve's birthday is April 22. Theme ideas: taco night, fondue, Korean BBQ. Budget: €15/person. Claire handles dessert.</div>
+            <div class="note-footer">
+              <span>Apr 3</span>
+              <span class="note-source">chat</span>
+            </div>
+          </div>
+
+          <div class="note-card">
+            <h3>Cleaning Schedule</h3>
+            <div class="note-excerpt">Week 1: Alice (kitchen) + Bob (bathroom)<br>Week 2: Claire (kitchen) + Dan (bathroom)<br>Common areas: whoever notices first, just do it.</div>
+            <div class="note-footer">
+              <span>Mar 28</span>
+              <span class="note-source">web</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== FILES ==================== -->
+    <div class="page" id="page-files">
+      <div class="page-header">
+        <div>
+          <h2>Files</h2>
+          <div class="subtitle">9 files · 24 MB used</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary">+ Upload</button>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="upload-zone">
+          <div class="upload-icon">↑</div>
+          <div class="upload-text">Drop files here</div>
+          <div class="upload-hint">or click to browse · max 10 MB on Free plan</div>
+        </div>
+
+        <div class="filter-bar">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Images</button>
+          <button class="filter-chip">Documents</button>
+          <button class="filter-chip">Other</button>
+          <input type="text" class="search-input" placeholder="Search files...">
+        </div>
+
+        <div class="files-grid">
+          <div class="file-card">
+            <div class="file-preview" style="background: linear-gradient(135deg, #E8E4DB 0%, #D5CFC3 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">📄</span>
+              <span class="file-type-badge">PDF</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">electricity-bill-march.pdf</div>
+              <div class="file-meta">
+                <span>245 KB</span>
+                <span>3h ago</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div class="file-preview img-preview" style="background: linear-gradient(135deg, #D4E8DC 0%, #B8D4C2 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">🖼</span>
+              <span class="file-type-badge">JPG</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">apartment-front-door.jpg</div>
+              <div class="file-meta">
+                <span>1.2 MB</span>
+                <span>Apr 10</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div class="file-preview" style="background: linear-gradient(135deg, #E8E4DB 0%, #D5CFC3 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">📄</span>
+              <span class="file-type-badge">PDF</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">lease-agreement-2026.pdf</div>
+              <div class="file-meta">
+                <span>3.4 MB</span>
+                <span>Apr 8</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div class="file-preview img-preview" style="background: linear-gradient(135deg, #E4DDD4 0%, #D5CFC3 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">🖼</span>
+              <span class="file-type-badge">PNG</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">ikea-shelf-measurements.png</div>
+              <div class="file-meta">
+                <span>890 KB</span>
+                <span>Apr 5</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div class="file-preview" style="background: linear-gradient(135deg, #E8E4DB 0%, #D5CFC3 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">📄</span>
+              <span class="file-type-badge">PDF</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">insurance-policy.pdf</div>
+              <div class="file-meta">
+                <span>5.1 MB</span>
+                <span>Mar 30</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div class="file-preview" style="background: linear-gradient(135deg, #D4D8E8 0%, #BCC2D5 100%);">
+              <span style="font-size: 40px; opacity: 0.5;">📊</span>
+              <span class="file-type-badge">XLSX</span>
+            </div>
+            <div class="file-info">
+              <div class="file-name">shared-expenses-tracker.xlsx</div>
+              <div class="file-meta">
+                <span>120 KB</span>
+                <span>Mar 25</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== HISTORY ==================== -->
+    <div class="page" id="page-history">
+      <div class="page-header">
+        <div>
+          <h2>History</h2>
+          <div class="subtitle">Everything that happened</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="filter-bar">
+          <button class="filter-chip active">All</button>
+          <button class="filter-chip">Todos</button>
+          <button class="filter-chip">Notes</button>
+          <button class="filter-chip">Files</button>
+          <span class="filter-separator"></span>
+          <button class="filter-chip">From chat</button>
+          <button class="filter-chip">From web</button>
+        </div>
+
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-dot action-complete"></div>
+            <div class="activity-text"><strong>Bob</strong> completed <span class="activity-target">"Buy toilet paper"</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">12 min ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Alice</strong> created <span class="activity-target">"Call the plumber about the leak"</span> and assigned to herself<span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">1h ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-upload"></div>
+            <div class="activity-text"><strong>Claire</strong> stored <span class="activity-target">electricity-bill-march.pdf</span> (245 KB)<span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">3h ago</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-update"></div>
+            <div class="activity-text"><strong>Alice</strong> edited note <span class="activity-target">"WiFi Password"</span><span class="activity-source-badge">web</span></div>
+            <div class="activity-time">yesterday</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Dan</strong> created <span class="activity-target">"Buy birthday gift for Eve"</span> and assigned to <strong>Alice</strong><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">yesterday</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Alice</strong> created note <span class="activity-target">"Dinner Party Ideas"</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">Apr 10</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-complete"></div>
+            <div class="activity-text"><strong>Claire</strong> completed <span class="activity-target">"Take out the trash"</span><span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">Apr 10</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-upload"></div>
+            <div class="activity-text"><strong>Alice</strong> uploaded <span class="activity-target">apartment-front-door.jpg</span> (1.2 MB)<span class="activity-source-badge">web</span></div>
+            <div class="activity-time">Apr 10</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-create"></div>
+            <div class="activity-text"><strong>Bob</strong> created <span class="activity-target">"Pay the electricity bill"</span> with deadline Apr 18<span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">Apr 9</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-update"></div>
+            <div class="activity-text"><strong>Pierre</strong> snoozed <span class="activity-target">"Ship the project"</span> to Apr 11<span class="activity-source-badge">chat</span></div>
+            <div class="activity-time">Apr 8</div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-dot action-delete"></div>
+            <div class="activity-text"><strong>Alice</strong> deleted <span class="activity-target">"Old grocery list"</span><span class="activity-source-badge">web</span></div>
+            <div class="activity-time">Apr 7</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div>
+          <h2>Settings</h2>
+          <div class="subtitle">Workspace configuration</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="settings-sections">
+          <div class="settings-section">
+            <h3>General</h3>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Workspace name</div>
+                <div class="setting-desc">Displayed in the sidebar and messages</div>
+              </div>
+              <div class="setting-value">Roommates</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Language</div>
+                <div class="setting-desc">Bot response language</div>
+              </div>
+              <div class="setting-value">English</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Timezone</div>
+                <div class="setting-desc">For deadlines and reminders</div>
+              </div>
+              <div class="setting-value">Europe/Paris</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Bot Behavior</h3>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Quiet mode</div>
+                <div class="setting-desc">Minimal confirmations in chat</div>
+              </div>
+              <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Auto recap</div>
+                <div class="setting-desc">Automated summary sent to the group</div>
+              </div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Recap schedule</div>
+                <div class="setting-desc">When to send the recap</div>
+              </div>
+              <div class="setting-value">Mon 9:00 AM</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Members can complete others' todos</div>
+                <div class="setting-desc">Allow any member to mark anyone's task as done</div>
+              </div>
+              <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>Plan & Usage</h3>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Current plan</div>
+                <div class="setting-desc">Free — 1 group, 25 todos, 100 MB storage</div>
+              </div>
+              <button class="btn btn-small">Upgrade</button>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Storage used</div>
+                <div class="progress-bar"><div class="progress-fill low" style="width: 24%;"></div></div>
+              </div>
+              <div class="setting-value">24 MB / 100 MB</div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">AI messages this month</div>
+                <div class="progress-bar"><div class="progress-fill low" style="width: 24%;"></div></div>
+              </div>
+              <div class="setting-value">12 / 50</div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3 style="border-bottom-color: var(--brick); color: var(--brick);">Danger Zone</h3>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Export all data</div>
+                <div class="setting-desc">Download todos, notes, and files as JSON</div>
+              </div>
+              <button class="btn btn-small">Export</button>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-label">Delete workspace</div>
+                <div class="setting-desc">Permanently remove all data. Cannot be undone.</div>
+              </div>
+              <button class="btn btn-small" style="border-color: var(--brick); color: var(--brick);">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div class="page" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <h2>My Workspaces</h2>
+          <div class="subtitle">All your groups in one place</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="dashboard-grid">
+          <div class="workspace-card" onclick="showPage('overview')">
+            <h3>Roommates</h3>
+            <div class="ws-platform">WhatsApp · 5 members</div>
+            <div class="ws-stats">
+              <div class="ws-stat">
+                <div class="stat-num">12</div>
+                <div class="stat-label">Todos</div>
+              </div>
+              <div class="ws-stat">
+                <div class="stat-num">7</div>
+                <div class="stat-label">Notes</div>
+              </div>
+              <div class="ws-stat">
+                <div class="stat-num">9</div>
+                <div class="stat-label">Files</div>
+              </div>
+            </div>
+            <div class="ws-members-row">
+              <div class="avatar" style="background:#C0392B">A</div>
+              <div class="avatar" style="background:#1B6B5A">B</div>
+              <div class="avatar" style="background:#D4940A">C</div>
+              <div class="avatar" style="background:#5B7FD1">D</div>
+              <div class="avatar" style="background:#8B5CF6">P</div>
+              <span class="member-count">5 members</span>
+            </div>
+          </div>
+
+          <div class="workspace-card" style="opacity: 0.5; border-style: dashed;">
+            <h3 style="color: var(--ink-40);">Add a group</h3>
+            <div class="ws-platform">Add @grumps to a WhatsApp group</div>
+            <div style="text-align: center; padding: 24px 0; font-size: 32px; color: var(--ink-15);">+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ============================================
+// LOGIN FLOW
+// ============================================
+
+function showOtpStep() {
+  document.getElementById('login-step-phone').style.display = 'none';
+  document.getElementById('login-step-otp').style.display = '';
+  document.getElementById('login-step-otp').querySelector('.login-card, .login-body').style.animation = 'fadeIn 0.3s ease-out';
+}
+
+function completeLogin() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app-shell').style.display = '';
+  showToast('Welcome back, Alice.', 'success');
+}
+
+// ============================================
+// NAVIGATION
+// ============================================
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + name);
+  if (target) {
+    target.classList.add('active');
+    // Re-trigger stagger animations by cloning
+    target.querySelectorAll('.todo-item, .note-card, .file-card, .activity-item, .workspace-card').forEach(el => {
+      el.style.animation = 'none';
+      el.offsetHeight; // reflow
+      el.style.animation = '';
+    });
+  }
+
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navItem = document.querySelector('.nav-item[data-page="' + name + '"]');
+  if (navItem) navItem.classList.add('active');
+}
+
+function toggleTodoView(view) {
+  const listView = document.getElementById('todo-list-view');
+  const kanbanView = document.getElementById('kanban-view');
+  const buttons = document.querySelectorAll('.view-toggle button');
+
+  if (view === 'kanban') {
+    listView.classList.remove('active');
+    listView.style.display = 'none';
+    kanbanView.classList.add('active');
+    buttons[0].classList.remove('active');
+    buttons[1].classList.add('active');
+  } else {
+    kanbanView.classList.remove('active');
+    listView.classList.add('active');
+    listView.style.display = '';
+    buttons[1].classList.remove('active');
+    buttons[0].classList.add('active');
+  }
+}
+
+// ============================================
+// TOAST SYSTEM
+// ============================================
+
+function showToast(message, type = 'default') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type === 'success' ? ' toast-success' : '');
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ============================================
+// INTERACTIVE ELEMENTS
+// ============================================
+
+// Filter chips toggle
+document.querySelectorAll('.filter-bar').forEach(bar => {
+  bar.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      bar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+});
+
+// Todo check toggle with toast
+document.querySelectorAll('.todo-check').forEach(check => {
+  check.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const item = check.closest('.todo-item');
+    const title = item.querySelector('.todo-title').textContent;
+    const wasDone = item.classList.contains('done');
+    item.classList.toggle('done');
+    if (!wasDone) {
+      showToast('Done. "' + title + '" is off your plate.', 'success');
+    }
+  });
+});
+
+// Inline create
+document.querySelectorAll('.inline-create input').forEach(input => {
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      showToast('Added: "' + input.value.trim() + '"', 'success');
+      input.value = '';
+    }
+  });
+});
+</script>
+
+</body>
+</html>

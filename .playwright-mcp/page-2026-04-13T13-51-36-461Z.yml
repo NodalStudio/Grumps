@@ -1,0 +1,126 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Grumps." [level=1] [ref=e5]
+      - generic [ref=e6]: Gets it done. No small talk.
+    - generic [ref=e7]:
+      - generic [ref=e8] [cursor=pointer]:
+        - text: Roommates
+        - generic [ref=e10]: ▼
+      - generic [ref=e11]: 5 members · WhatsApp
+    - navigation [ref=e12]:
+      - generic [ref=e13]: Workspace
+      - generic [ref=e14] [cursor=pointer]:
+        - generic [ref=e15]: ◫
+        - text: Overview
+      - generic [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: ☐
+        - text: Todos
+        - generic [ref=e18]: "3"
+      - generic [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]: ¶
+        - text: Notes
+        - generic [ref=e21]: "7"
+      - generic [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]: ◰
+        - text: Files
+      - generic [ref=e24] [cursor=pointer]:
+        - generic [ref=e25]: ↻
+        - text: History
+      - generic [ref=e26]: Manage
+      - generic [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]: ⚙
+        - text: Settings
+      - generic [ref=e29] [cursor=pointer]:
+        - generic [ref=e30]: ⊞
+        - text: My Workspaces
+    - generic [ref=e31]:
+      - generic [ref=e32]: A
+      - generic [ref=e33]:
+        - generic [ref=e34]: Alice Martin
+        - generic [ref=e35]: Admin
+  - main [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - heading "Todos" [level=2] [ref=e40]
+          - generic [ref=e41]: 12 open · 5 completed this week
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - button "List" [ref=e44] [cursor=pointer]
+            - button "Kanban" [ref=e45] [cursor=pointer]
+          - button "+ Add todo" [ref=e46] [cursor=pointer]
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - button "All" [ref=e49] [cursor=pointer]
+          - button "Open" [ref=e50] [cursor=pointer]
+          - button "In progress" [ref=e51] [cursor=pointer]
+          - button "Done" [ref=e52] [cursor=pointer]
+          - button "Mine" [ref=e54] [cursor=pointer]
+          - button "Unassigned" [ref=e55] [cursor=pointer]
+          - textbox "Search todos..." [ref=e56]
+        - generic [ref=e57]:
+          - generic [ref=e60] [cursor=pointer]:
+            - generic [ref=e61]: Ship the project
+            - generic [ref=e62]:
+              - generic [ref=e63]: "#42"
+              - generic [ref=e64]: → Pierre
+              - generic [ref=e65]: ⏰ Overdue (Apr 11)
+              - generic [ref=e66]: "#urgent"
+          - generic [ref=e69] [cursor=pointer]:
+            - generic [ref=e70]: Call the plumber about the leak
+            - generic [ref=e71]:
+              - generic [ref=e72]: "#12"
+              - generic [ref=e73]: → Alice
+              - generic [ref=e74]: ⏰ Tomorrow
+              - generic [ref=e75]: "#house"
+          - generic [ref=e78] [cursor=pointer]:
+            - generic [ref=e79]: Fix the prod bug
+            - generic [ref=e80]:
+              - generic [ref=e81]: "#15"
+              - generic [ref=e82]: → Sarah
+              - generic [ref=e83]: "#urgent"
+              - generic [ref=e84]: "#frontend"
+          - generic [ref=e87] [cursor=pointer]:
+            - generic [ref=e88]: Pay the electricity bill
+            - generic [ref=e89]:
+              - generic [ref=e90]: "#24"
+              - generic [ref=e91]: → Bob
+              - generic [ref=e92]: ⏰ Friday Apr 18
+          - generic [ref=e95] [cursor=pointer]:
+            - generic [ref=e96]: Buy birthday gift for Eve
+            - generic [ref=e97]:
+              - generic [ref=e98]: "#38"
+              - generic [ref=e99]: → Alice
+              - generic [ref=e100]: ⏰ Apr 22
+              - generic [ref=e101]: "#personal"
+          - generic [ref=e104] [cursor=pointer]:
+            - generic [ref=e105]: Research new internet provider
+            - generic [ref=e106]:
+              - generic [ref=e107]: "#39"
+              - generic [ref=e108]: "#house"
+          - generic [ref=e111] [cursor=pointer]:
+            - generic [ref=e112]: Schedule apartment deep clean
+            - generic [ref=e113]:
+              - generic [ref=e114]: "#40"
+              - generic [ref=e115]: → Dan
+              - generic [ref=e116]: ⏰ Apr 25
+          - generic [ref=e117] [cursor=pointer]:
+            - generic [ref=e118]: ✓
+            - generic [ref=e119]:
+              - generic [ref=e120]: Buy toilet paper
+              - generic [ref=e121]:
+                - generic [ref=e122]: "#23"
+                - generic [ref=e123]: → Bob
+                - generic [ref=e124]: ✓ Done 12m ago
+          - generic [ref=e125] [cursor=pointer]:
+            - generic [ref=e126]: ✓
+            - generic [ref=e127]:
+              - generic [ref=e128]: Take out the trash
+              - generic [ref=e129]:
+                - generic [ref=e130]: "#21"
+                - generic [ref=e131]: → Claire
+                - generic [ref=e132]: ✓ Done yesterday
+          - generic [ref=e133]:
+            - generic [ref=e134]: +
+            - textbox "Add a todo..." [ref=e135]

@@ -1,0 +1,391 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]:
+      - link "Grumps." [ref=e4] [cursor=pointer]:
+        - /url: "#"
+      - list [ref=e5]:
+        - listitem [ref=e6]:
+          - link "How it works" [ref=e7] [cursor=pointer]:
+            - /url: "#how"
+        - listitem [ref=e8]:
+          - link "Features" [ref=e9] [cursor=pointer]:
+            - /url: "#features"
+        - listitem [ref=e10]:
+          - link "Demo" [ref=e11] [cursor=pointer]:
+            - /url: "#demo"
+        - listitem [ref=e12]:
+          - link "Pricing" [ref=e13] [cursor=pointer]:
+            - /url: "#pricing"
+        - listitem [ref=e14]:
+          - link "Get Started" [ref=e15] [cursor=pointer]:
+            - /url: "#"
+  - generic [ref=e17]:
+    - generic [ref=e18]:
+      - generic [ref=e19]: For WhatsApp groups
+      - heading "Your group chat just got productive" [level=1] [ref=e20]:
+        - text: Your group chat just got
+        - emphasis [ref=e21]: productive
+      - paragraph [ref=e22]: Add Grumps to any WhatsApp group. Manage todos, share notes, store files, set reminders — all from the chat. When you need more, open the web workspace.
+      - generic [ref=e23]:
+        - link "Add to WhatsApp" [ref=e24] [cursor=pointer]:
+          - /url: "#"
+        - link "See it in action" [ref=e25] [cursor=pointer]:
+          - /url: "#demo"
+      - paragraph [ref=e26]: Free for 1 group · No app to install · Works in 30 seconds
+    - generic [ref=e28]:
+      - generic [ref=e29]: Roommates
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: Alice
+          - text: "TODO:"
+          - text: • Buy toilet paper
+          - text: • Pay electricity bill @Bob
+          - generic [ref=e36]: 10:42
+        - generic [ref=e37]:
+          - generic [ref=e38]: Grumps
+          - text: "✓ 2 todos added:"
+          - text: "📋 #23 Buy toilet paper"
+          - text: "📋 #24 Pay electricity bill → @Bob"
+          - text: 🔗 grumps.io/w/x7k9m2p4
+          - generic [ref=e42]: 10:42
+        - generic [ref=e43]:
+          - generic [ref=e44]: Bob
+          - text: done toilet paper
+          - generic [ref=e45]: 11:15
+        - generic [ref=e46]:
+          - generic [ref=e47]: Grumps
+          - text: ✓ "Buy toilet paper" (#23) — done.
+          - generic [ref=e48]: 11:15
+  - generic [ref=e50]:
+    - generic [ref=e51]: How it works
+    - generic [ref=e52]: Three steps. Zero friction.
+    - generic [ref=e53]: No app to download, no signup form, no onboarding wizard.
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]: "01"
+        - heading "Add the bot" [level=3] [ref=e57]
+        - paragraph [ref=e58]: Add @grumps to your WhatsApp group. That's it. The workspace is created automatically.
+      - generic [ref=e59]:
+        - generic [ref=e60]: "02"
+        - heading "Talk normally" [level=3] [ref=e61]
+        - paragraph [ref=e62]:
+          - text: Type
+          - strong [ref=e63]: "TODO:"
+          - text: to add tasks,
+          - strong [ref=e64]: "NOTE:"
+          - text: to pin info, or @mention the bot for anything else. Your group keeps chatting.
+      - generic [ref=e65]:
+        - generic [ref=e66]: "03"
+        - heading "Open the workspace" [level=3] [ref=e67]
+        - paragraph [ref=e68]: When you need the full picture — todos, notes, files, history — open your private web workspace. Phone verification keeps it secure.
+  - generic [ref=e70]:
+    - generic [ref=e71]: Features
+    - generic [ref=e72]: Chat when it's quick. Web when it's not.
+    - generic [ref=e73]: Everything you add from chat appears in the workspace. Everything you do on the web syncs back to the group.
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - generic [ref=e76]: ☐
+        - heading "Todos that stick" [level=3] [ref=e77]
+        - paragraph [ref=e78]: Add todos from chat with natural language. Assign people, set deadlines, add priorities. Reply "done" to a task card to complete it. View them as a list or kanban board on the web.
+        - generic [ref=e79]:
+          - generic [ref=e80]: assignments
+          - generic [ref=e81]: deadlines
+          - generic [ref=e82]: priorities
+          - generic [ref=e83]: kanban
+      - generic [ref=e84]:
+        - generic [ref=e85]: ¶
+        - heading "Notes that don't get buried" [level=3] [ref=e86]
+        - paragraph [ref=e87]: "Pin important info with NOTE: in the chat. WiFi passwords, house rules, contact details — always findable. Edit with a full Markdown editor on the web."
+        - generic [ref=e88]:
+          - generic [ref=e89]: markdown
+          - generic [ref=e90]: rich editor
+          - generic [ref=e91]: full-text search
+      - generic [ref=e92]:
+        - generic [ref=e93]: ◰
+        - heading "Files in one place" [level=3] [ref=e94]
+        - paragraph [ref=e95]: Reply @grumps store to any image or document in the chat. It's saved, named, and previewable on the web. No more scrolling back through months of messages.
+        - generic [ref=e96]:
+          - generic [ref=e97]: PDF preview
+          - generic [ref=e98]: image gallery
+          - generic [ref=e99]: drag & drop
+      - generic [ref=e100]:
+        - generic [ref=e101]: ⏰
+        - heading "Reminders that fire" [level=3] [ref=e102]
+        - paragraph [ref=e103]: "\"@grumps remind @Bob tomorrow 9am take out the trash.\" Recurring reminders too. The bot sends a WhatsApp message when it's time. No app notifications to ignore."
+        - generic [ref=e104]:
+          - generic [ref=e105]: one-time
+          - generic [ref=e106]: recurring
+          - generic [ref=e107]: natural language
+      - generic [ref=e108]:
+        - generic [ref=e109]:
+          - generic [ref=e110]: ◫
+          - heading "A real web workspace" [level=3] [ref=e111]
+          - paragraph [ref=e112]: Not a dashboard with three stats. A full workspace with todos, notes, files, activity history, and settings. Accessible only to verified group members via WhatsApp OTP. Dark mode, search, exports, mobile-friendly.
+          - generic [ref=e113]:
+            - generic [ref=e114]: OTP auth
+            - generic [ref=e115]: member-only
+            - generic [ref=e116]: mobile-ready
+            - generic [ref=e117]: dark mode
+            - generic [ref=e118]: export
+        - generic [ref=e120]:
+          - generic [ref=e121]: "📋 Task #42"
+          - generic [ref=e122]: Follow up with client Dupont
+          - generic [ref=e123]:
+            - generic [ref=e124]: 👤 @Pierre
+            - generic [ref=e125]: ⏰ Friday April 18
+            - generic [ref=e126]: 🔴 High priority
+            - generic [ref=e127]: "🏷️ #sales #client"
+          - generic [ref=e128]: "Reply: done · snooze · edit · @reassign"
+  - generic [ref=e130]:
+    - generic [ref=e131]: Live demo
+    - generic [ref=e132]: Try the workspace
+    - generic [ref=e133]: This is the real thing. Click around — todos, notes, files, settings. All yours.
+    - generic [ref=e134]:
+      - generic [ref=e140]: grumps.io/w/x7k9m2p4
+      - iframe [ref=e141]:
+        - generic [ref=f2e2]:
+          - complementary [ref=f2e3]:
+            - generic [ref=f2e4]:
+              - heading "Grumps." [level=1] [ref=f2e5]
+              - generic [ref=f2e6]: Gets it done. No small talk.
+            - generic [ref=f2e7]:
+              - generic [ref=f2e8] [cursor=pointer]:
+                - text: Roommates
+                - generic [ref=f2e10]: ▼
+              - generic [ref=f2e11]: 5 members · WhatsApp
+            - navigation [ref=f2e12]:
+              - generic [ref=f2e13]: Workspace
+              - generic [ref=f2e14] [cursor=pointer]:
+                - generic [ref=f2e15]: ◫
+                - text: Overview
+              - generic [ref=f2e16] [cursor=pointer]:
+                - generic [ref=f2e17]: ☐
+                - text: Todos
+                - generic [ref=f2e18]: "3"
+              - generic [ref=f2e19] [cursor=pointer]:
+                - generic [ref=f2e20]: ¶
+                - text: Notes
+                - generic [ref=f2e21]: "7"
+              - generic [ref=f2e22] [cursor=pointer]:
+                - generic [ref=f2e23]: ◰
+                - text: Files
+              - generic [ref=f2e24] [cursor=pointer]:
+                - generic [ref=f2e25]: ↻
+                - text: History
+              - generic [ref=f2e26]: Manage
+              - generic [ref=f2e27] [cursor=pointer]:
+                - generic [ref=f2e28]: ⚙
+                - text: Settings
+              - generic [ref=f2e29] [cursor=pointer]:
+                - generic [ref=f2e30]: ⊞
+                - text: My Workspaces
+            - generic [ref=f2e31]:
+              - generic [ref=f2e32]: A
+              - generic [ref=f2e33]:
+                - generic [ref=f2e34]: Alice Martin
+                - generic [ref=f2e35]: Admin
+          - main [ref=f2e36]:
+            - generic [ref=f2e37]:
+              - generic [ref=f2e38]:
+                - generic [ref=f2e39]:
+                  - heading "Todos" [level=2] [ref=f2e40]
+                  - generic [ref=f2e41]: 12 open · 5 completed this week
+                - generic [ref=f2e42]:
+                  - generic [ref=f2e43]:
+                    - button "List" [ref=f2e44] [cursor=pointer]
+                    - button "Kanban" [ref=f2e45] [cursor=pointer]
+                  - button "+ Add todo" [ref=f2e46] [cursor=pointer]
+              - generic [ref=f2e47]:
+                - generic [ref=f2e48]:
+                  - button "All" [ref=f2e49] [cursor=pointer]
+                  - button "Open" [ref=f2e50] [cursor=pointer]
+                  - button "In progress" [ref=f2e51] [cursor=pointer]
+                  - button "Done" [ref=f2e52] [cursor=pointer]
+                  - button "Mine" [ref=f2e54] [cursor=pointer]
+                  - button "Unassigned" [ref=f2e55] [cursor=pointer]
+                  - textbox "Search todos..." [ref=f2e56]
+                - generic [ref=f2e57]:
+                  - generic [ref=f2e60] [cursor=pointer]:
+                    - generic [ref=f2e61]: Ship the project
+                    - generic [ref=f2e62]:
+                      - generic [ref=f2e63]: "#42"
+                      - generic [ref=f2e64]: → Pierre
+                      - generic [ref=f2e65]: ⏰ Overdue (Apr 11)
+                      - generic [ref=f2e66]: "#urgent"
+                  - generic [ref=f2e69] [cursor=pointer]:
+                    - generic [ref=f2e70]: Call the plumber about the leak
+                    - generic [ref=f2e71]:
+                      - generic [ref=f2e72]: "#12"
+                      - generic [ref=f2e73]: → Alice
+                      - generic [ref=f2e74]: ⏰ Tomorrow
+                      - generic [ref=f2e75]: "#house"
+                  - generic [ref=f2e78] [cursor=pointer]:
+                    - generic [ref=f2e79]: Fix the prod bug
+                    - generic [ref=f2e80]:
+                      - generic [ref=f2e81]: "#15"
+                      - generic [ref=f2e82]: → Sarah
+                      - generic [ref=f2e83]: "#urgent"
+                      - generic [ref=f2e84]: "#frontend"
+                  - generic [ref=f2e87] [cursor=pointer]:
+                    - generic [ref=f2e88]: Pay the electricity bill
+                    - generic [ref=f2e89]:
+                      - generic [ref=f2e90]: "#24"
+                      - generic [ref=f2e91]: → Bob
+                      - generic [ref=f2e92]: ⏰ Friday Apr 18
+                  - generic [ref=f2e95] [cursor=pointer]:
+                    - generic [ref=f2e96]: Buy birthday gift for Eve
+                    - generic [ref=f2e97]:
+                      - generic [ref=f2e98]: "#38"
+                      - generic [ref=f2e99]: → Alice
+                      - generic [ref=f2e100]: ⏰ Apr 22
+                      - generic [ref=f2e101]: "#personal"
+                  - generic [ref=f2e104] [cursor=pointer]:
+                    - generic [ref=f2e105]: Research new internet provider
+                    - generic [ref=f2e106]:
+                      - generic [ref=f2e107]: "#39"
+                      - generic [ref=f2e108]: "#house"
+                  - generic [ref=f2e111] [cursor=pointer]:
+                    - generic [ref=f2e112]: Schedule apartment deep clean
+                    - generic [ref=f2e113]:
+                      - generic [ref=f2e114]: "#40"
+                      - generic [ref=f2e115]: → Dan
+                      - generic [ref=f2e116]: ⏰ Apr 25
+                  - generic [ref=f2e117] [cursor=pointer]:
+                    - generic [ref=f2e118]: ✓
+                    - generic [ref=f2e119]:
+                      - generic [ref=f2e120]: Buy toilet paper
+                      - generic [ref=f2e121]:
+                        - generic [ref=f2e122]: "#23"
+                        - generic [ref=f2e123]: → Bob
+                        - generic [ref=f2e124]: ✓ Done 12m ago
+                  - generic [ref=f2e125] [cursor=pointer]:
+                    - generic [ref=f2e126]: ✓
+                    - generic [ref=f2e127]:
+                      - generic [ref=f2e128]: Take out the trash
+                      - generic [ref=f2e129]:
+                        - generic [ref=f2e130]: "#21"
+                        - generic [ref=f2e131]: → Claire
+                        - generic [ref=f2e132]: ✓ Done yesterday
+                  - generic [ref=f2e133]:
+                    - generic [ref=f2e134]: +
+                    - textbox "Add a todo..." [ref=f2e135]
+    - generic [ref=e142]:
+      - button "Overview" [ref=e143] [cursor=pointer]
+      - button "Todos" [ref=e144] [cursor=pointer]
+      - button "Notes" [ref=e145] [cursor=pointer]
+      - button "Files" [ref=e146] [cursor=pointer]
+      - button "History" [ref=e147] [cursor=pointer]
+  - generic [ref=e149]:
+    - generic [ref=e150]: Comparison
+    - generic [ref=e151]: Not another chat bot.
+    - generic [ref=e152]: Other tools stop at the chat. Grumps gives you a full workspace.
+    - table [ref=e154]:
+      - rowgroup [ref=e155]:
+        - row "Feature Typical chat bots Grumps" [ref=e156]:
+          - columnheader "Feature" [ref=e157]
+          - columnheader "Typical chat bots" [ref=e158]
+          - columnheader "Grumps" [ref=e159]
+      - rowgroup [ref=e160]:
+        - row "Todos via @mention ✓ ✓" [ref=e161]:
+          - cell "Todos via @mention" [ref=e162]
+          - cell "✓" [ref=e163]
+          - cell "✓" [ref=e164]
+        - row "Task cards with reply actions ✓ ✓" [ref=e165]:
+          - cell "Task cards with reply actions" [ref=e166]
+          - cell "✓" [ref=e167]
+          - cell "✓" [ref=e168]
+        - row "Natural language understanding ✓ ✓" [ref=e169]:
+          - cell "Natural language understanding" [ref=e170]
+          - cell "✓" [ref=e171]
+          - cell "✓" [ref=e172]
+        - row "Private web workspace — ✓" [ref=e173]:
+          - cell "Private web workspace" [ref=e174]:
+            - strong [ref=e175]: Private web workspace
+          - cell "—" [ref=e176]
+          - cell "✓" [ref=e177]
+        - row "Markdown note editor — ✓" [ref=e178]:
+          - cell "Markdown note editor" [ref=e179]:
+            - strong [ref=e180]: Markdown note editor
+          - cell "—" [ref=e181]
+          - cell "✓" [ref=e182]
+        - row "File storage + preview — ✓" [ref=e183]:
+          - cell "File storage + preview" [ref=e184]:
+            - strong [ref=e185]: File storage + preview
+          - cell "—" [ref=e186]
+          - cell "✓" [ref=e187]
+        - row "Automatic recaps — ✓" [ref=e188]:
+          - cell "Automatic recaps" [ref=e189]:
+            - strong [ref=e190]: Automatic recaps
+          - cell "—" [ref=e191]
+          - cell "✓" [ref=e192]
+        - row "Multi-platform — ✓" [ref=e193]:
+          - cell "Multi-platform" [ref=e194]:
+            - strong [ref=e195]: Multi-platform
+          - cell "—" [ref=e196]
+          - cell "✓" [ref=e197]
+  - generic [ref=e199]:
+    - generic [ref=e200]: Pricing
+    - generic [ref=e201]: Start free. Upgrade when you need to.
+    - generic [ref=e202]: No credit card required. No trial that expires. Just add the bot and go.
+    - generic [ref=e203]:
+      - generic [ref=e204]:
+        - heading "Free" [level=3] [ref=e205]
+        - generic [ref=e206]: €0
+        - generic [ref=e207]: forever
+        - list [ref=e208]:
+          - listitem [ref=e209]: — 1 group
+          - listitem [ref=e210]: — 25 open todos
+          - listitem [ref=e211]: — 10 notes
+          - listitem [ref=e212]: — 100 MB file storage
+          - listitem [ref=e213]: — 50 AI messages/month
+          - listitem [ref=e214]: — Weekly recap
+        - link "Get started" [ref=e215] [cursor=pointer]:
+          - /url: "#"
+      - generic [ref=e216]:
+        - text: POPULAR
+        - heading "Pro" [level=3] [ref=e217]
+        - generic [ref=e218]: €5
+        - generic [ref=e219]: per month
+        - list [ref=e220]:
+          - listitem [ref=e221]: — 5 groups
+          - listitem [ref=e222]: — 200 open todos
+          - listitem [ref=e223]: — 100 notes
+          - listitem [ref=e224]: — 5 GB file storage
+          - listitem [ref=e225]: — 500 AI messages/month
+          - listitem [ref=e226]: — Daily + custom recaps
+          - listitem [ref=e227]: — Full web workspace
+        - link "Start Pro" [ref=e228] [cursor=pointer]:
+          - /url: "#"
+      - generic [ref=e229]:
+        - heading "Business" [level=3] [ref=e230]
+        - generic [ref=e231]: €15
+        - generic [ref=e232]: per month
+        - list [ref=e233]:
+          - listitem [ref=e234]: — Unlimited groups
+          - listitem [ref=e235]: — Unlimited todos
+          - listitem [ref=e236]: — Unlimited notes
+          - listitem [ref=e237]: — 50 GB file storage
+          - listitem [ref=e238]: — 2,000 AI messages/month
+          - listitem [ref=e239]: — Priority support
+          - listitem [ref=e240]: — Export & API access
+        - link "Contact us" [ref=e241] [cursor=pointer]:
+          - /url: "#"
+  - generic [ref=e243]:
+    - generic [ref=e244]: Ready to get things done?
+    - generic [ref=e245]: Add Grumps to your group. It takes 30 seconds. Your chat stays the same — just more productive.
+    - link "Add to WhatsApp" [ref=e247] [cursor=pointer]:
+      - /url: "#"
+  - contentinfo [ref=e248]:
+    - generic [ref=e250]:
+      - generic [ref=e251]: Grumps.
+      - list [ref=e252]:
+        - listitem [ref=e253]:
+          - link "Privacy" [ref=e254] [cursor=pointer]:
+            - /url: "#"
+        - listitem [ref=e255]:
+          - link "Terms" [ref=e256] [cursor=pointer]:
+            - /url: "#"
+        - listitem [ref=e257]:
+          - link "Contact" [ref=e258] [cursor=pointer]:
+            - /url: "#"
+      - generic [ref=e259]: © 2026 Grumps

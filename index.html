@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grumps — Gets it done. No small talk.</title>
+<meta name="description" content="A bot for your group chat that turns conversations into a real workspace. Todos, notes, files, reminders — no app to install.">
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================
+   DESIGN TOKENS (shared with workspace)
+   ============================================ */
+:root {
+  --cream:        #F5F0E8;
+  --cream-light:  #FAF8F4;
+  --ink:          #1A1915;
+  --ink-70:       rgba(26, 25, 21, 0.7);
+  --ink-40:       rgba(26, 25, 21, 0.4);
+  --ink-15:       rgba(26, 25, 21, 0.15);
+  --ink-08:       rgba(26, 25, 21, 0.08);
+  --brick:        #C0392B;
+  --brick-hover:  #A93226;
+  --teal:         #1B6B5A;
+  --teal-light:   #E8F5F0;
+  --ochre:        #D4940A;
+  --ochre-light:  #FFF8E7;
+  --warm-gray:    #D5CFC3;
+  --warm-gray-light: #E8E4DB;
+
+  --font-display: 'Bitter', Georgia, serif;
+  --font-body:    'DM Sans', -apple-system, sans-serif;
+  --border:       2px solid var(--ink);
+  --radius:       3px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Grain */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+a { color: var(--ink); }
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.section {
+  padding: 100px 0;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--ink-40);
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.section-subtitle {
+  font-size: 17px;
+  color: var(--ink-70);
+  max-width: 560px;
+  line-height: 1.6;
+}
+
+/* ============================================
+   NAV
+   ============================================ */
+
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--cream);
+  border-bottom: var(--border);
+  transition: background 0.2s;
+}
+
+.nav-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-brand {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.nav-brand span { color: var(--brick); }
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink-70);
+  transition: color 0.1s;
+}
+
+.nav-links a:hover { color: var(--ink); }
+
+.btn {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border: var(--border);
+  background: var(--cream-light);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.1s;
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.btn-primary:hover {
+  background: var(--brick);
+  border-color: var(--brick);
+}
+
+.btn-large {
+  font-size: 16px;
+  padding: 14px 28px;
+}
+
+/* ============================================
+   HERO
+   ============================================ */
+
+.hero {
+  padding: 140px 0 80px;
+  position: relative;
+}
+
+.hero-content {
+  max-width: 680px;
+}
+
+.hero-eyebrow {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--brick);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-eyebrow::before {
+  content: '';
+  width: 32px;
+  height: 2px;
+  background: var(--brick);
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  margin-bottom: 24px;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--brick);
+  position: relative;
+}
+
+.hero h1 em::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  height: 4px;
+  background: var(--brick);
+  opacity: 0.3;
+}
+
+.hero-desc {
+  font-size: 19px;
+  line-height: 1.6;
+  color: var(--ink-70);
+  max-width: 520px;
+  margin-bottom: 36px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hero-note {
+  font-size: 12px;
+  color: var(--ink-40);
+  margin-top: 14px;
+}
+
+/* Chat mockup floating on the right */
+.hero-visual {
+  position: absolute;
+  right: 32px;
+  top: 160px;
+  width: 380px;
+}
+
+.chat-mockup {
+  background: var(--cream-light);
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transform: rotate(1deg);
+  box-shadow: 8px 8px 0 var(--ink-15);
+}
+
+.chat-header {
+  background: var(--ink);
+  color: var(--cream);
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-header .chat-dot {
+  width: 8px;
+  height: 8px;
+  background: #25D366;
+  border-radius: 50%;
+}
+
+.chat-messages {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.chat-msg.user {
+  background: #DCF8C6;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.chat-msg.bot {
+  background: white;
+  border: 1px solid var(--ink-15);
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+
+.chat-msg .msg-sender {
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.chat-msg .msg-sender.sender-user { color: #075E54; }
+.chat-msg .msg-sender.sender-bot { color: var(--brick); }
+
+.chat-msg .msg-time {
+  font-size: 10px;
+  color: var(--ink-40);
+  text-align: right;
+  margin-top: 4px;
+}
+
+/* ============================================
+   HOW IT WORKS
+   ============================================ */
+
+.how-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-top: 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.how-step {
+  padding: 36px 32px;
+  background: var(--cream-light);
+  border-right: var(--border);
+  position: relative;
+}
+
+.how-step:last-child { border-right: none; }
+
+.step-num {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--ink-15);
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.how-step h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.how-step p {
+  font-size: 14px;
+  color: var(--ink-70);
+  line-height: 1.55;
+}
+
+/* ============================================
+   FEATURES
+   ============================================ */
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-top: 48px;
+}
+
+.feature-card {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream-light);
+  padding: 32px;
+  transition: all 0.1s;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+}
+
+.feature-card.feature-large {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.feature-icon {
+  font-size: 28px;
+  margin-bottom: 16px;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream);
+}
+
+.feature-card h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.feature-card p {
+  font-size: 14.5px;
+  color: var(--ink-70);
+  line-height: 1.55;
+}
+
+.feature-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.feature-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border: 1.5px solid var(--ink-15);
+  border-radius: 2px;
+  color: var(--ink-70);
+}
+
+/* ============================================
+   DEMO SECTION
+   ============================================ */
+
+.demo-section {
+  padding: 80px 0;
+  background: var(--ink);
+  color: var(--cream);
+  position: relative;
+}
+
+.demo-section .section-label { color: var(--ink-40); }
+.demo-section .section-title { color: var(--cream); }
+.demo-section .section-subtitle { color: rgba(245, 240, 232, 0.6); }
+
+.demo-frame-wrapper {
+  margin-top: 48px;
+  border: 3px solid rgba(245, 240, 232, 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.demo-browser-bar {
+  background: rgba(245, 240, 232, 0.08);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(245, 240, 232, 0.1);
+}
+
+.demo-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.demo-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 240, 232, 0.25);
+}
+
+.demo-url {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(245, 240, 232, 0.4);
+  letter-spacing: 0.5px;
+}
+
+.demo-iframe {
+  width: 100%;
+  height: 600px;
+  border: none;
+  display: block;
+}
+
+.demo-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.demo-nav button {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border: 1.5px solid rgba(245, 240, 232, 0.2);
+  background: transparent;
+  color: rgba(245, 240, 232, 0.5);
+  cursor: pointer;
+  border-radius: var(--radius);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.1s;
+}
+
+.demo-nav button:hover,
+.demo-nav button.active {
+  border-color: var(--cream);
+  color: var(--cream);
+  background: rgba(245, 240, 232, 0.08);
+}
+
+/* ============================================
+   COMPARISON TABLE
+   ============================================ */
+
+.comparison {
+  margin-top: 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.comparison table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.comparison th,
+.comparison td {
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 14px;
+  border-bottom: 1px solid var(--ink-15);
+}
+
+.comparison th {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--cream-light);
+}
+
+.comparison th:first-child {
+  width: 40%;
+}
+
+.comparison td:nth-child(2),
+.comparison td:nth-child(3) {
+  text-align: center;
+  width: 30%;
+}
+
+.comparison th:nth-child(2),
+.comparison th:nth-child(3) {
+  text-align: center;
+}
+
+.comparison th.col-grumps {
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.comparison tr:last-child td { border-bottom: none; }
+
+.comparison .check { color: var(--teal); font-weight: 700; font-size: 16px; }
+.comparison .cross { color: var(--ink-15); font-size: 16px; }
+.comparison .highlight-row { background: var(--ochre-light); }
+
+/* ============================================
+   PRICING
+   ============================================ */
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-top: 48px;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.price-card {
+  padding: 36px 32px;
+  background: var(--cream-light);
+  border-right: var(--border);
+}
+
+.price-card:last-child { border-right: none; }
+
+.price-card.featured {
+  background: var(--ink);
+  color: var(--cream);
+  position: relative;
+}
+
+.price-card.featured::before {
+  content: 'POPULAR';
+  position: absolute;
+  top: 0;
+  right: 20px;
+  background: var(--brick);
+  color: var(--cream);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 0 0 3px 3px;
+}
+
+.price-card h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.price-amount {
+  font-family: var(--font-display);
+  font-size: 42px;
+  font-weight: 800;
+  line-height: 1;
+  margin: 20px 0 4px;
+}
+
+.price-amount .currency {
+  font-size: 22px;
+  vertical-align: top;
+  margin-right: 2px;
+}
+
+.price-period {
+  font-size: 13px;
+  color: var(--ink-40);
+  margin-bottom: 24px;
+}
+
+.price-card.featured .price-period {
+  color: rgba(245, 240, 232, 0.5);
+}
+
+.price-features {
+  list-style: none;
+  margin-bottom: 28px;
+}
+
+.price-features li {
+  font-size: 13.5px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ink-08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-card.featured .price-features li {
+  border-color: rgba(245, 240, 232, 0.1);
+}
+
+.price-features li::before {
+  content: '—';
+  color: var(--ink-40);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.price-card .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.price-card.featured .btn {
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--cream);
+}
+
+.price-card.featured .btn:hover {
+  background: var(--brick);
+  color: var(--cream);
+  border-color: var(--brick);
+}
+
+/* ============================================
+   CTA
+   ============================================ */
+
+.cta-section {
+  padding: 100px 0;
+  text-align: center;
+}
+
+.cta-section .section-title {
+  font-size: 42px;
+  max-width: 600px;
+  margin: 0 auto 24px;
+}
+
+.cta-section .section-subtitle {
+  margin: 0 auto 36px;
+  text-align: center;
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+.footer {
+  border-top: var(--border);
+  padding: 40px 0;
+  background: var(--cream-light);
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  text-transform: uppercase;
+}
+
+.footer-brand span { color: var(--brick); }
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  font-size: 13px;
+  color: var(--ink-40);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footer-links a:hover { color: var(--ink); }
+
+.footer-copy {
+  font-size: 12px;
+  color: var(--ink-40);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px) rotate(1deg); }
+  to   { opacity: 1; transform: translateX(0) rotate(1deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: rotate(1deg) translateY(0); }
+  50% { transform: rotate(1deg) translateY(-8px); }
+}
+
+.hero-content { animation: fadeInUp 0.6s ease-out; }
+.hero-visual  { animation: slideInRight 0.7s ease-out 0.3s both; }
+.hero-visual .chat-mockup { animation: float 6s ease-in-out 1.5s infinite; }
+
+/* Scroll-triggered reveals */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.reveal-stagger.visible > *:nth-child(1) { transition-delay: 0.05s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(2) { transition-delay: 0.12s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.19s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.26s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.33s; opacity: 1; transform: translateY(0); }
+
+/* Nav shrink on scroll */
+.nav.scrolled {
+  background: rgba(245, 240, 232, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Task card demo */
+.task-card-demo {
+  background: var(--cream);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 320px;
+  transform: rotate(-1deg);
+  box-shadow: 6px 6px 0 var(--ink-15);
+}
+
+.task-card-demo .tcd-header {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ink-40);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--ink-15);
+}
+
+.task-card-demo .tcd-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.task-card-demo .tcd-meta {
+  font-size: 12px;
+  color: var(--ink-40);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.task-card-demo .tcd-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1.5px solid var(--ink-15);
+  font-size: 11px;
+  color: var(--ink-40);
+  letter-spacing: 0.3px;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 900px) {
+  .hero h1 { font-size: 38px; }
+  .hero-visual { display: none; }
+  .how-steps { grid-template-columns: 1fr; }
+  .how-step { border-right: none; border-bottom: var(--border); }
+  .how-step:last-child { border-bottom: none; }
+  .features-grid { grid-template-columns: 1fr; }
+  .feature-card.feature-large { grid-column: span 1; grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .price-card { border-right: none; border-bottom: var(--border); }
+  .price-card:last-child { border-bottom: none; }
+  .demo-iframe { height: 400px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">Grumps<span>.</span></a>
+    <ul class="nav-links">
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#demo">Demo</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#" class="btn btn-primary">Get Started</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">For WhatsApp groups</div>
+      <h1>Your group chat just got <em>productive</em></h1>
+      <p class="hero-desc">Add Grumps to any WhatsApp group. Manage todos, share notes, store files, set reminders — all from the chat. When you need more, open the web workspace.</p>
+      <div class="hero-actions">
+        <a href="#" class="btn btn-primary btn-large">Add to WhatsApp</a>
+        <a href="#demo" class="btn btn-large">See it in action</a>
+      </div>
+      <p class="hero-note">Free for 1 group · No app to install · Works in 30 seconds</p>
+    </div>
+
+    <!-- Chat mockup -->
+    <div class="hero-visual">
+      <div class="chat-mockup">
+        <div class="chat-header">
+          <span class="chat-dot"></span>
+          Roommates
+        </div>
+        <div class="chat-messages">
+          <div class="chat-msg user">
+            <div class="msg-sender sender-user">Alice</div>
+            TODO:<br>
+            &bull; Buy toilet paper<br>
+            &bull; Pay electricity bill @Bob
+            <div class="msg-time">10:42</div>
+          </div>
+          <div class="chat-msg bot">
+            <div class="msg-sender sender-bot">Grumps</div>
+            &#10003; 2 todos added:<br>
+            &#x1f4cb; #23 Buy toilet paper<br>
+            &#x1f4cb; #24 Pay electricity bill &rarr; @Bob<br>
+            &#x1f517; grumps.io/w/x7k9m2p4
+            <div class="msg-time">10:42</div>
+          </div>
+          <div class="chat-msg user" style="max-width: 60%;">
+            <div class="msg-sender sender-user">Bob</div>
+            done toilet paper
+            <div class="msg-time">11:15</div>
+          </div>
+          <div class="chat-msg bot" style="max-width: 70%;">
+            <div class="msg-sender sender-bot">Grumps</div>
+            &#10003; "Buy toilet paper" (#23) &mdash; done.
+            <div class="msg-time">11:15</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-label">How it works</div>
+    <div class="section-title">Three steps. Zero friction.</div>
+    <div class="section-subtitle">No app to download, no signup form, no onboarding wizard.</div>
+
+    <div class="how-steps reveal-stagger">
+      <div class="how-step">
+        <div class="step-num">01</div>
+        <h3>Add the bot</h3>
+        <p>Add @grumps to your WhatsApp group. That's it. The workspace is created automatically.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">02</div>
+        <h3>Talk normally</h3>
+        <p>Type <strong>TODO:</strong> to add tasks, <strong>NOTE:</strong> to pin info, or @mention the bot for anything else. Your group keeps chatting.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">03</div>
+        <h3>Open the workspace</h3>
+        <p>When you need the full picture — todos, notes, files, history — open your private web workspace. Phone verification keeps it secure.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="section" id="features" style="background: var(--cream-light); border-top: var(--border); border-bottom: var(--border);">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <div class="section-title">Chat when it's quick. Web when it's not.</div>
+    <div class="section-subtitle">Everything you add from chat appears in the workspace. Everything you do on the web syncs back to the group.</div>
+
+    <div class="features-grid reveal-stagger">
+      <div class="feature-card">
+        <div class="feature-icon">&#x2610;</div>
+        <h3>Todos that stick</h3>
+        <p>Add todos from chat with natural language. Assign people, set deadlines, add priorities. Reply "done" to a task card to complete it. View them as a list or kanban board on the web.</p>
+        <div class="feature-tags">
+          <span class="feature-tag">assignments</span>
+          <span class="feature-tag">deadlines</span>
+          <span class="feature-tag">priorities</span>
+          <span class="feature-tag">kanban</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&para;</div>
+        <h3>Notes that don't get buried</h3>
+        <p>Pin important info with NOTE: in the chat. WiFi passwords, house rules, contact details — always findable. Edit with a full Markdown editor on the web.</p>
+        <div class="feature-tags">
+          <span class="feature-tag">markdown</span>
+          <span class="feature-tag">rich editor</span>
+          <span class="feature-tag">full-text search</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x25F0;</div>
+        <h3>Files in one place</h3>
+        <p>Reply @grumps store to any image or document in the chat. It's saved, named, and previewable on the web. No more scrolling back through months of messages.</p>
+        <div class="feature-tags">
+          <span class="feature-tag">PDF preview</span>
+          <span class="feature-tag">image gallery</span>
+          <span class="feature-tag">drag & drop</span>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#x23F0;</div>
+        <h3>Reminders that fire</h3>
+        <p>"@grumps remind @Bob tomorrow 9am take out the trash." Recurring reminders too. The bot sends a WhatsApp message when it's time. No app notifications to ignore.</p>
+        <div class="feature-tags">
+          <span class="feature-tag">one-time</span>
+          <span class="feature-tag">recurring</span>
+          <span class="feature-tag">natural language</span>
+        </div>
+      </div>
+
+      <div class="feature-card feature-large">
+        <div>
+          <div class="feature-icon" style="font-size: 22px;">&#x25EB;</div>
+          <h3>A real web workspace</h3>
+          <p>Not a dashboard with three stats. A full workspace with todos, notes, files, activity history, and settings. Accessible only to verified group members via WhatsApp OTP. Dark mode, search, exports, mobile-friendly.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">OTP auth</span>
+            <span class="feature-tag">member-only</span>
+            <span class="feature-tag">mobile-ready</span>
+            <span class="feature-tag">dark mode</span>
+            <span class="feature-tag">export</span>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center;">
+          <div class="task-card-demo">
+            <div class="tcd-header">&#x1f4cb; Task #42</div>
+            <div class="tcd-title">Follow up with client Dupont</div>
+            <div class="tcd-meta">
+              <span>&#x1f464; @Pierre</span>
+              <span>&#x23F0; Friday April 18</span>
+              <span>&#x1f534; High priority</span>
+              <span>&#x1f3f7;&#xFE0F; #sales #client</span>
+            </div>
+            <div class="tcd-footer">Reply: done &middot; snooze &middot; edit &middot; @reassign</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEMO ===== -->
+<section class="demo-section" id="demo">
+  <div class="container">
+    <div class="section-label">Live demo</div>
+    <div class="section-title">Try the workspace</div>
+    <div class="section-subtitle">This is the real thing. Click around — todos, notes, files, settings. All yours.</div>
+
+    <div class="demo-frame-wrapper reveal">
+      <div class="demo-browser-bar">
+        <div class="demo-dots"><span></span><span></span><span></span></div>
+        <div class="demo-url">grumps.io/w/x7k9m2p4</div>
+      </div>
+      <iframe src="workspace.html" class="demo-iframe" title="Grumps workspace demo"></iframe>
+    </div>
+
+    <div class="demo-nav">
+      <button class="active" onclick="navigateDemo('overview')">Overview</button>
+      <button onclick="navigateDemo('todos')">Todos</button>
+      <button onclick="navigateDemo('notes')">Notes</button>
+      <button onclick="navigateDemo('files')">Files</button>
+      <button onclick="navigateDemo('history')">History</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== VS COMPETITION ===== -->
+<section class="section" id="compare">
+  <div class="container">
+    <div class="section-label">Comparison</div>
+    <div class="section-title">Not another chat bot.</div>
+    <div class="section-subtitle">Other tools stop at the chat. Grumps gives you a full workspace.</div>
+
+    <div class="comparison reveal">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Typical chat bots</th>
+            <th class="col-grumps">Grumps</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Todos via @mention</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr>
+            <td>Task cards with reply actions</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr>
+            <td>Natural language understanding</td>
+            <td class="check">&#10003;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Private web workspace</strong></td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Markdown note editor</strong></td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>File storage + preview</strong></td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Automatic recaps</strong></td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong>Multi-platform</strong></td>
+            <td class="cross">&mdash;</td>
+            <td class="check">&#10003;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PRICING ===== -->
+<section class="section" id="pricing" style="background: var(--cream-light); border-top: var(--border); border-bottom: var(--border);">
+  <div class="container">
+    <div class="section-label">Pricing</div>
+    <div class="section-title">Start free. Upgrade when you need to.</div>
+    <div class="section-subtitle">No credit card required. No trial that expires. Just add the bot and go.</div>
+
+    <div class="pricing-grid reveal-stagger">
+      <div class="price-card">
+        <h3>Free</h3>
+        <div class="price-amount"><span class="currency">&euro;</span>0</div>
+        <div class="price-period">forever</div>
+        <ul class="price-features">
+          <li>1 group</li>
+          <li>25 open todos</li>
+          <li>10 notes</li>
+          <li>100 MB file storage</li>
+          <li>50 AI messages/month</li>
+          <li>Weekly recap</li>
+        </ul>
+        <a href="#" class="btn" style="width: 100%; justify-content: center;">Get started</a>
+      </div>
+
+      <div class="price-card featured">
+        <h3>Pro</h3>
+        <div class="price-amount"><span class="currency">&euro;</span>5</div>
+        <div class="price-period">per month</div>
+        <ul class="price-features">
+          <li>5 groups</li>
+          <li>200 open todos</li>
+          <li>100 notes</li>
+          <li>5 GB file storage</li>
+          <li>500 AI messages/month</li>
+          <li>Daily + custom recaps</li>
+          <li>Full web workspace</li>
+        </ul>
+        <a href="#" class="btn">Start Pro</a>
+      </div>
+
+      <div class="price-card">
+        <h3>Business</h3>
+        <div class="price-amount"><span class="currency">&euro;</span>15</div>
+        <div class="price-period">per month</div>
+        <ul class="price-features">
+          <li>Unlimited groups</li>
+          <li>Unlimited todos</li>
+          <li>Unlimited notes</li>
+          <li>50 GB file storage</li>
+          <li>2,000 AI messages/month</li>
+          <li>Priority support</li>
+          <li>Export & API access</li>
+        </ul>
+        <a href="#" class="btn" style="width: 100%; justify-content: center;">Contact us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta-section">
+  <div class="container">
+    <div class="section-title">Ready to get things done?</div>
+    <div class="section-subtitle">Add Grumps to your group. It takes 30 seconds. Your chat stays the same — just more productive.</div>
+    <div class="hero-actions" style="justify-content: center;">
+      <a href="#" class="btn btn-primary btn-large">Add to WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">Grumps<span>.</span></div>
+      <ul class="footer-links">
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+      <div class="footer-copy">&copy; 2026 Grumps</div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function navigateDemo(page) {
+  const iframe = document.querySelector('.demo-iframe');
+  iframe.contentWindow.showPage(page);
+  document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// Scroll reveal observer
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
+
+// Nav scroll effect
+window.addEventListener('scroll', () => {
+  document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
+</script>
+
+</body>
+</html>

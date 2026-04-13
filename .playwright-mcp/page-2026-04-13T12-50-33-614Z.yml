@@ -1,0 +1,106 @@
+- generic [ref=e2]:
+  - complementary [ref=e3]:
+    - generic [ref=e4]:
+      - heading "Grumps." [level=1] [ref=e5]
+      - generic [ref=e6]: Gets it done. No small talk.
+    - generic [ref=e7]:
+      - generic [ref=e8] [cursor=pointer]:
+        - text: Roommates
+        - generic [ref=e10]: ▼
+      - generic [ref=e11]: 5 members · WhatsApp
+    - navigation [ref=e12]:
+      - generic [ref=e13]: Workspace
+      - generic [ref=e14] [cursor=pointer]:
+        - generic [ref=e15]: ◫
+        - text: Overview
+      - generic [ref=e16] [cursor=pointer]:
+        - generic [ref=e17]: ☐
+        - text: Todos
+        - generic [ref=e18]: "3"
+      - generic [ref=e19] [cursor=pointer]:
+        - generic [ref=e20]: ¶
+        - text: Notes
+        - generic [ref=e21]: "7"
+      - generic [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]: ◰
+        - text: Files
+      - generic [ref=e24] [cursor=pointer]:
+        - generic [ref=e25]: ↻
+        - text: History
+      - generic [ref=e26]: Manage
+      - generic [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]: ⚙
+        - text: Settings
+      - generic [ref=e29] [cursor=pointer]:
+        - generic [ref=e30]: ⊞
+        - text: My Workspaces
+    - generic [ref=e31]:
+      - generic [ref=e32]: A
+      - generic [ref=e33]:
+        - generic [ref=e34]: Alice Martin
+        - generic [ref=e35]: Admin
+  - main [ref=e36]:
+    - text: ✓ ✓
+    - generic [ref=e136]:
+      - generic [ref=e138]:
+        - heading "Settings" [level=2] [ref=e139]
+        - generic [ref=e140]: Workspace configuration
+      - generic [ref=e142]:
+        - generic [ref=e143]:
+          - heading "General" [level=3] [ref=e144]
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]: Workspace name
+              - generic [ref=e148]: Displayed in the sidebar and messages
+            - generic [ref=e149]: Roommates
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - generic [ref=e152]: Language
+              - generic [ref=e153]: Bot response language
+            - generic [ref=e154]: English
+          - generic [ref=e155]:
+            - generic [ref=e156]:
+              - generic [ref=e157]: Timezone
+              - generic [ref=e158]: For deadlines and reminders
+            - generic [ref=e159]: Europe/Paris
+        - generic [ref=e160]:
+          - heading "Bot Behavior" [level=3] [ref=e161]
+          - generic [ref=e163]:
+            - generic [ref=e164]: Quiet mode
+            - generic [ref=e165]: Minimal confirmations in chat
+          - generic [ref=e168]:
+            - generic [ref=e169]: Auto recap
+            - generic [ref=e170]: Automated summary sent to the group
+          - generic [ref=e172]:
+            - generic [ref=e173]:
+              - generic [ref=e174]: Recap schedule
+              - generic [ref=e175]: When to send the recap
+            - generic [ref=e176]: Mon 9:00 AM
+          - generic [ref=e178]:
+            - generic [ref=e179]: Members can complete others' todos
+            - generic [ref=e180]: Allow any member to mark anyone's task as done
+        - generic [ref=e182]:
+          - heading "Plan & Usage" [level=3] [ref=e183]
+          - generic [ref=e184]:
+            - generic [ref=e185]:
+              - generic [ref=e186]: Current plan
+              - generic [ref=e187]: Free — 1 group, 25 todos, 100 MB storage
+            - button "Upgrade" [ref=e188] [cursor=pointer]
+          - generic [ref=e189]:
+            - generic [ref=e191]: Storage used
+            - generic [ref=e192]: 24 MB / 100 MB
+          - generic [ref=e193]:
+            - generic [ref=e195]: AI messages this month
+            - generic [ref=e196]: 12 / 50
+        - generic [ref=e197]:
+          - heading "Danger Zone" [level=3] [ref=e198]
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]: Export all data
+              - generic [ref=e202]: Download todos, notes, and files as JSON
+            - button "Export" [ref=e203] [cursor=pointer]
+          - generic [ref=e204]:
+            - generic [ref=e205]:
+              - generic [ref=e206]: Delete workspace
+              - generic [ref=e207]: Permanently remove all data. Cannot be undone.
+            - button "Delete" [ref=e208] [cursor=pointer]
