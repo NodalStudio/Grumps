@@ -6,3 +6,8 @@ dist = "dist"
 stage = "build"
 command = "sh"
 command_arguments = ["-c", "npx tailwindcss -i ./input.css -o ./dist/styles.css --minify 2>/dev/null || npx tailwindcss -i ./input.css -o ./dist/styles.css"]
+
+[[hooks]]
+stage = "post_build"
+command = "sh"
+command_arguments = ["-c", "cp manifest.json sw.js favicon.svg _routes.json dist/ 2>/dev/null || true"]
