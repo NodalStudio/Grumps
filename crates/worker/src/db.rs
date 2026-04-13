@@ -141,7 +141,13 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Get todo by sequence number.
     pub async fn get_todo_by_seq(&self, seq_num: i64) -> Result<Option<TodoRow>> {
-        let resp = self.q("SELECT id, seq_num, title, status FROM todos WHERE seq_num = ?1", vec![seq_num.into()]).await?;
+        let resp = self.q("SELECT id, seq_num, title, status, recurrence FROM todos WHERE seq_num = ?1", vec![seq_num.into()]).await?;
+        extract_first(&resp)
+    }
+
+    /// Get todo by id.
+    pub async fn get_todo_by_id(&self, todo_id: &str) -> Result<Option<TodoRow>> {
+        let resp = self.q("SELECT id, seq_num, title, status, recurrence FROM todos WHERE id = ?1", vec![todo_id.into()]).await?;
         extract_first(&resp)
     }
 
@@ -419,6 +425,25 @@ impl<'a> WorkspaceDb<'a> {
         Ok(RecapData { open, assigned, done_week, high_priority, new_notes, reminders })
     }
 
+    /// Create the next occurrence of a recurring todo when the current one is completed.
+    pub async fn create_next_recurrence(&self, todo: &TodoRow, recurrence: &str) -> Result<()> {
+        let id = uuid::Uuid::new_v4().to_string();
+        self.q(
+            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, recurrence, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), (SELECT title FROM todos WHERE id = ?2), 'open', (SELECT priority FROM todos WHERE id = ?2), (SELECT tags FROM todos WHERE id = ?2), (SELECT assigned_to FROM todos WHERE id = ?2), (SELECT assigned_name FROM todos WHERE id = ?2), (SELECT created_by FROM todos WHERE id = ?2), 'system', ?3, datetime('now'), datetime('now'))",
+            vec![id.into(), todo.id.clone().into(), recurrence.into()],
+        ).await?;
+        Ok(())
+    }
+
+    /// Get recurrence string for a todo.
+    pub async fn get_todo_recurrence(&self, todo_id: &str) -> Result<Option<String>> {
+        #[derive(serde::Deserialize)]
+        struct Row { recurrence: Option<String> }
+        let resp = self.q("SELECT recurrence FROM todos WHERE id = ?1", vec![todo_id.into()]).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.and_then(|r| r.recurrence).filter(|s| !s.is_empty()))
+    }
+
     // --- Status counts ---
 
     pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
@@ -445,6 +470,7 @@ pub struct TodoRow {
     pub seq_num: i64,
     pub title: String,
     pub status: String,
+    pub recurrence: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]

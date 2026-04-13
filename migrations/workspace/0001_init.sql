@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, platform_user_id TEXT NOT NULL UNIQUE, display_name TEXT, role TEXT DEFAULT 'member', last_seen_at TEXT, created_at TEXT DEFAULT (datetime('now')));
-CREATE TABLE IF NOT EXISTS todos (id TEXT PRIMARY KEY, seq_num INTEGER NOT NULL, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'open', priority INTEGER DEFAULT 2, tags TEXT DEFAULT '[]', deadline TEXT, assigned_to TEXT, assigned_name TEXT, created_by TEXT, completed_at TEXT, completed_by TEXT, source TEXT DEFAULT 'chat', message_id TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS todos (id TEXT PRIMARY KEY, seq_num INTEGER NOT NULL, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'open', priority INTEGER DEFAULT 2, tags TEXT DEFAULT '[]', deadline TEXT, assigned_to TEXT, assigned_name TEXT, created_by TEXT, completed_at TEXT, completed_by TEXT, source TEXT DEFAULT 'chat', message_id TEXT, recurrence TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')));
 CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_seq ON todos(seq_num);
 CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
 CREATE TABLE IF NOT EXISTS bot_messages (message_id TEXT PRIMARY KEY, todo_id TEXT, created_at TEXT DEFAULT (datetime('now')));

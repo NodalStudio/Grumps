@@ -127,7 +127,14 @@ async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, memb
             matcher::MatchResult::Exact(m) => {
                 ws_db.complete_todo(&m.todo_id, member_id).await?;
                 ws_db.log_activity(member_id, "todo.completed", "todo", &m.todo_id, "chat").await?;
-                lines.push(format!("\u{2705} #{} \"{}\" \u{2014} done.", m.seq_num, m.title));
+                let mut line = format!("\u{2705} #{} \"{}\" \u{2014} done.", m.seq_num, m.title);
+                if let Ok(Some(rec)) = ws_db.get_todo_recurrence(&m.todo_id).await {
+                    if let Ok(Some(todo)) = ws_db.get_todo_by_seq(m.seq_num).await {
+                        let _ = ws_db.create_next_recurrence(&todo, &rec).await;
+                        line.push_str(" \u{21bb} Next occurrence created.");
+                    }
+                }
+                lines.push(line);
             }
             matcher::MatchResult::Fuzzy(candidates) => {
                 let opts: Vec<String> = candidates.iter().enumerate()
@@ -151,7 +158,14 @@ async fn handle_complete_single(target: CompletionTarget, ws_db: &WorkspaceDb<'_
                 Some(todo) => {
                     ws_db.complete_todo(&todo.id, member_id).await?;
                     ws_db.log_activity(member_id, "todo.completed", "todo", &todo.id, "chat").await?;
-                    Ok(HandlerResult::one(format!("\u{2705} #{} \"{}\" \u{2014} done.", seq, todo.title), Some(msg_id.to_string())))
+                    let mut text = format!("\u{2705} #{} \"{}\" \u{2014} done.", seq, todo.title);
+                    if let Some(ref rec) = todo.recurrence {
+                        if !rec.is_empty() {
+                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
+                            text.push_str(" \u{21bb} Next occurrence created.");
+                        }
+                    }
+                    Ok(HandlerResult::one(text, Some(msg_id.to_string())))
                 }
                 None => Ok(HandlerResult::one(format!("\u{2753} No todo #{}.", seq), Some(msg_id.to_string()))),
             }
@@ -244,11 +258,20 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
 
     let text = match action {
         TaskCardAction::Done => {
+            let mut text = "Done.".to_string();
             if let Some(ref tid) = todo_id {
                 ws_db.complete_todo(tid, member_id).await?;
                 ws_db.log_activity(member_id, "todo.completed", "todo", tid, "chat").await?;
+                if let Ok(Some(todo)) = ws_db.get_todo_by_id(tid).await {
+                    if let Some(ref rec) = todo.recurrence {
+                        if !rec.is_empty() {
+                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
+                            text.push_str(" \u{21bb} Next occurrence created.");
+                        }
+                    }
+                }
             }
-            "Done.".into()
+            text
         }
         TaskCardAction::Delete => {
             if let Some(ref tid) = todo_id {

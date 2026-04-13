@@ -54,6 +54,9 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/w/:slug/notes/:id", routes::notes::get_note)
         .put_async("/api/w/:slug/notes/:id", routes::notes::update_note)
         .delete_async("/api/w/:slug/notes/:id", routes::notes::delete_note)
+        // Export
+        .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
+        .get_async("/api/w/:slug/export/notes", routes::export::export_notes)
         // Stripe webhook
         .post_async("/webhook/stripe", routes::stripe_webhook::handle_stripe_webhook)
         .run(req, env)
