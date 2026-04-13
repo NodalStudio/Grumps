@@ -3,9 +3,11 @@ use leptos_router::components::{Router, Routes, Route, ParentRoute, Redirect};
 use leptos_router::path;
 
 use crate::pages;
+use crate::auth::provide_auth;
 
 #[component]
 pub fn App() -> impl IntoView {
+    provide_auth();
     view! {
         <Router>
             <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">"404 — Not found."</div> }>
