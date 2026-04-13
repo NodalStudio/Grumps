@@ -327,6 +327,51 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    // --- Settings ---
+
+    /// Get a setting value by key, returns None if missing.
+    pub async fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        #[derive(Deserialize)]
+        struct Row { value: String }
+        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![key.into()]).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.map(|r| r.value))
+    }
+
+    // --- Recap ---
+
+    /// Get data needed for a recap.
+    pub async fn get_recap_data(&self) -> Result<RecapData> {
+        #[derive(Deserialize)]
+        struct Count { cnt: i64 }
+
+        // Open todos
+        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')", vec![]).await?;
+        let open: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
+
+        // Assigned open todos
+        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress') AND assigned_to IS NOT NULL AND assigned_to != ''", vec![]).await?;
+        let assigned: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
+
+        // Completed this week
+        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime('now', '-7 days')", vec![]).await?;
+        let done_week: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
+
+        // High priority open
+        let r = self.q("SELECT seq_num, title, assigned_name, deadline FROM todos WHERE status IN ('open','in_progress') AND priority = 1 ORDER BY created_at ASC", vec![]).await?;
+        let high_priority: Vec<HighPrioTodo> = extract_rows(&r)?;
+
+        // New notes this week
+        let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime('now', '-7 days')", vec![]).await?;
+        let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
+
+        // Active reminders
+        let r = self.q("SELECT COUNT(*) as cnt FROM reminders WHERE status = 'active'", vec![]).await?;
+        let reminders: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
+
+        Ok(RecapData { open, assigned, done_week, high_priority, new_notes, reminders })
+    }
+
     // --- Status counts ---
 
     pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
@@ -394,4 +439,22 @@ pub struct MemberRow {
     pub platform_user_id: String,
     pub display_name: Option<String>,
     pub role: String,
+}
+
+#[derive(Debug)]
+pub struct RecapData {
+    pub open: i64,
+    pub assigned: i64,
+    pub done_week: i64,
+    pub high_priority: Vec<HighPrioTodo>,
+    pub new_notes: i64,
+    pub reminders: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HighPrioTodo {
+    pub seq_num: i64,
+    pub title: String,
+    pub assigned_name: Option<String>,
+    pub deadline: Option<String>,
 }

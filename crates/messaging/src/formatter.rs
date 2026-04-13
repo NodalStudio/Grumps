@@ -134,6 +134,43 @@ pub fn status_summary(
     .join("\n")
 }
 
+/// Format a weekly/daily recap message.
+pub fn recap_message(
+    slug: &str,
+    open: i64,
+    assigned: i64,
+    done_week: i64,
+    high_priority: &[(i64, String, Option<String>, Option<String>)],
+    new_notes: i64,
+    reminders: i64,
+) -> String {
+    use chrono::Utc;
+    let today = Utc::now().format("%A %B %-d").to_string();
+    let mut lines = vec![
+        format!("📋 Grumps Recap — {}", today),
+        String::new(),
+    ];
+
+    if !high_priority.is_empty() {
+        lines.push(format!("🔴 High priority ({})", high_priority.len()));
+        for (seq, title, assignee, deadline) in high_priority {
+            let a = assignee.as_ref().map(|a| format!(" — @{}", a)).unwrap_or_default();
+            let d = deadline.as_ref().map(|d| format!(" — ⏰ {}", d)).unwrap_or_default();
+            lines.push(format!("  • #{} {}{}{}", seq, title, a, d));
+        }
+        lines.push(String::new());
+    }
+
+    lines.push(format!("📌 Open todos: {} ({} assigned)", open, assigned));
+    lines.push(format!("✅ Completed this week: {}", done_week));
+    lines.push(format!("📝 New notes: {}", new_notes));
+    lines.push(format!("⏰ Upcoming reminders: {}", reminders));
+    lines.push(String::new());
+    lines.push(format!("🔗 grumps.io/w/{}", slug));
+
+    lines.join("\n")
+}
+
 /// Help text.
 pub fn help_text() -> String {
     vec![
@@ -322,5 +359,49 @@ mod tests {
         assert!(result.contains("*Other:*"));
         assert!(result.contains("@grumps list"));
         assert!(result.contains("@grumps done #42"));
+    }
+
+    // 14. recap_message with high priority items
+    #[test]
+    fn test_recap_with_high_priority() {
+        let high = vec![
+            (12i64, "Ship the project".to_string(), Some("Pierre".to_string()), Some("tomorrow".to_string())),
+            (15i64, "Fix the prod bug".to_string(), Some("Sarah".to_string()), None),
+        ];
+        let result = recap_message("x7k9m2p4", 7, 3, 5, &high, 2, 1);
+        assert!(result.contains("📋 Grumps Recap —"));
+        assert!(result.contains("🔴 High priority (2)"));
+        assert!(result.contains("  • #12 Ship the project — @Pierre — ⏰ tomorrow"));
+        assert!(result.contains("  • #15 Fix the prod bug — @Sarah"));
+        assert!(result.contains("📌 Open todos: 7 (3 assigned)"));
+        assert!(result.contains("✅ Completed this week: 5"));
+        assert!(result.contains("📝 New notes: 2"));
+        assert!(result.contains("⏰ Upcoming reminders: 1"));
+        assert!(result.contains("🔗 grumps.io/w/x7k9m2p4"));
+    }
+
+    // 15. recap_message with no high priority items
+    #[test]
+    fn test_recap_no_high_priority() {
+        let result = recap_message("abc123", 3, 1, 2, &[], 0, 0);
+        assert!(!result.contains("🔴 High priority"));
+        assert!(result.contains("📌 Open todos: 3 (1 assigned)"));
+        assert!(result.contains("✅ Completed this week: 2"));
+        assert!(result.contains("📝 New notes: 0"));
+        assert!(result.contains("⏰ Upcoming reminders: 0"));
+        assert!(result.contains("🔗 grumps.io/w/abc123"));
+    }
+
+    // 16. recap_message with all zeros
+    #[test]
+    fn test_recap_all_zeros() {
+        let result = recap_message("empty-ws", 0, 0, 0, &[], 0, 0);
+        assert!(result.contains("📋 Grumps Recap —"));
+        assert!(!result.contains("🔴 High priority"));
+        assert!(result.contains("📌 Open todos: 0 (0 assigned)"));
+        assert!(result.contains("✅ Completed this week: 0"));
+        assert!(result.contains("📝 New notes: 0"));
+        assert!(result.contains("⏰ Upcoming reminders: 0"));
+        assert!(result.contains("🔗 grumps.io/w/empty-ws"));
     }
 }
