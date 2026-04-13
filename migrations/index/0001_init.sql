@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, phone TEXT UNIQUE NOT NULL, created_at TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS workspaces_meta (slug TEXT PRIMARY KEY, platform TEXT NOT NULL, platform_channel_id TEXT NOT NULL, name TEXT, plan TEXT DEFAULT 'free', d1_database_id TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), UNIQUE(platform, platform_channel_id));
+CREATE TABLE IF NOT EXISTS user_workspaces (user_id TEXT NOT NULL, workspace_slug TEXT NOT NULL, role TEXT DEFAULT 'member', created_at TEXT DEFAULT (datetime('now')), PRIMARY KEY (user_id, workspace_slug));

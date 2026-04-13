@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS members (id TEXT PRIMARY KEY, platform_user_id TEXT NOT NULL UNIQUE, display_name TEXT, role TEXT DEFAULT 'member', last_seen_at TEXT, created_at TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS todos (id TEXT PRIMARY KEY, seq_num INTEGER NOT NULL, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'open', priority INTEGER DEFAULT 2, tags TEXT DEFAULT '[]', deadline TEXT, assigned_to TEXT, assigned_name TEXT, created_by TEXT, completed_at TEXT, completed_by TEXT, source TEXT DEFAULT 'chat', message_id TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_seq ON todos(seq_num);
+CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
+CREATE TABLE IF NOT EXISTS bot_messages (message_id TEXT PRIMARY KEY, todo_id TEXT, created_at TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS notes (id TEXT PRIMARY KEY, title TEXT, content TEXT NOT NULL, pinned INTEGER DEFAULT 0, tags TEXT DEFAULT '[]', source TEXT DEFAULT 'chat', created_by TEXT, created_at TEXT DEFAULT (datetime('now')), updated_at TEXT DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS activity_log (id TEXT PRIMARY KEY, actor TEXT, action TEXT NOT NULL, target_type TEXT, target_id TEXT, source TEXT DEFAULT 'chat', created_at TEXT DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at DESC);
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+INSERT OR IGNORE INTO settings VALUES ('language', 'en');
+INSERT OR IGNORE INTO settings VALUES ('timezone', 'Europe/Paris');
+INSERT OR IGNORE INTO settings VALUES ('quiet_mode', 'false');
