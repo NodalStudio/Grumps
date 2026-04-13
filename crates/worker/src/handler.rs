@@ -89,7 +89,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
 
     // Summary first
     messages.push(OutboundMessage {
-        text: formatter::todos_added_summary(todos.len(), slug),
+        text: formatter::todos_added_summary(todos.len(), slug, "en"),
         reply_to: Some(msg_id.to_string()),
     });
 
@@ -111,6 +111,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
             parsed.deadline_text.as_deref(),
             parsed.priority,
             &parsed.tags,
+            "en",
         );
         messages.push(OutboundMessage { text: card, reply_to: None });
     }
@@ -210,12 +211,12 @@ async fn handle_list_todos(filter: ListFilter, ws_db: &WorkspaceDb<'_>, member_i
     };
 
     let todos = ws_db.get_todos_filtered(&actual_filter, Some(member_id)).await?;
-    Ok(HandlerResult::one(formatter::todo_list(&todos, &actual_label), None))
+    Ok(HandlerResult::one(formatter::todo_list(&todos, &actual_label, "en"), None))
 }
 
 async fn handle_list_notes(ws_db: &WorkspaceDb<'_>) -> worker::Result<HandlerResult> {
     let notes = ws_db.get_notes().await?;
-    Ok(HandlerResult::one(formatter::note_list(&notes), None))
+    Ok(HandlerResult::one(formatter::note_list(&notes, "en"), None))
 }
 
 async fn handle_search_notes(query: &str, ws_db: &WorkspaceDb<'_>) -> worker::Result<HandlerResult> {
@@ -223,13 +224,13 @@ async fn handle_search_notes(query: &str, ws_db: &WorkspaceDb<'_>) -> worker::Re
     if notes.is_empty() {
         Ok(HandlerResult::one(format!("\u{1f50d} No notes matching \"{}\".", query), None))
     } else {
-        Ok(HandlerResult::one(formatter::note_list(&notes), None))
+        Ok(HandlerResult::one(formatter::note_list(&notes, "en"), None))
     }
 }
 
 async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str) -> worker::Result<HandlerResult> {
     let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
-    Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug), None))
+    Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug, "en"), None))
 }
 
 async fn handle_quoted_todo(quoted_text: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {

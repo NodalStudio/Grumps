@@ -1,4 +1,5 @@
 use grumps_core::todo::Priority;
+use crate::i18n;
 
 /// Format a single task card (sent as individual message so users can reply to it).
 pub fn task_card(
@@ -8,6 +9,7 @@ pub fn task_card(
     deadline: Option<&str>,
     priority: Priority,
     tags: &[String],
+    lang: &str,
 ) -> String {
     let mut lines = vec![
         format!("📋 Task #{}", seq_num),
@@ -22,10 +24,10 @@ pub fn task_card(
         meta.push(format!("⏰ {}", d));
     }
     if priority == Priority::High {
-        meta.push("🔴 High priority".into());
+        meta.push(format!("🔴 {}", i18n::t("card.high_priority", lang)));
     }
     if priority == Priority::Low {
-        meta.push("🔵 Low priority".into());
+        meta.push(format!("🔵 {}", i18n::t("card.low_priority", lang)));
     }
     if !tags.is_empty() {
         meta.push(format!(
@@ -42,16 +44,21 @@ pub fn task_card(
     }
     lines.push(String::new());
     lines.push("━━━━━━━━━━━━━━━━━━━".into());
-    lines.push("Reply: done · snooze · edit · @reassign".into());
+    lines.push(i18n::t("card.reply_hint", lang).to_string());
     lines.join("\n")
 }
 
 /// Summary after adding todos.
-pub fn todos_added_summary(count: usize, workspace_slug: &str) -> String {
+pub fn todos_added_summary(count: usize, workspace_slug: &str, lang: &str) -> String {
+    let label = if count == 1 {
+        i18n::t("todo.added", lang)
+    } else {
+        i18n::t("todos.added", lang)
+    };
     format!(
-        "✅ {} todo{} added.\n🔗 grumps.io/w/{}",
+        "✅ {} {}\n🔗 grumps.io/w/{}",
         count,
-        if count > 1 { "s" } else { "" },
+        label,
         workspace_slug
     )
 }
@@ -60,13 +67,14 @@ pub fn todos_added_summary(count: usize, workspace_slug: &str) -> String {
 pub fn todo_list(
     todos: &[(i64, String, String, Option<String>, i32, String)],
     filter_label: &str,
+    lang: &str,
 ) -> String {
     // Tuple: (seq_num, title, status, assignee_name, priority, tags)
     if todos.is_empty() {
         return match filter_label {
-            "open" => "Nothing to do. Suspicious.".into(),
-            "done" => "Nothing done yet. Get to work.".into(),
-            "mine" => "Nothing assigned to you. Lucky.".into(),
+            "open" => i18n::t("empty.todos_open", lang).to_string(),
+            "done" => i18n::t("empty.todos_done", lang).to_string(),
+            "mine" => i18n::t("empty.todos_mine", lang).to_string(),
             _ => format!("No todos matching \"{}\".", filter_label),
         };
     }
@@ -92,10 +100,10 @@ pub fn todo_list(
 }
 
 /// Format note list.
-pub fn note_list(notes: &[(String, Option<String>, String, String)]) -> String {
+pub fn note_list(notes: &[(String, Option<String>, String, String)], lang: &str) -> String {
     // Tuple: (id, title, source, created_at)
     if notes.is_empty() {
-        return "No notes. The group memory is blank.".into();
+        return i18n::t("empty.notes", lang).to_string();
     }
     let mut lines = vec![
         format!(
@@ -120,6 +128,7 @@ pub fn status_summary(
     notes: i64,
     files: i64,
     workspace_slug: &str,
+    _lang: &str,
 ) -> String {
     vec![
         "📊 Status".into(),
@@ -143,6 +152,7 @@ pub fn recap_message(
     high_priority: &[(i64, String, Option<String>, Option<String>)],
     new_notes: i64,
     reminders: i64,
+    _lang: &str,
 ) -> String {
     use chrono::Utc;
     let today = Utc::now().format("%A %B %-d").to_string();
@@ -214,7 +224,7 @@ mod tests {
     // 1. task_card basic (no metadata)
     #[test]
     fn test_task_card_basic() {
-        let result = task_card(1, "Buy groceries", None, None, Priority::Normal, &[]);
+        let result = task_card(1, "Buy groceries", None, None, Priority::Normal, &[], "en");
         assert!(result.contains("📋 Task #1"));
         assert!(result.contains("Buy groceries"));
         assert!(result.contains("Reply: done · snooze · edit · @reassign"));
@@ -236,6 +246,7 @@ mod tests {
             Some("2026-04-20"),
             Priority::High,
             &tags,
+            "en",
         );
         assert!(result.contains("📋 Task #42"));
         assert!(result.contains("Fix the thing"));
@@ -249,7 +260,7 @@ mod tests {
     // 3. task_card with high priority only
     #[test]
     fn test_task_card_high_priority_only() {
-        let result = task_card(5, "Critical bug", None, None, Priority::High, &[]);
+        let result = task_card(5, "Critical bug", None, None, Priority::High, &[], "en");
         assert!(result.contains("🔴 High priority"));
         assert!(!result.contains("👤"));
         assert!(!result.contains("⏰"));
@@ -259,34 +270,34 @@ mod tests {
     // 4. todos_added_summary singular/plural
     #[test]
     fn test_todos_added_summary_singular() {
-        let result = todos_added_summary(1, "my-workspace");
-        assert_eq!(result, "✅ 1 todo added.\n🔗 grumps.io/w/my-workspace");
+        let result = todos_added_summary(1, "my-workspace", "en");
+        assert_eq!(result, "✅ 1 todo added\n🔗 grumps.io/w/my-workspace");
     }
 
     #[test]
     fn test_todos_added_summary_plural() {
-        let result = todos_added_summary(3, "team-alpha");
-        assert_eq!(result, "✅ 3 todos added.\n🔗 grumps.io/w/team-alpha");
+        let result = todos_added_summary(3, "team-alpha", "en");
+        assert_eq!(result, "✅ 3 todos added\n🔗 grumps.io/w/team-alpha");
     }
 
     // 5. todo_list empty (open) → personality message
     #[test]
     fn test_todo_list_empty_open() {
-        let result = todo_list(&[], "open");
+        let result = todo_list(&[], "open", "en");
         assert_eq!(result, "Nothing to do. Suspicious.");
     }
 
     // 6. todo_list empty (done) → personality message
     #[test]
     fn test_todo_list_empty_done() {
-        let result = todo_list(&[], "done");
+        let result = todo_list(&[], "done", "en");
         assert_eq!(result, "Nothing done yet. Get to work.");
     }
 
     // 7. todo_list empty (mine) → personality message
     #[test]
     fn test_todo_list_empty_mine() {
-        let result = todo_list(&[], "mine");
+        let result = todo_list(&[], "mine", "en");
         assert_eq!(result, "Nothing assigned to you. Lucky.");
     }
 
@@ -297,7 +308,7 @@ mod tests {
             (1i64, "Buy milk".to_string(), "open".to_string(), Some("Bob".to_string()), 2i32, String::new()),
             (2i64, "Write tests".to_string(), "open".to_string(), None, 2i32, String::new()),
         ];
-        let result = todo_list(&todos, "open");
+        let result = todo_list(&todos, "open", "en");
         assert!(result.contains("📋 2 todos (open):"));
         assert!(result.contains("☐ #1 Buy milk → @Bob"));
         assert!(result.contains("☐ #2 Write tests"));
@@ -309,7 +320,7 @@ mod tests {
         let todos = vec![
             (7i64, "Deploy app".to_string(), "done".to_string(), None, 1i32, String::new()),
         ];
-        let result = todo_list(&todos, "done");
+        let result = todo_list(&todos, "done", "en");
         assert!(result.contains("✅ #7 Deploy app"));
         assert!(result.contains("🔴")); // priority 1 = high
     }
@@ -317,7 +328,7 @@ mod tests {
     // 10. note_list empty → personality
     #[test]
     fn test_note_list_empty() {
-        let result = note_list(&[]);
+        let result = note_list(&[], "en");
         assert_eq!(result, "No notes. The group memory is blank.");
     }
 
@@ -328,7 +339,7 @@ mod tests {
             ("abc123".to_string(), Some("WiFi password".to_string()), "chat".to_string(), "2026-04-01".to_string()),
             ("def456".to_string(), None, "web".to_string(), "2026-04-02".to_string()),
         ];
-        let result = note_list(&notes);
+        let result = note_list(&notes, "en");
         assert!(result.contains("📝 2 notes:"));
         assert!(result.contains("💬 WiFi password — 2026-04-01"));
         assert!(result.contains("🌐 (untitled) — 2026-04-02"));
@@ -337,7 +348,7 @@ mod tests {
     // 12. status_summary format
     #[test]
     fn test_status_summary() {
-        let result = status_summary(5, 3, 12, 7, "my-team");
+        let result = status_summary(5, 3, 12, 7, "my-team", "en");
         assert!(result.contains("📊 Status"));
         assert!(result.contains("☐ 5 open"));
         assert!(result.contains("✅ 3 done this week"));
@@ -368,7 +379,7 @@ mod tests {
             (12i64, "Ship the project".to_string(), Some("Pierre".to_string()), Some("tomorrow".to_string())),
             (15i64, "Fix the prod bug".to_string(), Some("Sarah".to_string()), None),
         ];
-        let result = recap_message("x7k9m2p4", 7, 3, 5, &high, 2, 1);
+        let result = recap_message("x7k9m2p4", 7, 3, 5, &high, 2, 1, "en");
         assert!(result.contains("📋 Grumps Recap —"));
         assert!(result.contains("🔴 High priority (2)"));
         assert!(result.contains("  • #12 Ship the project — @Pierre — ⏰ tomorrow"));
@@ -383,7 +394,7 @@ mod tests {
     // 15. recap_message with no high priority items
     #[test]
     fn test_recap_no_high_priority() {
-        let result = recap_message("abc123", 3, 1, 2, &[], 0, 0);
+        let result = recap_message("abc123", 3, 1, 2, &[], 0, 0, "en");
         assert!(!result.contains("🔴 High priority"));
         assert!(result.contains("📌 Open todos: 3 (1 assigned)"));
         assert!(result.contains("✅ Completed this week: 2"));
@@ -395,7 +406,7 @@ mod tests {
     // 16. recap_message with all zeros
     #[test]
     fn test_recap_all_zeros() {
-        let result = recap_message("empty-ws", 0, 0, 0, &[], 0, 0);
+        let result = recap_message("empty-ws", 0, 0, 0, &[], 0, 0, "en");
         assert!(result.contains("📋 Grumps Recap —"));
         assert!(!result.contains("🔴 High priority"));
         assert!(result.contains("📌 Open todos: 0 (0 assigned)"));

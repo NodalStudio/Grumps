@@ -130,6 +130,7 @@ async fn check_and_send_recaps(
             &high_prio,
             data.new_notes,
             data.reminders,
+            "en",
         );
 
         // Send to WhatsApp group
