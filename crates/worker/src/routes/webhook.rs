@@ -127,3 +127,13 @@ fn build_adapter(ctx: &RouteContext<()>) -> Result<WhatsAppAdapter> {
         ctx.env.secret("WA_ACCESS_TOKEN")?.to_string(),
     ))
 }
+
+/// Public version for use by other routes (auth).
+pub fn build_adapter_from_env(env: &Env) -> Result<grumps_messaging::whatsapp::WhatsAppAdapter> {
+    Ok(grumps_messaging::whatsapp::WhatsAppAdapter::new(
+        env.var("WA_PHONE_NUMBER_ID")?.to_string(),
+        env.var("WA_VERIFY_TOKEN")?.to_string(),
+        env.secret("WA_APP_SECRET")?.to_string(),
+        env.secret("WA_ACCESS_TOKEN")?.to_string(),
+    ))
+}
