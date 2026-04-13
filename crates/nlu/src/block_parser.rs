@@ -1,1 +1,1 @@
-// TODO: implement in Task 4
+pub fn try_parse_block(_text: &str) -> Option<crate::parser::ParseResult> { None }

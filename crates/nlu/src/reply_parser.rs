@@ -1,1 +1,1 @@
-// TODO: implement in Task 6
+pub fn parse_reply(_text: &str) -> crate::parser::ParseResult { crate::parser::ParseResult::Ignore }
