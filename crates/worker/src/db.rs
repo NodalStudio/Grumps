@@ -1,7 +1,7 @@
 // crates/worker/src/db.rs
 use worker::*;
 use crate::d1_rest::{D1RestClient, D1Response, extract_first, extract_rows};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // =============================================
 // Index DB (native binding)
@@ -17,6 +17,11 @@ pub struct WorkspaceMetaRow {
     pub d1_database_id: String,
     pub name: Option<String>,
     pub plan: String,
+}
+
+pub async fn lookup_workspace_by_slug(index_db: &D1Database, slug: &str) -> Result<Option<WorkspaceMetaRow>> {
+    index_db.prepare("SELECT slug, d1_database_id, name, plan FROM workspaces_meta WHERE slug = ?1")
+        .bind(&[slug.into()])?.first::<WorkspaceMetaRow>(None).await
 }
 
 pub async fn lookup_workspace(index_db: &D1Database, platform: &str, channel_id: &str) -> Result<Option<WorkspaceMetaRow>> {
@@ -213,6 +218,60 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    // --- Notes (extended) ---
+
+    pub async fn get_note_by_id(&self, note_id: &str) -> Result<Option<NoteRow>> {
+        let resp = self.q("SELECT id, title, content, COALESCE(pinned, 0) as pinned, source, created_by, created_at, updated_at FROM notes WHERE id = ?1", vec![note_id.into()]).await?;
+        extract_first(&resp)
+    }
+
+    pub async fn update_note(&self, note_id: &str, title: &str, content: &str, _editor_id: &str) -> Result<()> {
+        self.q("UPDATE notes SET title = NULLIF(?1,''), content = ?2, updated_at = datetime('now') WHERE id = ?3",
+            vec![title.into(), content.into(), note_id.into()]).await?;
+        Ok(())
+    }
+
+    pub async fn delete_note(&self, note_id: &str) -> Result<()> {
+        self.q("DELETE FROM notes WHERE id = ?1", vec![note_id.into()]).await?;
+        Ok(())
+    }
+
+    // --- Todos (extended) ---
+
+    pub async fn update_todo(&self, todo_id: &str, title: Option<&str>, status: Option<&str>, priority: Option<i32>, assigned_to: Option<&str>, assigned_name: Option<&str>) -> Result<()> {
+        // Build dynamic update — use COALESCE to keep existing values when None passed as empty string sentinel
+        let title_val = title.unwrap_or("");
+        let status_val = status.unwrap_or("");
+        let priority_val = priority.unwrap_or(-1);
+        let assigned_to_val = assigned_to.unwrap_or("");
+        let assigned_name_val = assigned_name.unwrap_or("");
+        self.q(
+            "UPDATE todos SET \
+             title = CASE WHEN ?2 != '' THEN ?2 ELSE title END, \
+             status = CASE WHEN ?3 != '' THEN ?3 ELSE status END, \
+             priority = CASE WHEN ?4 >= 0 THEN ?4 ELSE priority END, \
+             assigned_to = CASE WHEN ?5 != '' THEN NULLIF(?5,'') ELSE assigned_to END, \
+             assigned_name = CASE WHEN ?6 != '' THEN NULLIF(?6,'') ELSE assigned_name END, \
+             updated_at = datetime('now') WHERE id = ?1",
+            vec![todo_id.into(), title_val.into(), status_val.into(), priority_val.into(), assigned_to_val.into(), assigned_name_val.into()],
+        ).await?;
+        Ok(())
+    }
+
+    // --- Activity log (extended) ---
+
+    pub async fn get_activity_log(&self, limit: i64) -> Result<Vec<ActivityRow>> {
+        let resp = self.q("SELECT id, actor, action, target_type, target_id, source, created_at FROM activity_log ORDER BY created_at DESC LIMIT ?1", vec![limit.into()]).await?;
+        extract_rows(&resp)
+    }
+
+    // --- Members (read) ---
+
+    pub async fn get_members(&self) -> Result<Vec<MemberRow>> {
+        let resp = self.q("SELECT id, platform_user_id, display_name, role FROM members ORDER BY role ASC, display_name ASC", vec![]).await?;
+        extract_rows(&resp)
+    }
+
     // --- Status counts ---
 
     pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
@@ -239,4 +298,35 @@ pub struct TodoRow {
     pub seq_num: i64,
     pub title: String,
     pub status: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct NoteRow {
+    pub id: String,
+    pub title: Option<String>,
+    pub content: String,
+    pub pinned: i32,
+    pub source: String,
+    pub created_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct ActivityRow {
+    pub id: String,
+    pub actor: Option<String>,
+    pub action: String,
+    pub target_type: Option<String>,
+    pub target_id: Option<String>,
+    pub source: String,
+    pub created_at: String,
+}
+
+#[derive(Deserialize, Debug, Serialize)]
+pub struct MemberRow {
+    pub id: String,
+    pub platform_user_id: String,
+    pub display_name: Option<String>,
+    pub role: String,
 }
