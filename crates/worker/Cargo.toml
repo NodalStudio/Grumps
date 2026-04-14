@@ -7,8 +7,7 @@ edition = "2021"
 grumps-core = { path = "../core" }
 grumps-nlu = { path = "../nlu" }
 grumps-messaging = { path = "../messaging" }
-worker = { version = "0.4", features = ["d1"] }
-worker-macros = "0.4"
+worker = { version = "0.8", features = ["d1"] }
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true

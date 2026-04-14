@@ -18,7 +18,7 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
     }
 }
 
-#[event(fetch, respond_with_errors)]
+#[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     // Handle CORS preflight for all paths
     if req.method() == Method::Options {

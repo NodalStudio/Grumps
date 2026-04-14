@@ -1,23 +1,23 @@
 name = "grumps-api"
-main = "build/worker/shim.mjs"
+main = "crates/worker/build/worker/shim.mjs"
 compatibility_date = "2024-12-01"
 
 [build]
-command = "cargo install -q worker-build && worker-build --release"
+command = "cargo install -q worker-build && cd crates/worker && worker-build --release"
 
 [vars]
 ENVIRONMENT = "development"
-WA_PHONE_NUMBER_ID = ""
-WA_VERIFY_TOKEN = ""
+WA_PHONE_NUMBER_ID = "1007990222407676"
+WA_VERIFY_TOKEN = "grumps_verify_2026"
 
 [[d1_databases]]
 binding = "INDEX_DB"
 database_name = "grumps-index"
-database_id = ""
+database_id = "332f7bf9-c782-43ed-a13e-4664eacf3f38"
 
 [[kv_namespaces]]
 binding = "KV"
-id = ""
+id = "877b7876c7c54c97b47eeb7f0e2a00e6"
 
 [triggers]
 crons = ["*/5 * * * *"]
