@@ -12,6 +12,16 @@ impl TelegramAdapter {
     pub fn new(bot_token: String, bot_username: String, webhook_secret: String) -> Self {
         Self { bot_token, bot_username, webhook_secret }
     }
+
+    /// Build request to set group description via Telegram Bot API.
+    pub fn build_set_description_request(&self, chat_id: &str, description: &str) -> Result<(String, String), MessagingError> {
+        let url = format!("https://api.telegram.org/bot{}/setChatDescription", self.bot_token);
+        let body = serde_json::json!({
+            "chat_id": chat_id,
+            "description": description
+        });
+        Ok((url, body.to_string()))
+    }
 }
 
 impl MessagingPlatform for TelegramAdapter {
@@ -117,6 +127,20 @@ impl MessagingPlatform for TelegramAdapter {
 pub struct TgUpdate {
     pub update_id: i64,
     pub message: Option<TgMessage>,
+    pub my_chat_member: Option<TgChatMemberUpdated>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TgChatMemberUpdated {
+    pub chat: TgChat,
+    pub from: TgUser,
+    pub new_chat_member: TgChatMember,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TgChatMember {
+    pub status: String, // "member", "administrator", "left", "kicked"
+    pub user: TgUser,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,6 +267,36 @@ mod tests {
         assert!(url.contains("123:ABC"));
         assert!(body.contains("-100123"));
         assert!(body.contains("Hello"));
+    }
+
+    #[test]
+    fn parse_bot_added_event() {
+        let payload = serde_json::json!({
+            "update_id": 10,
+            "my_chat_member": {
+                "chat": {"id": -100999, "type": "group", "title": "Test Group"},
+                "from": {"id": 123, "first_name": "Alice", "is_bot": false},
+                "new_chat_member": {
+                    "status": "member",
+                    "user": {"id": 888, "first_name": "Grumps", "is_bot": true}
+                }
+            }
+        });
+        let update: TgUpdate = serde_json::from_value(payload).unwrap();
+        assert!(update.my_chat_member.is_some());
+        assert!(update.message.is_none());
+        let member = update.my_chat_member.unwrap();
+        assert_eq!(member.new_chat_member.status, "member");
+        assert_eq!(member.chat.id, -100999);
+        assert_eq!(member.chat.title, Some("Test Group".into()));
+    }
+
+    #[test]
+    fn build_set_description() {
+        let (url, body) = adapter().build_set_description_request("-100999", "Grumps workspace").unwrap();
+        assert!(url.contains("setChatDescription"));
+        assert!(body.contains("-100999"));
+        assert!(body.contains("Grumps workspace"));
     }
 
     #[test]

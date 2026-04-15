@@ -15,6 +15,23 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     }
 
+    // Check for bot-added-to-group event
+    let raw: serde_json::Value = serde_json::from_slice(&body)
+        .map_err(|e| Error::RustError(e.to_string()))?;
+
+    if let Some(member_update) = raw.get("my_chat_member") {
+        let new_status = member_update.pointer("/new_chat_member/status")
+            .and_then(|v| v.as_str()).unwrap_or("");
+        let chat_id = member_update.pointer("/chat/id")
+            .and_then(|v| v.as_i64()).map(|id| id.to_string()).unwrap_or_default();
+        let chat_title = member_update.pointer("/chat/title")
+            .and_then(|v| v.as_str()).unwrap_or("Group");
+
+        if new_status == "member" || new_status == "administrator" {
+            return handle_bot_added(&ctx, &tg, &chat_id, chat_title).await;
+        }
+    }
+
     let inbound = match tg.parse_webhook(&body) {
         Ok(Some(m)) => m,
         _ => return Response::ok("ok"),
@@ -81,6 +98,62 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                 let _ = ws_db.track_bot_message(&msg_id.to_string(), None).await;
             }
         }
+    }
+
+    Response::ok("ok")
+}
+
+async fn handle_bot_added(
+    ctx: &RouteContext<()>,
+    tg: &TelegramAdapter,
+    chat_id: &str,
+    chat_title: &str,
+) -> Result<Response> {
+    let index_db = db::get_index_db(&ctx.env)?;
+    let d1_client = D1RestClient::from_env(&ctx.env)?;
+
+    // Provision workspace
+    let (slug, _db_id) = provisioning::provision_workspace(
+        &d1_client, &index_db, "telegram", chat_id,
+    ).await?;
+
+    // Set group description (may fail if bot isn't admin — that's ok)
+    let description = format!("Grumps workspace: grumps.io/w/{}\nGets it done. No small talk.", slug);
+    let (desc_url, desc_body) = tg.build_set_description_request(chat_id, &description)
+        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+    {
+        let mut headers = Headers::new();
+        headers.set("Content-Type", "application/json")?;
+        let mut init = RequestInit::new();
+        init.with_method(Method::Post).with_headers(headers).with_body(Some(desc_body.into()));
+        let req = Request::new_with_init(&desc_url, &init)?;
+        let _ = Fetch::Request(req).send().await;
+    }
+
+    // Send welcome message
+    let welcome = format!(
+        "📋 *Grumps* is here.\n\n\
+        Your workspace: grumps.io/w/{}\n\n\
+        Quick start:\n\
+        • `TODO:` + list to add tasks\n\
+        • `DONE:` + list to complete them\n\
+        • `NOTE:` to pin info\n\
+        • `@{} help` for all commands\n\n\
+        Gets it done. No small talk.",
+        slug, tg.bot_username
+    );
+    let _ = chat_title; // available if needed for future use
+
+    let msg = grumps_messaging::adapter::OutboundMessage { text: welcome, reply_to: None };
+    let (url, body) = tg.build_send_request(chat_id, &msg)
+        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+    {
+        let mut headers = Headers::new();
+        headers.set("Content-Type", "application/json")?;
+        let mut init = RequestInit::new();
+        init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
+        let req = Request::new_with_init(&url, &init)?;
+        let _ = Fetch::Request(req).send().await;
     }
 
     Response::ok("ok")
