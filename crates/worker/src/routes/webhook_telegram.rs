@@ -72,7 +72,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // RAG ingest (best-effort, non-blocking on failure)
     {
-        let meta = crate::rag::ChatVectorMetadata {
+        let meta = grumps_agent::tools::rag_pipeline::ChatVectorMetadata {
             workspace_slug: workspace.slug.to_string(),
             platform: "telegram".into(),
             sender_member_id: member_id.to_string(),
@@ -80,7 +80,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             text: text.to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
         };
-        if let Err(e) = crate::rag::ingest_message(&ctx.env, &meta).await {
+        if let Err(e) = grumps_agent::tools::rag_pipeline::ingest_message(&ctx.env, &meta).await {
             worker::console_log!("RAG ingest error (telegram): {e}");
         }
     }

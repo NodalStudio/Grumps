@@ -10,7 +10,8 @@ mod handler;
 mod middleware;
 mod provisioning;
 mod llm_client;
-mod rag;
+// rag module moved to grumps_agent::tools::rag_pipeline
+mod agent_db_impl;
 mod messaging_dispatch;
 mod routes;
 mod scheduler_executor;
