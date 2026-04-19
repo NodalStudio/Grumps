@@ -92,6 +92,24 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     }
 
+    // Auto-extract (opt-in)
+    let auto_memory_on = ws_db.get_setting("auto_memory").await.ok().flatten().as_deref() == Some("true");
+    if auto_memory_on {
+        let _ = grumps_agent::auto_extract::process_message(&ctx.env, &ws_db, text, &member_id).await;
+    }
+
+    // Proactive mode (opt-in) — only if NOT already going to be handled by @mention
+    let proactive_on = ws_db.get_setting("proactive_mode").await.ok().flatten().as_deref() == Some("true");
+    let lower = text.to_lowercase();
+    let has_mention = lower.contains("@grumps");
+    if proactive_on && !has_mention {
+        let sink = crate::agent_sink::WorkerMessagingSink {
+            env: &ctx.env,
+            ws_slug: workspace.slug.clone(),
+        };
+        let _ = grumps_agent::proactive::maybe_intervene(&ctx.env, &ws_db, &sink, &workspace.slug, &member_id, text).await;
+    }
+
     let parse_result = parser::parse(
         text,
         inbound.is_mention_to_bot,

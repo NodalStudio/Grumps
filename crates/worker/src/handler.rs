@@ -8,6 +8,7 @@ use grumps_nlu::llm::{NluIntent, NluResponse};
 use crate::db::WorkspaceDb;
 use crate::llm_client::LlmClient;
 use worker::Env;
+use grumps_agent::db::AgentDb as _;
 
 pub struct HandlerResult {
     pub messages: Vec<OutboundMessage>,
@@ -316,6 +317,11 @@ async fn try_route_via_agent(
         return Ok(None);
     }
 
+    // Fast-path: silence / unsilence / explicit memory commands
+    if let Some(result) = try_fast_commands(env, ws_db, ws_slug, member_id, &lower, text).await? {
+        return Ok(Some(result));
+    }
+
     // Skip if it's a structured command already handled by the fast-path.
     let trimmed_upper = text.trim_start().to_uppercase();
     if trimmed_upper.starts_with("TODO:")
@@ -362,6 +368,73 @@ async fn try_route_via_agent(
             )))
         }
     }
+}
+
+/// Fast-path for silence/unsilence/explicit-memory commands addressed to @grumps.
+/// `lower` is the lowercased version of the full text; `text` is the original.
+async fn try_fast_commands(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    member_id: &str,
+    lower: &str,
+    text: &str,
+) -> worker::Result<Option<HandlerResult>> {
+    let kv = match env.kv("KV") {
+        Ok(k) => k,
+        Err(_) => return Ok(None),
+    };
+
+    // Silence: @grumps tais-toi | @grumps quiet
+    if lower.contains("@grumps tais-toi") || lower.contains("@grumps quiet") {
+        let silence_key = format!("proactive:{ws_slug}:silence_until");
+        let _ = kv.put(&silence_key, "1").map(|p| p.expiration_ttl(86400).execute());
+        return Ok(Some(HandlerResult::one("🤫 Silence pour 24h".into(), None)));
+    }
+
+    // Unsilence: @grumps reviens | @grumps unquiet
+    if lower.contains("@grumps reviens") || lower.contains("@grumps unquiet") {
+        let silence_key = format!("proactive:{ws_slug}:silence_until");
+        let _ = kv.delete(&silence_key).await;
+        return Ok(Some(HandlerResult::one("👋 De retour".into(), None)));
+    }
+
+    // Explicit memory: @grumps souviens-toi que ... / souviens-toi de ...
+    let memory_trigger = if lower.contains("@grumps souviens-toi que ") {
+        lower.find("@grumps souviens-toi que ").map(|i| i + "@grumps souviens-toi que ".len())
+    } else if lower.contains("@grumps souviens-toi de ") {
+        lower.find("@grumps souviens-toi de ").map(|i| i + "@grumps souviens-toi de ".len())
+    } else {
+        None
+    };
+
+    if let Some(start) = memory_trigger {
+        // Extract the content from the original text (preserving case), same start offset
+        let content = text[start..].trim().to_string();
+        if !content.is_empty() {
+            let entry = grumps_memory::NewMemoryEntry {
+                key: None,
+                value: content.clone(),
+                kind: grumps_memory::MemoryKind::Other,
+                related_member: None,
+                tags: vec![],
+                source: grumps_memory::MemorySource::ChatExplicit,
+                confidence: Some(1.0),
+                pinned: Some(false),
+                expires_at: None,
+                created_by: Some(member_id.to_string()),
+            };
+            match ws_db.create_memory(&entry).await {
+                Ok(_) => return Ok(Some(HandlerResult::one("💾 Noté !".into(), None))),
+                Err(e) => {
+                    worker::console_log!("fast-path create_memory failed: {e}");
+                    return Ok(Some(HandlerResult::one("Impossible de sauvegarder. Réessaie ?".into(), None)));
+                }
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 async fn handle_llm_result(
