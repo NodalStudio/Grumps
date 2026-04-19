@@ -4,6 +4,27 @@ use crate::d1_rest::{D1RestClient, D1Response, extract_first, extract_rows};
 use serde::{Deserialize, Serialize};
 use grumps_memory::{MemoryEntry, MemoryKind, MemorySource, NewMemoryEntry};
 
+/// Serialize a serde-derived enum to its string variant for SQL storage.
+/// Returns `fallback` if serialization yields a non-string value (shouldn't happen for unit enums).
+fn enum_to_db_str<T: serde::Serialize>(value: &T, fallback: &str) -> String {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|v| v.as_str().map(String::from))
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+/// Parse a string from DB into a serde-derived enum.
+/// Logs and returns `fallback` if the string is not a known variant.
+fn db_str_to_enum<T: serde::de::DeserializeOwned>(s: &str, fallback: T, context: &str) -> T {
+    match serde_json::from_value(serde_json::Value::String(s.to_string())) {
+        Ok(v) => v,
+        Err(_) => {
+            worker::console_log!("db_str_to_enum: invalid value '{s}' in {context}, defaulting");
+            fallback
+        }
+    }
+}
+
 // =============================================
 // Index DB (native binding)
 // =============================================
@@ -557,10 +578,8 @@ pub struct MemoryRow {
 impl<'a> WorkspaceDb<'a> {
     pub async fn create_memory(&self, entry: &NewMemoryEntry) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
-        let kind = serde_json::to_value(&entry.kind).unwrap()
-            .as_str().unwrap_or("other").to_string();
-        let source = serde_json::to_value(&entry.source).unwrap()
-            .as_str().unwrap_or("web").to_string();
+        let kind = enum_to_db_str(&entry.kind, "other");
+        let source = enum_to_db_str(&entry.source, "web");
         let tags_json = serde_json::to_string(&entry.tags).unwrap_or_else(|_| "[]".into());
         let pinned = if entry.pinned.unwrap_or(false) { 1 } else { 0 };
         let confidence = entry.confidence.unwrap_or(1.0);
@@ -647,6 +666,9 @@ impl<'a> WorkspaceDb<'a> {
             sets.push(format!("pinned = ?{}", params.len()));
         }
         if let Some(e) = expires_at {
+            if chrono::DateTime::parse_from_rfc3339(e).is_err() {
+                return Err(worker::Error::RustError("invalid expires_at format, expected RFC3339".into()));
+            }
             params.push(e.into());
             sets.push(format!("expires_at = ?{}", params.len()));
         }
@@ -714,8 +736,7 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn create_event(&self, e: &NewEvent) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let attendees_json = serde_json::to_string(&e.attendees).unwrap_or_else(|_| "[]".into());
-        let source = serde_json::to_value(&e.source).unwrap()
-            .as_str().unwrap_or("web").to_string();
+        let source = enum_to_db_str(&e.source, "web");
         let color = e.color.clone().unwrap_or_else(|| "teal".into());
         let ends_at: serde_json::Value = e.ends_at
             .map(|d| serde_json::Value::String(d.to_rfc3339()))
@@ -767,8 +788,18 @@ impl<'a> WorkspaceDb<'a> {
         let mut sets = vec!["updated_at = datetime('now')".to_string()];
         let mut params: Vec<serde_json::Value> = vec![];
         if let Some(v) = title { params.push(v.into()); sets.push(format!("title = ?{}", params.len())); }
-        if let Some(v) = starts_at { params.push(v.into()); sets.push(format!("starts_at = ?{}", params.len())); }
-        if let Some(v) = ends_at { params.push(v.into()); sets.push(format!("ends_at = ?{}", params.len())); }
+        if let Some(v) = starts_at {
+            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
+                return Err(worker::Error::RustError("invalid starts_at format, expected RFC3339".into()));
+            }
+            params.push(v.into()); sets.push(format!("starts_at = ?{}", params.len()));
+        }
+        if let Some(v) = ends_at {
+            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
+                return Err(worker::Error::RustError("invalid ends_at format, expected RFC3339".into()));
+            }
+            params.push(v.into()); sets.push(format!("ends_at = ?{}", params.len()));
+        }
         if let Some(v) = location { params.push(v.into()); sets.push(format!("location = ?{}", params.len())); }
         if sets.len() == 1 { return Ok(false); }
         params.push(id.into());
@@ -801,8 +832,7 @@ fn event_row_to_event(r: EventRow) -> Event {
         recurrence: r.recurrence,
         attendees: serde_json::from_str(&r.attendees).unwrap_or_default(),
         color: r.color,
-        source: serde_json::from_value(serde_json::Value::String(r.source.clone()))
-            .unwrap_or(EventSource::Web),
+        source: db_str_to_enum(&r.source, EventSource::Web, "events.source"),
         related_todo_id: r.related_todo_id,
         created_by: r.created_by,
         created_at: parse_dt(&r.created_at),
@@ -835,8 +865,7 @@ pub struct ScheduledActionRow {
 impl<'a> WorkspaceDb<'a> {
     pub async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
-        let action_type = serde_json::to_value(&a.action_type).unwrap()
-            .as_str().unwrap_or("reminder").to_string();
+        let action_type = enum_to_db_str(&a.action_type, "reminder");
         let condition_json: serde_json::Value = a.condition.clone().unwrap_or(serde_json::Value::Null);
         let payload_str = serde_json::to_string(&a.payload).unwrap_or_else(|_| "{}".into());
         let target = a.target_chat.clone().unwrap_or_else(|| "group".into());
@@ -957,16 +986,14 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
     };
     ScheduledAction {
         id: r.id,
-        action_type: serde_json::from_value(serde_json::Value::String(r.action_type.clone()))
-            .unwrap_or(ActionType::Reminder),
+        action_type: db_str_to_enum(&r.action_type, ActionType::Reminder, "scheduled_actions.action_type"),
         title: r.title,
         trigger_at: parse_dt(&r.trigger_at),
         recurrence: r.recurrence,
         condition: r.condition.as_deref().and_then(|s| serde_json::from_str(s).ok()),
         payload: serde_json::from_str(&r.payload).unwrap_or(serde_json::Value::Null),
         target_chat: r.target_chat,
-        status: serde_json::from_value(serde_json::Value::String(r.status.clone()))
-            .unwrap_or(ActionStatus::Pending),
+        status: db_str_to_enum(&r.status, ActionStatus::Pending, "scheduled_actions.status"),
         last_fired_at: r.last_fired_at.as_deref().map(parse_dt),
         last_error: r.last_error,
         fire_count: r.fire_count,
@@ -1053,12 +1080,10 @@ fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
         id: r.id,
         key: r.key,
         value: r.value,
-        kind: serde_json::from_value(serde_json::Value::String(r.kind.clone()))
-            .unwrap_or(MemoryKind::Other),
+        kind: db_str_to_enum(&r.kind, MemoryKind::Other, "memory_entries.kind"),
         related_member: r.related_member,
         tags: serde_json::from_str(&r.tags).unwrap_or_default(),
-        source: serde_json::from_value(serde_json::Value::String(r.source.clone()))
-            .unwrap_or(MemorySource::Web),
+        source: db_str_to_enum(&r.source, MemorySource::Web, "memory_entries.source"),
         confidence: r.confidence,
         pinned: r.pinned != 0,
         expires_at: r.expires_at.as_deref().map(parse_dt),
