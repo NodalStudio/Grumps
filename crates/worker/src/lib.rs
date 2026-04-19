@@ -10,6 +10,7 @@ mod handler;
 mod middleware;
 mod provisioning;
 mod llm_client;
+mod rag;
 mod messaging_dispatch;
 mod routes;
 mod scheduler_executor;
