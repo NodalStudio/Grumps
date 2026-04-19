@@ -144,4 +144,18 @@ impl AgentDb for WorkspaceDb<'_> {
     async fn get_active_agent_session(&self, member_id: &str) -> Result<Option<AgentSession>> {
         self.get_active_agent_session(member_id).await
     }
+
+    async fn get_setting(&self, key: &str) -> Result<String> {
+        Ok(self.get_setting(key).await?.unwrap_or_else(|| "free".into()))
+    }
+
+    async fn get_int_setting(&self, key: &str) -> Result<i64> {
+        let val = self.get_setting(key).await?.unwrap_or_default();
+        Ok(val.parse().unwrap_or(0))
+    }
+
+    async fn increment_int_setting(&self, key: &str, delta: i64) -> Result<()> {
+        let current: i64 = self.get_setting(key).await?.unwrap_or_default().parse().unwrap_or(0);
+        self.set_setting(key, &(current + delta).to_string()).await
+    }
 }

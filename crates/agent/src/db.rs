@@ -65,6 +65,11 @@ pub trait AgentDb {
     // --- todos with deadlines (for calendar aggregation) ---
     async fn list_todos_with_deadline(&self, from: &str, to: &str) -> worker::Result<Vec<serde_json::Value>>;
 
+    // --- settings ---
+    async fn get_setting(&self, key: &str) -> worker::Result<String>;
+    async fn get_int_setting(&self, key: &str) -> worker::Result<i64>;
+    async fn increment_int_setting(&self, key: &str, delta: i64) -> worker::Result<()>;
+
     // --- agent sessions ---
     async fn upsert_agent_session(
         &self,
