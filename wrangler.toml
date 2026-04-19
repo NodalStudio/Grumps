@@ -21,7 +21,7 @@ binding = "KV"
 id = "877b7876c7c54c97b47eeb7f0e2a00e6"
 
 [triggers]
-crons = ["*/5 * * * *"]
+crons = []
 
 [ai]
 binding = "AI"
