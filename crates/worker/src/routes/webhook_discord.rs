@@ -70,6 +70,8 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let llm = crate::llm_client::LlmClient::from_env(&ctx.env).ok();
 
     let result = handler::handle_message(
+        Some(&ctx.env),
+        text,
         parse_result, &inbound.message_id,
         inbound.quoted_message_id.as_deref(), inbound.quoted_message_text.as_deref(),
         &inbound.sender_name, &ws_db, &member_id, &workspace.slug,

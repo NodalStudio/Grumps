@@ -21,14 +21,14 @@ pub trait MessagingSink {
     async fn send(&self, text: &str) -> Result<()>;
 }
 
-pub async fn route_message(
-    env: &Env,
-    ws_slug: &str,
-    member_id: &str,
-    text: &str,
+pub async fn route_message<'a>(
+    env: &'a Env,
+    ws_slug: &'a str,
+    member_id: &'a str,
+    text: &'a str,
     has_active_session: bool,
-    sink: &(dyn MessagingSink + 'static),
-    db: &(dyn AgentDb + 'static),
+    sink: &'a dyn MessagingSink,
+    db: &'a dyn AgentDb,
 ) -> Result<RouteResult> {
     let ctx = ToolContext { env, workspace_slug: ws_slug, member_id, sink, db };
 

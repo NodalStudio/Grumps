@@ -7,6 +7,7 @@ use grumps_nlu::entity;
 use grumps_nlu::llm::{NluIntent, NluResponse};
 use crate::db::WorkspaceDb;
 use crate::llm_client::LlmClient;
+use worker::Env;
 
 pub struct HandlerResult {
     pub messages: Vec<OutboundMessage>,
@@ -21,6 +22,8 @@ impl HandlerResult {
 }
 
 pub async fn handle_message(
+    env: Option<&Env>,
+    raw_text: &str,
     parse_result: ParseResult,
     inbound_message_id: &str,
     inbound_quoted_message_id: Option<&str>,
@@ -32,6 +35,13 @@ pub async fn handle_message(
     llm_client: Option<&LlmClient>,
     ws_plan: &str,
 ) -> worker::Result<HandlerResult> {
+    // Agent fast-path: route @grumps mentions through the agent before structured parsing.
+    if let Some(env) = env {
+        if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text).await? {
+            return Ok(result);
+        }
+    }
+
     let plan = crate::billing::Plan::from_str(ws_plan);
     match parse_result {
         ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
@@ -290,6 +300,68 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
     };
 
     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
+}
+
+async fn try_route_via_agent(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    member_id: &str,
+    text: &str,
+) -> worker::Result<Option<HandlerResult>> {
+    // Only route via agent if the message contains an @grumps mention.
+    let lower = text.to_lowercase();
+    let has_mention = lower.contains("@grumps") || lower.contains("@heygrumpsbot");
+    if !has_mention {
+        return Ok(None);
+    }
+
+    // Skip if it's a structured command already handled by the fast-path.
+    let trimmed_upper = text.trim_start().to_uppercase();
+    if trimmed_upper.starts_with("TODO:")
+        || trimmed_upper.starts_with("DONE:")
+        || trimmed_upper.starts_with("NOTE:")
+        || trimmed_upper.starts_with("REMIND:")
+    {
+        return Ok(None);
+    }
+
+    let sink = crate::agent_sink::WorkerMessagingSink {
+        env,
+        ws_slug: ws_slug.to_string(),
+    };
+
+    let has_session = ws_db
+        .get_active_agent_session(member_id)
+        .await
+        .ok()
+        .flatten()
+        .is_some();
+
+    let route_result = grumps_agent::router::route_message(
+        env,
+        ws_slug,
+        member_id,
+        text,
+        has_session,
+        &sink,
+        ws_db,
+    )
+    .await;
+
+    match route_result {
+        Ok(_) => {
+            // sink.send already pushed the message — return empty HandlerResult to avoid double-send.
+            Ok(Some(HandlerResult::none()))
+        }
+        Err(e) => {
+            worker::console_log!("agent route failed for ws={ws_slug}: {e}");
+            Ok(Some(HandlerResult::one(
+                "Désolé, j'ai eu un souci technique. Réessaie ?".to_string(),
+                None,
+            )))
+        }
+    }
 }
 
 async fn handle_llm_result(

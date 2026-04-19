@@ -12,6 +12,7 @@ mod provisioning;
 mod llm_client;
 // rag module moved to grumps_agent::tools::rag_pipeline
 mod agent_db_impl;
+mod agent_sink;
 mod messaging_dispatch;
 mod routes;
 mod scheduler_executor;

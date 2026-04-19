@@ -102,6 +102,8 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // 7. Handle
     let result = handler::handle_message(
+        Some(&ctx.env),
+        text,
         parse_result,
         &inbound.message_id,
         inbound.quoted_message_id.as_deref(),
