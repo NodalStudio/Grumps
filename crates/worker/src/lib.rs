@@ -4,12 +4,15 @@ mod billing;
 mod cron;
 mod d1_rest;
 mod db;
+mod durable_objects;
 mod error;
 mod handler;
 mod middleware;
 mod provisioning;
 mod llm_client;
 mod routes;
+
+pub use durable_objects::WorkspaceScheduler;
 
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
