@@ -689,6 +689,7 @@ impl<'a> WorkspaceDb<'a> {
 // =============================================
 
 use grumps_calendar::{Event, EventSource, NewEvent};
+use grumps_scheduler::{ScheduledAction, ActionType, ActionStatus, NewScheduledAction, AgentSession, SessionMessage};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct EventRow {
@@ -806,6 +807,238 @@ fn event_row_to_event(r: EventRow) -> Event {
         created_by: r.created_by,
         created_at: parse_dt(&r.created_at),
         updated_at: parse_dt(&r.updated_at),
+    }
+}
+
+// =============================================
+// ScheduledAction CRUD (see spec § 5.3 + § 7)
+// =============================================
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct ScheduledActionRow {
+    pub id: String,
+    pub action_type: String,
+    pub title: String,
+    pub trigger_at: String,
+    pub recurrence: Option<String>,
+    pub condition: Option<String>,
+    pub payload: String,
+    pub target_chat: String,
+    pub status: String,
+    pub last_fired_at: Option<String>,
+    pub last_error: Option<String>,
+    pub fire_count: i64,
+    pub created_by: Option<String>,
+    pub created_at: String,
+}
+
+impl<'a> WorkspaceDb<'a> {
+    pub async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let action_type = serde_json::to_value(&a.action_type).unwrap()
+            .as_str().unwrap_or("reminder").to_string();
+        let condition_json: serde_json::Value = a.condition.clone().unwrap_or(serde_json::Value::Null);
+        let payload_str = serde_json::to_string(&a.payload).unwrap_or_else(|_| "{}".into());
+        let target = a.target_chat.clone().unwrap_or_else(|| "group".into());
+
+        self.q(
+            "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, created_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            vec![
+                id.clone().into(),
+                action_type.into(),
+                a.title.clone().into(),
+                a.trigger_at.to_rfc3339().into(),
+                a.recurrence.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                if condition_json.is_null() { serde_json::Value::Null } else { serde_json::Value::String(condition_json.to_string()) },
+                payload_str.into(),
+                target.into(),
+                a.created_by.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            ],
+        ).await?;
+        Ok(id)
+    }
+
+    pub async fn delete_scheduled_action(&self, id: &str) -> Result<bool> {
+        let resp = self.q("DELETE FROM scheduled_actions WHERE id = ?1", vec![id.into()]).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+
+    pub async fn get_scheduled_action(&self, id: &str) -> Result<Option<ScheduledAction>> {
+        let resp = self.q(
+            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+             FROM scheduled_actions WHERE id = ?1",
+            vec![id.into()],
+        ).await?;
+        let row: Option<ScheduledActionRow> = extract_first(&resp)?;
+        Ok(row.map(scheduled_row_to_action))
+    }
+
+    pub async fn list_scheduled_actions(&self, status_filter: Option<&str>, limit: i64, offset: i64) -> Result<Vec<ScheduledAction>> {
+        let mut sql = String::from(
+            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+             FROM scheduled_actions"
+        );
+        let mut params: Vec<serde_json::Value> = vec![];
+        if let Some(s) = status_filter {
+            params.push(s.into());
+            sql.push_str(&format!(" WHERE status = ?{}", params.len()));
+        }
+        sql.push_str(" ORDER BY trigger_at ASC");
+        params.push(limit.into());
+        sql.push_str(&format!(" LIMIT ?{}", params.len()));
+        params.push(offset.into());
+        sql.push_str(&format!(" OFFSET ?{}", params.len()));
+        let resp = self.q(&sql, params).await?;
+        let rows: Vec<ScheduledActionRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(scheduled_row_to_action).collect())
+    }
+
+    pub async fn list_due_actions(&self, now_iso: &str, limit: i64) -> Result<Vec<ScheduledAction>> {
+        let resp = self.q(
+            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+             FROM scheduled_actions WHERE status = 'pending' AND trigger_at <= ?1 ORDER BY trigger_at ASC LIMIT ?2",
+            vec![now_iso.into(), limit.into()],
+        ).await?;
+        let rows: Vec<ScheduledActionRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(scheduled_row_to_action).collect())
+    }
+
+    pub async fn next_pending_trigger_at(&self) -> Result<Option<String>> {
+        #[derive(Deserialize)]
+        struct Row { trigger_at: String }
+        let resp = self.q(
+            "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY trigger_at ASC LIMIT 1",
+            vec![],
+        ).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.map(|r| r.trigger_at))
+    }
+
+    pub async fn mark_action_firing(&self, id: &str) -> Result<bool> {
+        let resp = self.q(
+            "UPDATE scheduled_actions SET status='firing' WHERE id=?1 AND status='pending'",
+            vec![id.into()],
+        ).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+
+    pub async fn mark_action_done(&self, id: &str) -> Result<()> {
+        self.q(
+            "UPDATE scheduled_actions SET status='done', last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?1",
+            vec![id.into()],
+        ).await?;
+        Ok(())
+    }
+
+    pub async fn reschedule_action(&self, id: &str, next_trigger_at: &str) -> Result<()> {
+        self.q(
+            "UPDATE scheduled_actions SET status='pending', trigger_at=?1, last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?2",
+            vec![next_trigger_at.into(), id.into()],
+        ).await?;
+        Ok(())
+    }
+
+    pub async fn mark_action_failed(&self, id: &str, error: &str) -> Result<()> {
+        self.q(
+            "UPDATE scheduled_actions SET status='failed', last_error=?1, last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?2",
+            vec![error.into(), id.into()],
+        ).await?;
+        Ok(())
+    }
+}
+
+fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
+    use chrono::{DateTime, Utc, TimeZone};
+    let parse_dt = |s: &str| -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s)
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+    };
+    ScheduledAction {
+        id: r.id,
+        action_type: serde_json::from_value(serde_json::Value::String(r.action_type.clone()))
+            .unwrap_or(ActionType::Reminder),
+        title: r.title,
+        trigger_at: parse_dt(&r.trigger_at),
+        recurrence: r.recurrence,
+        condition: r.condition.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+        payload: serde_json::from_str(&r.payload).unwrap_or(serde_json::Value::Null),
+        target_chat: r.target_chat,
+        status: serde_json::from_value(serde_json::Value::String(r.status.clone()))
+            .unwrap_or(ActionStatus::Pending),
+        last_fired_at: r.last_fired_at.as_deref().map(parse_dt),
+        last_error: r.last_error,
+        fire_count: r.fire_count,
+        created_by: r.created_by,
+        created_at: parse_dt(&r.created_at),
+    }
+}
+
+// =============================================
+// AgentSession CRUD (for Plan B — minimal here)
+// =============================================
+
+impl<'a> WorkspaceDb<'a> {
+    pub async fn upsert_agent_session(&self, member_id: &str, messages: &[SessionMessage], pending: Option<&serde_json::Value>) -> Result<String> {
+        // Look up active session for member
+        #[derive(Deserialize)]
+        struct Row { id: String }
+        let row: Option<Row> = extract_first(&self.q(
+            "SELECT id FROM agent_sessions WHERE member_id=?1 AND expires_at > datetime('now') LIMIT 1",
+            vec![member_id.into()],
+        ).await?)?;
+
+        let messages_json = serde_json::to_string(messages).unwrap_or_else(|_| "[]".into());
+        let pending_json: serde_json::Value = pending.cloned().unwrap_or(serde_json::Value::Null);
+
+        match row {
+            Some(r) => {
+                self.q(
+                    "UPDATE agent_sessions SET messages=?1, pending_action=?2, last_message_at=datetime('now'), expires_at=datetime('now', '+60 minutes') WHERE id=?3",
+                    vec![messages_json.into(), pending_json, r.id.clone().into()],
+                ).await?;
+                Ok(r.id)
+            }
+            None => {
+                let id = uuid::Uuid::new_v4().to_string();
+                self.q(
+                    "INSERT INTO agent_sessions (id, member_id, last_message_at, expires_at, messages, pending_action) \
+                     VALUES (?1, ?2, datetime('now'), datetime('now', '+60 minutes'), ?3, ?4)",
+                    vec![id.clone().into(), member_id.into(), messages_json.into(), pending_json],
+                ).await?;
+                Ok(id)
+            }
+        }
+    }
+
+    pub async fn get_active_agent_session(&self, member_id: &str) -> Result<Option<AgentSession>> {
+        #[derive(Deserialize)]
+        struct Row {
+            id: String, member_id: String, last_message_at: String, expires_at: String,
+            messages: String, pending_action: Option<String>, created_at: String,
+        }
+        let resp = self.q(
+            "SELECT id, member_id, last_message_at, expires_at, messages, pending_action, created_at FROM agent_sessions \
+             WHERE member_id=?1 AND expires_at > datetime('now') LIMIT 1",
+            vec![member_id.into()],
+        ).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.map(|r| {
+            use chrono::{DateTime, Utc, TimeZone};
+            let parse_dt = |s: &str| DateTime::parse_from_rfc3339(s)
+                .map(|d| d.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap());
+            AgentSession {
+                id: r.id,
+                member_id: r.member_id,
+                last_message_at: parse_dt(&r.last_message_at),
+                expires_at: parse_dt(&r.expires_at),
+                messages: serde_json::from_str(&r.messages).unwrap_or_default(),
+                pending_action: r.pending_action.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+                created_at: parse_dt(&r.created_at),
+            }
+        }))
     }
 }
 
