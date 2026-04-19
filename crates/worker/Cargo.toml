@@ -18,5 +18,8 @@ uuid.workspace = true
 thiserror.workspace = true
 jsonwebtoken = { version = "9", default-features = false }
 
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+
 [lib]
 crate-type = ["cdylib"]
