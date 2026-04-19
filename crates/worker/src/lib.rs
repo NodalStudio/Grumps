@@ -71,6 +71,11 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/w/:slug/events/:id", routes::events::get)
         .put_async("/api/w/:slug/events/:id", routes::events::update)
         .delete_async("/api/w/:slug/events/:id", routes::events::delete)
+        // Scheduled actions
+        .get_async("/api/w/:slug/scheduled", routes::scheduled::list)
+        .post_async("/api/w/:slug/scheduled", routes::scheduled::create)
+        .get_async("/api/w/:slug/scheduled/:id", routes::scheduled::get)
+        .delete_async("/api/w/:slug/scheduled/:id", routes::scheduled::delete)
         // Export
         .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
         .get_async("/api/w/:slug/export/notes", routes::export::export_notes)
