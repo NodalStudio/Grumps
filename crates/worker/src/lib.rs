@@ -79,6 +79,11 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/api/w/:slug/scheduled", routes::scheduled::create)
         .get_async("/api/w/:slug/scheduled/:id", routes::scheduled::get)
         .delete_async("/api/w/:slug/scheduled/:id", routes::scheduled::delete)
+        // Calendar aggregation + iCal
+        .get_async("/api/w/:slug/calendar", routes::calendar::aggregated)
+        .post_async("/api/w/:slug/calendar/ical-token", routes::calendar::create_ical_token)
+        .delete_async("/api/w/:slug/calendar/ical-token", routes::calendar::delete_ical_token)
+        .get_async("/cal/:slug", routes::calendar::ical_feed)
         // Export
         .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
         .get_async("/api/w/:slug/export/notes", routes::export::export_notes)
