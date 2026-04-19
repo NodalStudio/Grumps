@@ -9,6 +9,7 @@ command = "cargo install -q worker-build && cd crates/worker && worker-build --r
 ENVIRONMENT = "development"
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WA_VERIFY_TOKEN = "grumps_verify_2026"
+WEB_SEARCH_PROVIDER = "brave"
 
 [[d1_databases]]
 binding = "INDEX_DB"
@@ -21,3 +22,18 @@ id = "877b7876c7c54c97b47eeb7f0e2a00e6"
 
 [triggers]
 crons = ["*/5 * * * *"]
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "CHAT_RAG"
+index_name = "grumps-chat-rag"
+
+[[durable_objects.bindings]]
+name = "WS_SCHEDULER"
+class_name = "WorkspaceScheduler"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["WorkspaceScheduler"]
