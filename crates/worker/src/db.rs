@@ -684,6 +684,131 @@ impl<'a> WorkspaceDb<'a> {
     }
 }
 
+// =============================================
+// Events CRUD (see spec § 5.2 + § 9.2)
+// =============================================
+
+use grumps_calendar::{Event, EventSource, NewEvent};
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct EventRow {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+    pub all_day: i64,
+    pub location: Option<String>,
+    pub recurrence: Option<String>,
+    pub attendees: String,
+    pub color: String,
+    pub source: String,
+    pub related_todo_id: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'a> WorkspaceDb<'a> {
+    pub async fn create_event(&self, e: &NewEvent) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let attendees_json = serde_json::to_string(&e.attendees).unwrap_or_else(|_| "[]".into());
+        let source = serde_json::to_value(&e.source).unwrap()
+            .as_str().unwrap_or("web").to_string();
+        let color = e.color.clone().unwrap_or_else(|| "teal".into());
+        let ends_at: serde_json::Value = e.ends_at
+            .map(|d| serde_json::Value::String(d.to_rfc3339()))
+            .unwrap_or(serde_json::Value::Null);
+
+        self.q(
+            "INSERT INTO events (id, title, description, starts_at, ends_at, all_day, location, recurrence, attendees, color, source, related_todo_id, created_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            vec![
+                id.clone().into(),
+                e.title.clone().into(),
+                e.description.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                e.starts_at.to_rfc3339().into(),
+                ends_at,
+                (if e.all_day { 1 } else { 0 }).into(),
+                e.location.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                e.recurrence.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                attendees_json.into(),
+                color.into(),
+                source.into(),
+                e.related_todo_id.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                e.created_by.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            ],
+        ).await?;
+        Ok(id)
+    }
+
+    pub async fn get_event(&self, id: &str) -> Result<Option<Event>> {
+        let resp = self.q(
+            "SELECT id, title, description, starts_at, ends_at, all_day, location, recurrence, attendees, color, source, related_todo_id, created_by, created_at, updated_at \
+             FROM events WHERE id = ?1",
+            vec![id.into()],
+        ).await?;
+        let row: Option<EventRow> = extract_first(&resp)?;
+        Ok(row.map(event_row_to_event))
+    }
+
+    pub async fn list_events_in_range(&self, from: &str, to: &str) -> Result<Vec<Event>> {
+        let resp = self.q(
+            "SELECT id, title, description, starts_at, ends_at, all_day, location, recurrence, attendees, color, source, related_todo_id, created_by, created_at, updated_at \
+             FROM events WHERE starts_at >= ?1 AND starts_at <= ?2 ORDER BY starts_at ASC",
+            vec![from.into(), to.into()],
+        ).await?;
+        let rows: Vec<EventRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(event_row_to_event).collect())
+    }
+
+    pub async fn update_event(&self, id: &str, title: Option<&str>, starts_at: Option<&str>, ends_at: Option<&str>, location: Option<&str>) -> Result<bool> {
+        let mut sets = vec!["updated_at = datetime('now')".to_string()];
+        let mut params: Vec<serde_json::Value> = vec![];
+        if let Some(v) = title { params.push(v.into()); sets.push(format!("title = ?{}", params.len())); }
+        if let Some(v) = starts_at { params.push(v.into()); sets.push(format!("starts_at = ?{}", params.len())); }
+        if let Some(v) = ends_at { params.push(v.into()); sets.push(format!("ends_at = ?{}", params.len())); }
+        if let Some(v) = location { params.push(v.into()); sets.push(format!("location = ?{}", params.len())); }
+        if sets.len() == 1 { return Ok(false); }
+        params.push(id.into());
+        let sql = format!("UPDATE events SET {} WHERE id = ?{}", sets.join(", "), params.len());
+        let resp = self.q(&sql, params).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+
+    pub async fn delete_event(&self, id: &str) -> Result<bool> {
+        let resp = self.q("DELETE FROM events WHERE id = ?1", vec![id.into()]).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+}
+
+fn event_row_to_event(r: EventRow) -> Event {
+    use chrono::{DateTime, Utc, TimeZone};
+    let parse_dt = |s: &str| -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s)
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+    };
+    Event {
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        starts_at: parse_dt(&r.starts_at),
+        ends_at: r.ends_at.as_deref().map(parse_dt),
+        all_day: r.all_day != 0,
+        location: r.location,
+        recurrence: r.recurrence,
+        attendees: serde_json::from_str(&r.attendees).unwrap_or_default(),
+        color: r.color,
+        source: serde_json::from_value(serde_json::Value::String(r.source.clone()))
+            .unwrap_or(EventSource::Web),
+        related_todo_id: r.related_todo_id,
+        created_by: r.created_by,
+        created_at: parse_dt(&r.created_at),
+        updated_at: parse_dt(&r.updated_at),
+    }
+}
+
 fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
     use chrono::{DateTime, Utc, TimeZone};
     let parse_dt = |s: &str| -> DateTime<Utc> {
