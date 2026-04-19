@@ -10,16 +10,21 @@
 
 ## Dependency Philosophy
 
-**Aucune nouvelle dépendance externe ajoutée à la prod**. Tout ce qui est nouveau utilise les crates déjà au workspace : `serde`, `serde_json`, `chrono`, `uuid`, `thiserror`, `worker = "0.8"`. Justification :
+**Principe** : éviter les crates **non maintenues** ou **niche** (faible adoption). Les crates massivement utilisées et activement maintenues (`serde`, `chrono`, `reqwest`, `thiserror`, `jsonwebtoken`, etc.) sont OK — pas de dogme anti-dépendances.
 
-- **Pas de `rrule` crate** : non maintenu depuis 1 an. RRULE est implémentée manuellement (Task 11, ~150 lignes pour les 5 cas du spec § 7.6).
-- **Pas de `serde_urlencoded`** : query params parsés manuellement via un mini-helper (~15 lignes, dans Task 18) — limité à nos besoins (3-4 params par endpoint).
-- **Pas de `jsonschema`** crate pour la validation : `serde::Deserialize` strict sur les structs de body suffit. Validation supplémentaire (member_id existe) faite à la main.
-- **Pas de crate HTTP client** côté worker : on utilise `worker::Fetch` partout.
+**Choix concrets pour Plan A** :
 
-**Seule exception : `reqwest` en `dev-dependencies` du crate worker** (Task 27), strictement pour les tests d'intégration sur target native. Jamais bundlé dans le worker production wasm.
+| Crate | Décision | Raison |
+|---|---|---|
+| `rrule` | ❌ Non | Non maintenu depuis ~1 an, support wasm32 incertain → implémentation manuelle des 5 cas du spec § 7.6 (~150 lignes Rust, ne touche que `chrono` déjà présent) |
+| `serde_urlencoded` | ❌ Non (mais OK si on le voulait) | Pas dogmatique : juste qu'un mini-helper de ~10 lignes via `worker::Url::query_pairs()` couvre nos besoins (3-4 params/endpoint) sans rien ajouter |
+| `jsonschema` | ❌ Non | `serde::Deserialize` strict sur les structs de body suffit |
+| HTTP client côté worker | `worker::Fetch` (déjà inclus) | Pas de `reqwest` côté wasm — Fetch est l'API native |
+| `reqwest` en dev-deps | ✅ Oui | Massivement utilisé, mature → tests d'intégration native (Task 27). Jamais bundlé en prod wasm. |
 
-Si tu identifies une crate qui ferait gagner > 100 lignes propres, propose-la avant de l'ajouter.
+**Toutes les autres deps** (`serde`, `serde_json`, `chrono`, `uuid`, `thiserror`, `worker = "0.8"`) sont déjà au workspace, on les réutilise.
+
+Si tu identifies une crate maintenue + populaire qui ferait gagner > 100 lignes propres dans le code à écrire, ajoute-la sans demander.
 
 **Spec sections couvertes** : 5 (data model), 6 (mémoire — CRUD + RAG, sans auto-extract), 7 (scheduling — DOs + condition + RRULE + executor sans agent_task), 9.1-9.2 (events table + endpoints, sans aggregation/iCal), 15 (migration). Plans futurs : B (agent loop + tools), C (calendrier complet + iCal), D (web search), E (auto-extract + proactif), F (SPA pages), G (deployment runbook).
 
