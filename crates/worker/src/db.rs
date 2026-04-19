@@ -413,6 +413,43 @@ impl<'a> WorkspaceDb<'a> {
         Ok(row.map(|r| r.value))
     }
 
+    /// Upsert a setting value by key.
+    pub async fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        self.q(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = ?2",
+            vec![key.into(), value.into()],
+        ).await?;
+        Ok(())
+    }
+
+    /// Delete a setting by key.
+    pub async fn delete_setting(&self, key: &str) -> Result<()> {
+        self.q("DELETE FROM settings WHERE key = ?1", vec![key.into()]).await?;
+        Ok(())
+    }
+
+    // --- Todos with deadline ---
+
+    /// Set (or clear) the deadline on a todo.
+    pub async fn set_todo_deadline(&self, todo_id: &str, deadline: &str) -> Result<()> {
+        self.q(
+            "UPDATE todos SET deadline = NULLIF(?1,''), updated_at = datetime('now') WHERE id = ?2",
+            vec![deadline.into(), todo_id.into()],
+        ).await?;
+        Ok(())
+    }
+
+    /// List todos with a deadline in [from, to] range (non-done only).
+    pub async fn list_todos_with_deadline_in_range(&self, from: &str, to: &str) -> Result<Vec<TodoBrief>> {
+        let resp = self.q(
+            "SELECT id, seq_num, title, deadline, assigned_to, priority, status \
+             FROM todos WHERE deadline IS NOT NULL AND deadline >= ?1 AND deadline <= ?2 AND status != 'done' \
+             ORDER BY deadline ASC",
+            vec![from.into(), to.into()],
+        ).await?;
+        extract_rows(&resp)
+    }
+
     // --- Recap ---
 
     /// Get data needed for a recap.
@@ -484,6 +521,17 @@ impl<'a> WorkspaceDb<'a> {
         // Files table doesn't exist yet (Phase 2), return 0
         Ok((open, done_week, notes, 0))
     }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct TodoBrief {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+    pub deadline: Option<String>,
+    pub assigned_to: Option<String>,
+    pub priority: Option<i64>,
+    pub status: String,
 }
 
 #[derive(Deserialize, Debug)]

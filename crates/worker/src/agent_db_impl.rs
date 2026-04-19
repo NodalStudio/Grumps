@@ -55,11 +55,9 @@ impl AgentDb for WorkspaceDb<'_> {
             "",
         ).await?;
 
-        // Store deadline if provided (uses the deadline column if schema supports it)
+        // Store deadline if provided.
         if let Some(dl) = deadline {
-            // Deadline column not yet in schema — log and ignore for Plan B.
-            // Plan C migration adds the deadline column.
-            worker::console_log!("create_todo: deadline={dl} for id={id} (schema migration pending)");
+            self.set_todo_deadline(&id, dl).await?;
         }
 
         Ok(id)
@@ -129,10 +127,9 @@ impl AgentDb for WorkspaceDb<'_> {
         Ok(filtered)
     }
 
-    async fn list_todos_with_deadline(&self, _from: &str, _to: &str) -> Result<Vec<serde_json::Value>> {
-        // WorkspaceDb currently has no deadline column query — stub returns empty.
-        // Plan C migration will add the deadline column and a proper query.
-        Ok(vec![])
+    async fn list_todos_with_deadline(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+        let rows = self.list_todos_with_deadline_in_range(from, to).await?;
+        Ok(rows.into_iter().map(|t| serde_json::to_value(&t).unwrap_or(serde_json::Value::Null)).collect())
     }
 
     async fn upsert_agent_session(
