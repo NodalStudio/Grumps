@@ -10,7 +10,9 @@ mod handler;
 mod middleware;
 mod provisioning;
 mod llm_client;
+mod messaging_dispatch;
 mod routes;
+mod scheduler_executor;
 
 pub use durable_objects::WorkspaceScheduler;
 
