@@ -59,6 +59,12 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/w/:slug/notes/:id", routes::notes::get_note)
         .put_async("/api/w/:slug/notes/:id", routes::notes::update_note)
         .delete_async("/api/w/:slug/notes/:id", routes::notes::delete_note)
+        // Memory
+        .get_async("/api/w/:slug/memory", routes::memory::list)
+        .post_async("/api/w/:slug/memory", routes::memory::create)
+        .get_async("/api/w/:slug/memory/:id", routes::memory::get)
+        .put_async("/api/w/:slug/memory/:id", routes::memory::update)
+        .delete_async("/api/w/:slug/memory/:id", routes::memory::delete)
         // Export
         .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
         .get_async("/api/w/:slug/export/notes", routes::export::export_notes)
