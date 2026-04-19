@@ -70,6 +70,21 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         None => false,
     };
 
+    // RAG ingest (best-effort, non-blocking on failure)
+    {
+        let meta = crate::rag::ChatVectorMetadata {
+            workspace_slug: workspace.slug.to_string(),
+            platform: "telegram".into(),
+            sender_member_id: member_id.to_string(),
+            sender_name: inbound.sender_name.to_string(),
+            text: text.to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        };
+        if let Err(e) = crate::rag::ingest_message(&ctx.env, &meta).await {
+            worker::console_log!("RAG ingest error (telegram): {e}");
+        }
+    }
+
     let parse_result = parser::parse(&clean_text, inbound.is_mention_to_bot, inbound.is_direct_message, is_reply_to_bot, inbound.quoted_message_id.is_some());
 
     // LLM client (optional)
