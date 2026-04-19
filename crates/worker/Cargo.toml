@@ -7,6 +7,7 @@ edition = "2021"
 grumps-core = { path = "../core" }
 grumps-nlu = { path = "../nlu" }
 grumps-messaging = { path = "../messaging" }
+grumps-memory = { path = "../memory" }
 worker = { version = "0.8", features = ["d1"] }
 serde.workspace = true
 serde_json.workspace = true

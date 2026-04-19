@@ -2,6 +2,7 @@
 use worker::*;
 use crate::d1_rest::{D1RestClient, D1Response, extract_first, extract_rows};
 use serde::{Deserialize, Serialize};
+use grumps_memory::{MemoryEntry, MemoryKind, MemorySource, NewMemoryEntry};
 
 // =============================================
 // Index DB (native binding)
@@ -530,4 +531,181 @@ pub struct HighPrioTodo {
     pub title: String,
     pub assigned_name: Option<String>,
     pub deadline: Option<String>,
+}
+
+// =============================================
+// Memory CRUD (see spec § 6.1)
+// =============================================
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct MemoryRow {
+    pub id: String,
+    pub key: Option<String>,
+    pub value: String,
+    pub kind: String,
+    pub related_member: Option<String>,
+    pub tags: String,             // JSON array as TEXT
+    pub source: String,
+    pub confidence: f64,
+    pub pinned: i64,
+    pub expires_at: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+impl<'a> WorkspaceDb<'a> {
+    pub async fn create_memory(&self, entry: &NewMemoryEntry) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let kind = serde_json::to_value(&entry.kind).unwrap()
+            .as_str().unwrap_or("other").to_string();
+        let source = serde_json::to_value(&entry.source).unwrap()
+            .as_str().unwrap_or("web").to_string();
+        let tags_json = serde_json::to_string(&entry.tags).unwrap_or_else(|_| "[]".into());
+        let pinned = if entry.pinned.unwrap_or(false) { 1 } else { 0 };
+        let confidence = entry.confidence.unwrap_or(1.0);
+        let expires_at_json: serde_json::Value = entry.expires_at
+            .map(|d| serde_json::Value::String(d.to_rfc3339()))
+            .unwrap_or(serde_json::Value::Null);
+
+        self.q(
+            "INSERT INTO memory_entries (id, key, value, kind, related_member, tags, source, confidence, pinned, expires_at, created_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            vec![
+                id.clone().into(),
+                entry.key.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                entry.value.clone().into(),
+                kind.into(),
+                entry.related_member.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                tags_json.into(),
+                source.into(),
+                confidence.into(),
+                pinned.into(),
+                expires_at_json,
+                entry.created_by.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            ],
+        ).await?;
+        Ok(id)
+    }
+
+    pub async fn get_memory(&self, id: &str) -> Result<Option<MemoryEntry>> {
+        let resp = self.q(
+            "SELECT id, key, value, kind, related_member, tags, source, confidence, pinned, expires_at, created_by, created_at, updated_at \
+             FROM memory_entries WHERE id = ?1",
+            vec![id.into()],
+        ).await?;
+        let row: Option<MemoryRow> = extract_first(&resp)?;
+        Ok(row.map(memory_row_to_entry))
+    }
+
+    pub async fn list_memory(&self, kind_filter: Option<&str>, source_filter: Option<&str>, limit: i64, offset: i64) -> Result<Vec<MemoryEntry>> {
+        let mut sql = String::from(
+            "SELECT id, key, value, kind, related_member, tags, source, confidence, pinned, expires_at, created_by, created_at, updated_at \
+             FROM memory_entries WHERE (expires_at IS NULL OR expires_at > datetime('now'))"
+        );
+        let mut params: Vec<serde_json::Value> = vec![];
+        if let Some(k) = kind_filter {
+            params.push(k.into());
+            sql.push_str(&format!(" AND kind = ?{}", params.len()));
+        }
+        if let Some(s) = source_filter {
+            params.push(s.into());
+            sql.push_str(&format!(" AND source = ?{}", params.len()));
+        }
+        sql.push_str(" ORDER BY pinned DESC, updated_at DESC");
+        params.push(limit.into());
+        sql.push_str(&format!(" LIMIT ?{}", params.len()));
+        params.push(offset.into());
+        sql.push_str(&format!(" OFFSET ?{}", params.len()));
+
+        let resp = self.q(&sql, params).await?;
+        let rows: Vec<MemoryRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(memory_row_to_entry).collect())
+    }
+
+    pub async fn list_pinned_memory(&self) -> Result<Vec<MemoryEntry>> {
+        let resp = self.q(
+            "SELECT id, key, value, kind, related_member, tags, source, confidence, pinned, expires_at, created_by, created_at, updated_at \
+             FROM memory_entries WHERE pinned = 1 AND (expires_at IS NULL OR expires_at > datetime('now')) \
+             ORDER BY updated_at DESC",
+            vec![],
+        ).await?;
+        let rows: Vec<MemoryRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(memory_row_to_entry).collect())
+    }
+
+    pub async fn update_memory(&self, id: &str, value: Option<&str>, pinned: Option<bool>, expires_at: Option<&str>) -> Result<bool> {
+        // Coalesce-style update : only set non-None fields
+        let mut sets = vec!["updated_at = datetime('now')".to_string()];
+        let mut params: Vec<serde_json::Value> = vec![];
+        if let Some(v) = value {
+            params.push(v.into());
+            sets.push(format!("value = ?{}", params.len()));
+        }
+        if let Some(p) = pinned {
+            params.push((if p { 1 } else { 0 }).into());
+            sets.push(format!("pinned = ?{}", params.len()));
+        }
+        if let Some(e) = expires_at {
+            params.push(e.into());
+            sets.push(format!("expires_at = ?{}", params.len()));
+        }
+        if sets.len() == 1 { return Ok(false); }
+        params.push(id.into());
+        let sql = format!("UPDATE memory_entries SET {} WHERE id = ?{}", sets.join(", "), params.len());
+        let resp = self.q(&sql, params).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+
+    pub async fn delete_memory(&self, id: &str) -> Result<bool> {
+        let resp = self.q("DELETE FROM memory_entries WHERE id = ?1", vec![id.into()]).await?;
+        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+    }
+
+    pub async fn search_memory_fts(&self, query: &str, limit: i64) -> Result<Vec<MemoryEntry>> {
+        // FTS5 query on key + value
+        let resp = self.q(
+            "SELECT m.id, m.key, m.value, m.kind, m.related_member, m.tags, m.source, m.confidence, m.pinned, m.expires_at, m.created_by, m.created_at, m.updated_at \
+             FROM memory_entries m JOIN memory_fts f ON m.rowid = f.rowid \
+             WHERE memory_fts MATCH ?1 AND (m.expires_at IS NULL OR m.expires_at > datetime('now')) \
+             ORDER BY rank LIMIT ?2",
+            vec![query.into(), limit.into()],
+        ).await?;
+        let rows: Vec<MemoryRow> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(memory_row_to_entry).collect())
+    }
+
+    pub async fn count_memory(&self) -> Result<i64> {
+        #[derive(Deserialize)]
+        struct Row { cnt: i64 }
+        let resp = self.q("SELECT COUNT(*) as cnt FROM memory_entries", vec![]).await?;
+        let row: Option<Row> = extract_first(&resp)?;
+        Ok(row.map(|r| r.cnt).unwrap_or(0))
+    }
+}
+
+fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
+    use chrono::{DateTime, Utc, TimeZone};
+    let parse_dt = |s: &str| -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(s)
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+    };
+    MemoryEntry {
+        id: r.id,
+        key: r.key,
+        value: r.value,
+        kind: serde_json::from_value(serde_json::Value::String(r.kind.clone()))
+            .unwrap_or(MemoryKind::Other),
+        related_member: r.related_member,
+        tags: serde_json::from_str(&r.tags).unwrap_or_default(),
+        source: serde_json::from_value(serde_json::Value::String(r.source.clone()))
+            .unwrap_or(MemorySource::Web),
+        confidence: r.confidence,
+        pinned: r.pinned != 0,
+        expires_at: r.expires_at.as_deref().map(parse_dt),
+        created_by: r.created_by,
+        created_at: parse_dt(&r.created_at),
+        updated_at: parse_dt(&r.updated_at),
+    }
 }
