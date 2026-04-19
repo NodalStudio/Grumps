@@ -9,6 +9,7 @@ members = [
     "crates/memory",
     "crates/scheduler",
     "crates/calendar",
+    "crates/agent",
 ]
 
 [workspace.dependencies]
