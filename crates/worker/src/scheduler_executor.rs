@@ -22,9 +22,42 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
         ActionType::Recap => execute_recap(env, &ws, &db, action).await,
         ActionType::FollowUp | ActionType::AgentTask => {
-            // Plan B will fill these
-            console_log!("action_type {:?} not yet implemented in Plan A", action.action_type);
-            Ok(())
+            let instruction = action.payload.get("instruction")
+                .and_then(|v| v.as_str())
+                .unwrap_or_else(|| {
+                    action.payload.get("prompt")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or(&action.title)
+                })
+                .to_string();
+
+            let sink = crate::agent_sink::WorkerMessagingSink {
+                env,
+                ws_slug: ws_slug.to_string(),
+            };
+
+            let ctx = grumps_agent::tools::ToolContext {
+                env,
+                workspace_slug: ws_slug,
+                member_id: "system",
+                sink: &sink,
+                db: &db,
+            };
+
+            match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
+                Ok(result) => {
+                    console_log!(
+                        "agent_task/follow_up executed: {} turns, {} tokens",
+                        result.turns,
+                        result.total_tokens
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    console_log!("agent_task/follow_up error: {e}");
+                    Err(e)
+                }
+            }
         }
     };
 
