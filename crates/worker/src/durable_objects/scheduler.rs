@@ -52,9 +52,31 @@ impl DurableObject for WorkspaceScheduler {
     }
 
     async fn alarm(&self) -> Result<Response> {
-        // T15 skeleton : log + try to recompute next alarm (no-op execute yet — comes in T17)
-        console_log!("WorkspaceScheduler alarm fired (skeleton, no-op)");
-        self.recompute_alarm().await?;
+        let slug = self.state.id().name().unwrap_or_default();
+        if slug.is_empty() {
+            console_log!("WorkspaceScheduler.alarm: empty slug");
+            return Response::ok("noop");
+        }
+        let now = chrono::Utc::now().to_rfc3339();
+        let due = match resolve_due_actions(&self.env, &slug, &now).await {
+            Ok(v) => v,
+            Err(e) => { console_log!("alarm: resolve_due_actions error: {e}"); return Response::ok("noop"); }
+        };
+        for action in &due {
+            // Lock first
+            let locked = match resolve_lock_action(&self.env, &slug, &action.id).await {
+                Ok(b) => b, Err(e) => { console_log!("lock error: {e}"); false }
+            };
+            if !locked { continue; }                           // someone else got it
+            match crate::scheduler_executor::execute_action(&self.env, &slug, action).await {
+                Ok(()) => console_log!("executed action {}", action.id),
+                Err(e) => console_log!("execute_action error for {}: {e}", action.id),
+            }
+        }
+        // Re-arm next
+        if let Err(e) = self.recompute_alarm().await {
+            console_log!("recompute_alarm error: {e}");
+        }
         Response::ok("fired")
     }
 }
@@ -98,4 +120,26 @@ async fn resolve_next_pending(env: &Env, slug: &str) -> Result<Option<String>> {
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id);
     db.next_pending_trigger_at().await
+}
+
+async fn resolve_due_actions(env: &Env, slug: &str, now_iso: &str) -> Result<Vec<grumps_scheduler::ScheduledAction>> {
+    use crate::db::{get_index_db, lookup_workspace_by_slug, WorkspaceDb};
+    use crate::d1_rest::D1RestClient;
+    let index = get_index_db(env)?;
+    let ws = lookup_workspace_by_slug(&index, slug).await?
+        .ok_or_else(|| Error::RustError(format!("workspace not found: {slug}")))?;
+    let client = D1RestClient::from_env(env)?;
+    let db = WorkspaceDb::new(&client, ws.d1_database_id);
+    db.list_due_actions(now_iso, 50).await
+}
+
+async fn resolve_lock_action(env: &Env, slug: &str, action_id: &str) -> Result<bool> {
+    use crate::db::{get_index_db, lookup_workspace_by_slug, WorkspaceDb};
+    use crate::d1_rest::D1RestClient;
+    let index = get_index_db(env)?;
+    let ws = lookup_workspace_by_slug(&index, slug).await?
+        .ok_or_else(|| Error::RustError(format!("workspace not found: {slug}")))?;
+    let client = D1RestClient::from_env(env)?;
+    let db = WorkspaceDb::new(&client, ws.d1_database_id);
+    db.mark_action_firing(action_id).await
 }
