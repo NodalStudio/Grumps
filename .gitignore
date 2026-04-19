@@ -2,5 +2,6 @@ target/
 build/
 node_modules/
 .wrangler/
+.worktrees/
 *.png
 *.jpg
