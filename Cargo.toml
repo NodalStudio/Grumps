@@ -1,6 +1,15 @@
 [workspace]
 resolver = "2"
-members = ["crates/core", "crates/nlu", "crates/messaging", "crates/worker", "crates/spa"]
+members = [
+    "crates/core",
+    "crates/nlu",
+    "crates/messaging",
+    "crates/worker",
+    "crates/spa",
+    "crates/memory",
+    "crates/scheduler",
+    "crates/calendar",
+]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
