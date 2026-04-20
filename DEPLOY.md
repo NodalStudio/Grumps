@@ -449,6 +449,63 @@ This streams live logs from your Worker. Look for:
 
 ---
 
+## Deploying the Agent Layer (Plans A-F)
+
+After the Plan A foundation merge, deploy with this sequence:
+
+### One-shot infrastructure setup
+```bash
+# 1. Create the Vectorize index (one-shot, idempotent if you ignore "already exists")
+wrangler vectorize create grumps-chat-rag --dimensions=1024 --metric=cosine
+
+# 2. Set new secrets
+wrangler secret put BRAVE_API_KEY        # web search (optional)
+# ANTHROPIC_API_KEY and GEMINI_API_KEY should already be set
+```
+
+### Per-deploy
+```bash
+# 3. Deploy the worker (creates DO classes via wrangler.toml [[migrations]])
+wrangler deploy
+
+# 4. Migrate existing workspace databases (idempotent)
+./scripts/migrate_workspaces.sh
+
+# 5. Deploy the SPA
+cd crates/spa && trunk build --release
+wrangler pages deploy ../../dist/
+```
+
+### Post-deploy (one-shot, optional)
+```bash
+# Backfill RAG vectors for past chat messages — improves "what did we say about X" queries
+GRUMPS_ADMIN_TOKEN="..." ./scripts/rag_backfill.sh
+```
+
+### Rollback
+- Worker : `git revert` the offending commit, redeploy
+- D1 : new tables stay in place but unused, no data loss
+- DOs : alarms persist. Old code may not handle them — only revert if alarm handlers crash on the old version.
+
+## Operating notes
+
+### Quotas to monitor
+- `agent_quota_used_month` per workspace : Sonnet calls
+- `web_search_quota_used_month` per workspace : Brave calls
+- Reset on the 1st of each month via a system scheduled_action
+
+### Cost ceiling
+Hard caps per plan (Free/Pro/Business). When exceeded, agent returns honest message with upgrade link.
+
+### Logs
+- All errors logged via `console_log!` (visible in `wrangler tail`)
+- Auto-extract failures, classifier errors, DO RPC errors, web search timeouts — all logged but never propagate to user
+
+### Telegram bot setup
+The bot welcome flow already exists (commit 03363f2). Auto-provision creates the workspace + applies all 4 migrations.
+
+---
+
 ## Troubleshooting
 
 | Problem | Solution |
