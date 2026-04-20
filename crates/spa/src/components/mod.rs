@@ -1,5 +1,6 @@
 pub mod sidebar;
 pub mod header;
+pub mod lang_switcher;
 pub mod todo_card;
 pub mod todo_filters;
 pub mod kanban;

@@ -42,14 +42,14 @@ pub fn MonthView(
     today_month: u32,
     today_day: u32,
 ) -> impl IntoView {
-    let days_names = vec!["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const DAY_KEYS: [&str; 7] = ["dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun"];
 
     view! {
         <div class="flex flex-col flex-1 overflow-hidden">
             // Day headers
             <div class="grid grid-cols-7 border-b-2 border-ink">
-                {days_names.into_iter().map(|d| view! {
-                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{d}</div>
+                {DAY_KEYS.iter().copied().map(|k| view! {
+                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || crate::i18n::tr(k)}</div>
                 }).collect_view()}
             </div>
 

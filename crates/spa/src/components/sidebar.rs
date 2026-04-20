@@ -1,12 +1,19 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
+use crate::components::lang_switcher::LangSwitcher;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
-    let base = format!("/w/{}", slug);
+    // In demo mode the SPA is mounted under `/demo/` (Leptos router has
+    // `base="/demo"`). The router strips that prefix on URL matching, but
+    // `<A href>` inputs are passed verbatim — so links must include the
+    // prefix to land on the right page after a click that triggers a real
+    // navigation (middle-click, opener, etc.).
+    let prefix = if crate::demo::is_demo() { "/demo" } else { "" };
+    let base = format!("{}/w/{}", prefix, slug);
 
-    // Check super admin status once on mount
+    // Check super admin status once on mount.
     let auth = use_auth();
     let api = auth.api.clone();
     let admin_me = LocalResource::new(move || {
@@ -47,7 +54,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                         view! {
                             <div>
                                 <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
-                                <A href="/admin/observability"
+                                <A href=format!("{}/admin/observability", prefix)
                                    attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
                                    attr:style="color: var(--ink);">
                                     <span class="w-[18px] text-center text-[15px]">"🌐"</span>
@@ -71,21 +78,26 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
                 <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
-                <A href="/dashboard" attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
+                <A href=format!("{}/dashboard", prefix) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
                     <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
                     "My Workspaces"
                 </A>
             </nav>
 
             // User footer
-            <div class="px-5 py-4 flex items-center gap-2.5 border-t" style="border-color: var(--ink-15);">
+            <div class="px-5 py-3 flex items-center gap-2.5 border-t" style="border-color: var(--ink-15);">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold" style="background: var(--ink); color: var(--cream);">
                     "A"
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-semibold truncate">"User"</div>
+                    <div class="text-[13px] font-semibold truncate">"You"</div>
                     <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">"Member"</div>
                 </div>
+            </div>
+            // Lang switcher
+            <div class="px-5 py-3 border-t flex items-center justify-between gap-2" style="border-color: var(--ink-15);">
+                <span class="text-[10px] uppercase tracking-[1.5px] font-bold" style="color: var(--ink-40);">"Language"</span>
+                <LangSwitcher />
             </div>
         </aside>
     }

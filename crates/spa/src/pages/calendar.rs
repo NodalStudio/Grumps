@@ -7,12 +7,13 @@ use crate::api::CalendarItem;
 use crate::components::calendar::month::MonthView;
 use crate::components::calendar::week::WeekView;
 use crate::components::calendar::agenda::AgendaView;
+use crate::i18n::tr;
 
-fn month_name(m: u32) -> &'static str {
+fn month_key(m: u32) -> &'static str {
     match m {
-        1=>"January",2=>"February",3=>"March",4=>"April",
-        5=>"May",6=>"June",7=>"July",8=>"August",
-        9=>"September",10=>"October",11=>"November",_=>"December",
+        1=>"month.jan",2=>"month.feb",3=>"month.mar",4=>"month.apr",
+        5=>"month.may",6=>"month.jun",7=>"month.jul",8=>"month.aug",
+        9=>"month.sep",10=>"month.oct",11=>"month.nov",_=>"month.dec",
     }
 }
 
@@ -78,28 +79,30 @@ pub fn CalendarPage() -> impl IntoView {
         else { set_month.set(m + 1); }
     };
 
-    let view_tabs = vec![("month", "Month"), ("week", "Week"), ("agenda", "Agenda")];
+    let view_tabs: Vec<(&'static str, &'static str)> = vec![
+        ("month", "calendar.view.month"), ("week", "calendar.view.week"), ("agenda", "calendar.view.agenda"),
+    ];
 
     view! {
         <div class="px-8 pt-6 pb-5 border-b-2 border-ink flex items-end justify-between gap-4" style="background: var(--cream-light);">
             <div>
                 <h2 class="font-display text-2xl font-extrabold tracking-tight">
-                    {move || format!("{} {}", month_name(month.get()), year.get())}
+                    {move || format!("{} {}", tr(month_key(month.get())), year.get())}
                 </h2>
-                <p class="text-[13px] mt-0.5" style="color: var(--ink-40);">"Calendar"</p>
+                <p class="text-[13px] mt-0.5" style="color: var(--ink-40);">{move || tr("page.calendar.title")}</p>
             </div>
             // Navigation + view tabs
             <div class="flex items-center gap-2">
                 <button
                     class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
                     on:click=prev_month
-                >"< Prev"</button>
+                >"< "{move || tr("calendar.prev")}</button>
                 <button
                     class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
                     on:click=next_month
-                >"Next >"</button>
+                >{move || tr("calendar.next")}" >"</button>
                 <div class="flex border-2 border-ink rounded-sm overflow-hidden ml-2">
-                    {view_tabs.into_iter().map(|(val, label)| {
+                    {view_tabs.into_iter().map(|(val, label_key)| {
                         let val = val.to_string();
                         let val2 = val.clone();
                         let val3 = val.clone();
@@ -109,7 +112,7 @@ pub fn CalendarPage() -> impl IntoView {
                                 class:bg-ink=move || view_mode.get() == val
                                 class:text-cream=move || view_mode.get() == val2
                                 on:click=move |_| set_view_mode.set(val3.clone())
-                            >{label}</button>
+                            >{move || tr(label_key)}</button>
                         }
                     }).collect_view()}
                 </div>

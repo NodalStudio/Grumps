@@ -41,8 +41,17 @@ impl AuthState {
 }
 
 /// Provide auth context at app root. Call this in App component.
+///
+/// In demo mode (`/demo/...` or `?demo=1`) the OTP gate is skipped:
+/// the auth state is pre-populated with a sentinel token + the seed
+/// workspace so the iframe lands on content immediately.
 pub fn provide_auth() -> AuthState {
     let auth = AuthState::new();
+    if crate::demo::is_demo() {
+        auth.set_token.set(Some(crate::demo::DEMO_TOKEN.to_string()));
+        auth.set_user_id.set(Some(crate::demo::DEMO_MEMBER_ID.to_string()));
+        auth.set_workspaces.set(crate::demo::workspaces());
+    }
     provide_context(auth.clone());
     auth
 }

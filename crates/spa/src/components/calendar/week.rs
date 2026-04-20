@@ -25,15 +25,15 @@ pub fn WeekView(
     today_month: u32,
     today_day: u32,
 ) -> impl IntoView {
-    let day_names = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const DAY_KEYS: [&str; 7] = ["dow.mon","dow.tue","dow.wed","dow.thu","dow.fri","dow.sat","dow.sun"];
 
     view! {
         <div class="flex flex-col flex-1 overflow-hidden">
             // Day headers (simplified — show day names for current week)
             <div class="grid border-b-2 border-ink" style="grid-template-columns: 40px repeat(7, 1fr);">
                 <div></div>
-                {day_names.iter().map(|d| view! {
-                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{*d}</div>
+                {DAY_KEYS.iter().copied().map(|k| view! {
+                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || crate::i18n::tr(k)}</div>
                 }).collect_view()}
             </div>
 

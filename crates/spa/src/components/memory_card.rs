@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::api::MemoryItem;
+use crate::i18n::tr;
 
 fn kind_color(kind: &str) -> &'static str {
     match kind {
@@ -39,11 +40,11 @@ pub fn MemoryCard(
                     class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm flex-shrink-0 mt-0.5"
                     style:background=move || kind_color(&kind)
                     style="color: white;"
-                >{kind2.clone()}</span>
+                >{let key = format!("memory.kind.{}", kind2); move || tr(&key)}</span>
 
                 // Value text
                 <p class="flex-1 text-sm font-medium leading-snug" style="color: var(--ink);">
-                    {item.value.clone()}
+                    {let v = item.value.clone(); move || tr(&v)}
                 </p>
             </div>
 
@@ -78,7 +79,7 @@ pub fn MemoryCard(
                     class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
                     style="color: var(--ink); background: transparent;"
                     on:click=move |_| on_edit.run(item_clone_edit.clone())
-                >"Edit"</button>
+                >{move || tr("common.edit")}</button>
 
                 <button
                     class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
@@ -86,14 +87,14 @@ pub fn MemoryCard(
                     style:background=move || if pinned { "var(--teal)" } else { "transparent" }
                     style:color=move || if pinned { "white" } else { "var(--ink)" }
                 >
-                    {if pinned { "📌 Pinned" } else { "Pin" }}
+                    {move || if pinned { format!("📌 {}", tr("memory.pinned")) } else { tr("memory.action.pin") }}
                 </button>
 
                 <button
                     class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
                     style="border-color: var(--brick); color: var(--brick); background: transparent;"
                     on:click=move |_| on_delete.run(item_id_delete.clone())
-                >"Delete"</button>
+                >{move || tr("common.delete")}</button>
             </div>
         </div>
     }

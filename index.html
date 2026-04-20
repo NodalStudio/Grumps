@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grumps — Gets it done. No small talk.</title>
-<meta name="description" content="A bot for your group chat that turns conversations into a real workspace. Todos, notes, files, reminders — no app to install.">
+<title data-i18n="meta.title">Grumps — Gets it done. Remembers what matters.</title>
+<meta name="description" data-i18n-attr-content="meta.description" content="An AI agent that lives in your group chat. WhatsApp, Telegram, Discord. Remembers what your group decides. Plans, reminds, finds things. No app to install.">
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,9 +76,7 @@ a { color: var(--ink); }
   padding: 0 32px;
 }
 
-.section {
-  padding: 100px 0;
-}
+.section { padding: 100px 0; }
 
 .section-label {
   font-size: 11px;
@@ -111,9 +109,7 @@ a { color: var(--ink); }
 
 .nav {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 0; left: 0; right: 0;
   z-index: 100;
   background: var(--cream);
   border-bottom: var(--border);
@@ -145,7 +141,7 @@ a { color: var(--ink); }
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 28px;
   list-style: none;
 }
 
@@ -158,6 +154,9 @@ a { color: var(--ink); }
 }
 
 .nav-links a:hover { color: var(--ink); }
+.nav-links a.btn { color: var(--ink); }
+.nav-links a.btn-primary { color: var(--cream); }
+.nav-links a.btn-primary:hover { color: var(--cream); }
 
 .btn {
   font-family: var(--font-body);
@@ -176,38 +175,41 @@ a { color: var(--ink); }
   gap: 6px;
 }
 
-.btn:hover {
-  background: var(--ink);
-  color: var(--cream);
-}
+.btn:hover { background: var(--ink); color: var(--cream); }
 
-.btn-primary {
-  background: var(--ink);
-  color: var(--cream);
-}
+.btn-primary { background: var(--ink); color: var(--cream); }
+.btn-primary:hover { background: var(--brick); border-color: var(--brick); }
 
-.btn-primary:hover {
-  background: var(--brick);
-  border-color: var(--brick);
-}
+.btn-large { font-size: 16px; padding: 14px 28px; }
 
-.btn-large {
-  font-size: 16px;
-  padding: 14px 28px;
+/* Platform pills */
+.platform-pills {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
+.platform-pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  color: var(--ink);
+  background: var(--cream-light);
+}
+.platform-pill.wa     { border-color: #25D366; color: #075E54; }
+.platform-pill.tg     { border-color: #229ED9; color: #0E5A82; }
+.platform-pill.dc     { border-color: #5865F2; color: #2D34A8; }
 
 /* ============================================
    HERO
    ============================================ */
 
-.hero {
-  padding: 140px 0 80px;
-  position: relative;
-}
+.hero { padding: 140px 0 80px; position: relative; }
 
-.hero-content {
-  max-width: 680px;
-}
+.hero-content { max-width: 660px; }
 
 .hero-eyebrow {
   font-size: 12px;
@@ -230,11 +232,11 @@ a { color: var(--ink); }
 
 .hero h1 {
   font-family: var(--font-display);
-  font-size: 56px;
+  font-size: 60px;
   font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -1.5px;
-  margin-bottom: 24px;
+  line-height: 1.05;
+  letter-spacing: -1.7px;
+  margin-bottom: 22px;
 }
 
 .hero h1 em {
@@ -246,39 +248,39 @@ a { color: var(--ink); }
 .hero h1 em::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 4px;
-  height: 4px;
+  left: 0; right: 0; bottom: 4px;
+  height: 5px;
   background: var(--brick);
-  opacity: 0.3;
+  opacity: 0.28;
 }
 
 .hero-desc {
   font-size: 19px;
   line-height: 1.6;
   color: var(--ink-70);
-  max-width: 520px;
-  margin-bottom: 36px;
+  max-width: 540px;
+  margin-bottom: 32px;
 }
 
 .hero-actions {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .hero-note {
   font-size: 12px;
   color: var(--ink-40);
-  margin-top: 14px;
+  margin-top: 16px;
+  letter-spacing: 0.3px;
 }
 
 /* Chat mockup floating on the right */
 .hero-visual {
   position: absolute;
   right: 32px;
-  top: 160px;
+  top: 150px;
   width: 380px;
 }
 
@@ -287,7 +289,7 @@ a { color: var(--ink); }
   border: var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  transform: rotate(1deg);
+  transform: rotate(1.2deg);
   box-shadow: 8px 8px 0 var(--ink-15);
 }
 
@@ -303,8 +305,7 @@ a { color: var(--ink); }
 }
 
 .chat-header .chat-dot {
-  width: 8px;
-  height: 8px;
+  width: 8px; height: 8px;
   background: #25D366;
   border-radius: 50%;
 }
@@ -354,6 +355,85 @@ a { color: var(--ink); }
 }
 
 /* ============================================
+   "WHAT IT REMEMBERS" section
+   ============================================ */
+
+.remembers {
+  padding: 90px 0;
+  background: var(--cream-light);
+  border-top: var(--border);
+  border-bottom: var(--border);
+}
+
+.remembers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 40px;
+}
+
+.remember-card {
+  background: var(--cream);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 28px 26px;
+  position: relative;
+}
+
+.remember-card .ribbon {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-40);
+  margin-bottom: 12px;
+}
+
+.remember-card h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  letter-spacing: -0.3px;
+}
+
+.remember-card p {
+  font-size: 14.5px;
+  color: var(--ink-70);
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.remember-card .examples {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1.5px dashed var(--ink-15);
+  padding-top: 14px;
+}
+
+.remember-card .examples li {
+  font-size: 12.5px;
+  color: var(--ink-70);
+  padding-left: 16px;
+  position: relative;
+  font-style: italic;
+}
+
+.remember-card .examples li::before {
+  content: '"';
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--brick);
+  position: absolute;
+  left: 0; top: -4px;
+  font-style: normal;
+}
+
+/* ============================================
    HOW IT WORKS
    ============================================ */
 
@@ -396,7 +476,10 @@ a { color: var(--ink); }
   font-size: 14px;
   color: var(--ink-70);
   line-height: 1.55;
+  margin-bottom: 14px;
 }
+
+.how-step .platform-pills { margin-top: 8px; }
 
 /* ============================================
    FEATURES
@@ -413,13 +496,11 @@ a { color: var(--ink); }
   border: var(--border);
   border-radius: var(--radius);
   background: var(--cream-light);
-  padding: 32px;
+  padding: 30px;
   transition: all 0.1s;
 }
 
-.feature-card:hover {
-  transform: translateY(-2px);
-}
+.feature-card:hover { transform: translateY(-2px); }
 
 .feature-card.feature-large {
   grid-column: span 2;
@@ -430,16 +511,19 @@ a { color: var(--ink); }
 }
 
 .feature-icon {
-  font-size: 28px;
+  font-size: 24px;
+  font-family: var(--font-display);
+  font-weight: 800;
   margin-bottom: 16px;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: var(--border);
   border-radius: var(--radius);
   background: var(--cream);
+  color: var(--brick);
 }
 
 .feature-card h3 {
@@ -471,31 +555,110 @@ a { color: var(--ink); }
   color: var(--ink-70);
 }
 
+.feature-card.feature-accent { background: var(--ink); color: var(--cream); }
+.feature-card.feature-accent h3 { color: var(--cream); }
+.feature-card.feature-accent p { color: rgba(245, 240, 232, 0.7); }
+.feature-card.feature-accent .feature-icon { background: var(--brick); border-color: var(--cream); color: var(--cream); }
+.feature-card.feature-accent .feature-tag { color: rgba(245, 240, 232, 0.7); border-color: rgba(245, 240, 232, 0.25); }
+
+/* ============================================
+   "HOW IT TALKS BACK" — conversation snippets
+   ============================================ */
+
+.talks-back {
+  padding: 90px 0;
+  background: var(--ink);
+  color: var(--cream);
+}
+
+.talks-back .section-label { color: rgba(245, 240, 232, 0.5); }
+.talks-back .section-title { color: var(--cream); }
+.talks-back .section-subtitle { color: rgba(245, 240, 232, 0.6); }
+
+.snippets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+
+.snippet {
+  background: var(--cream-light);
+  color: var(--ink);
+  border-radius: var(--radius);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.snippet:hover { border-color: var(--brick); }
+
+.snippet-tag {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--brick);
+  margin-bottom: 4px;
+}
+
+.snippet-line {
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 9px 12px;
+  border-radius: 8px;
+  max-width: 92%;
+}
+
+.snippet-line.you {
+  background: #DCF8C6;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.snippet-line.bot {
+  background: white;
+  border: 1px solid var(--ink-15);
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+}
+
+.snippet-line .who {
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: var(--brick);
+}
+
+.snippet-line.you .who { color: #075E54; }
+
 /* ============================================
    DEMO SECTION
    ============================================ */
 
 .demo-section {
   padding: 80px 0;
-  background: var(--ink);
-  color: var(--cream);
+  background: var(--cream);
   position: relative;
+  border-top: var(--border);
+  border-bottom: var(--border);
 }
-
-.demo-section .section-label { color: var(--ink-40); }
-.demo-section .section-title { color: var(--cream); }
-.demo-section .section-subtitle { color: rgba(245, 240, 232, 0.6); }
 
 .demo-frame-wrapper {
   margin-top: 48px;
-  border: 3px solid rgba(245, 240, 232, 0.2);
-  border-radius: 8px;
+  border: var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
   position: relative;
+  background: var(--ink);
 }
 
 .demo-browser-bar {
-  background: rgba(245, 240, 232, 0.08);
+  background: var(--ink);
   padding: 10px 16px;
   display: flex;
   align-items: center;
@@ -503,10 +666,7 @@ a { color: var(--ink); }
   border-bottom: 1px solid rgba(245, 240, 232, 0.1);
 }
 
-.demo-dots {
-  display: flex;
-  gap: 6px;
-}
+.demo-dots { display: flex; gap: 6px; }
 
 .demo-dots span {
   width: 10px;
@@ -526,9 +686,10 @@ a { color: var(--ink); }
 
 .demo-iframe {
   width: 100%;
-  height: 600px;
+  height: 620px;
   border: none;
   display: block;
+  background: var(--cream);
 }
 
 .demo-nav {
@@ -536,6 +697,7 @@ a { color: var(--ink); }
   justify-content: center;
   gap: 8px;
   margin-top: 24px;
+  flex-wrap: wrap;
 }
 
 .demo-nav button {
@@ -543,9 +705,9 @@ a { color: var(--ink); }
   font-size: 12px;
   font-weight: 600;
   padding: 8px 16px;
-  border: 1.5px solid rgba(245, 240, 232, 0.2);
-  background: transparent;
-  color: rgba(245, 240, 232, 0.5);
+  border: 1.5px solid var(--ink-15);
+  background: var(--cream-light);
+  color: var(--ink-70);
   cursor: pointer;
   border-radius: var(--radius);
   text-transform: uppercase;
@@ -555,9 +717,9 @@ a { color: var(--ink); }
 
 .demo-nav button:hover,
 .demo-nav button.active {
-  border-color: var(--cream);
-  color: var(--cream);
-  background: rgba(245, 240, 232, 0.08);
+  border-color: var(--ink);
+  color: var(--ink);
+  background: var(--cream);
 }
 
 /* ============================================
@@ -578,7 +740,7 @@ a { color: var(--ink); }
 
 .comparison th,
 .comparison td {
-  padding: 14px 20px;
+  padding: 14px 18px;
   text-align: left;
   font-size: 14px;
   border-bottom: 1px solid var(--ink-15);
@@ -593,18 +755,18 @@ a { color: var(--ink); }
   background: var(--cream-light);
 }
 
-.comparison th:first-child {
-  width: 40%;
-}
+.comparison th:first-child { width: 40%; }
 
 .comparison td:nth-child(2),
-.comparison td:nth-child(3) {
+.comparison td:nth-child(3),
+.comparison td:nth-child(4) {
   text-align: center;
-  width: 30%;
+  width: 20%;
 }
 
 .comparison th:nth-child(2),
-.comparison th:nth-child(3) {
+.comparison th:nth-child(3),
+.comparison th:nth-child(4) {
   text-align: center;
 }
 
@@ -617,7 +779,86 @@ a { color: var(--ink); }
 
 .comparison .check { color: var(--teal); font-weight: 700; font-size: 16px; }
 .comparison .cross { color: var(--ink-15); font-size: 16px; }
+.comparison .partial { color: var(--ochre); font-weight: 700; font-size: 14px; letter-spacing: 0.5px; }
 .comparison .highlight-row { background: var(--ochre-light); }
+
+/* ============================================
+   PRIVACY block
+   ============================================ */
+
+.privacy-section {
+  padding: 60px 0;
+  background: var(--teal-light);
+  border-top: var(--border);
+  border-bottom: var(--border);
+}
+
+.privacy-block {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.privacy-mark {
+  font-family: var(--font-display);
+  font-size: 110px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--teal);
+  text-align: center;
+  letter-spacing: -3px;
+}
+
+.privacy-mark .smallcap {
+  display: block;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--teal);
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+.privacy-block h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 14px;
+  line-height: 1.2;
+}
+
+.privacy-block p {
+  font-size: 15.5px;
+  color: var(--ink-70);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.privacy-bullets {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 24px;
+  margin-top: 16px;
+}
+
+.privacy-bullets li {
+  font-size: 13.5px;
+  color: var(--ink);
+  padding-left: 18px;
+  position: relative;
+  font-weight: 500;
+}
+
+.privacy-bullets li::before {
+  content: '✓';
+  color: var(--teal);
+  position: absolute;
+  left: 0;
+  font-weight: 800;
+}
 
 /* ============================================
    PRICING
@@ -661,6 +902,10 @@ a { color: var(--ink); }
   border-radius: 0 0 3px 3px;
 }
 
+.price-card.featured[data-i18n-badge]::before {
+  content: attr(data-i18n-badge);
+}
+
 .price-card h3 {
   font-family: var(--font-display);
   font-size: 20px;
@@ -688,14 +933,9 @@ a { color: var(--ink); }
   margin-bottom: 24px;
 }
 
-.price-card.featured .price-period {
-  color: rgba(245, 240, 232, 0.5);
-}
+.price-card.featured .price-period { color: rgba(245, 240, 232, 0.5); }
 
-.price-features {
-  list-style: none;
-  margin-bottom: 28px;
-}
+.price-features { list-style: none; margin-bottom: 28px; }
 
 .price-features li {
   font-size: 13.5px;
@@ -706,9 +946,7 @@ a { color: var(--ink); }
   gap: 8px;
 }
 
-.price-card.featured .price-features li {
-  border-color: rgba(245, 240, 232, 0.1);
-}
+.price-card.featured .price-features li { border-color: rgba(245, 240, 232, 0.1); }
 
 .price-features li::before {
   content: '—';
@@ -717,10 +955,7 @@ a { color: var(--ink); }
   flex-shrink: 0;
 }
 
-.price-card .btn {
-  width: 100%;
-  justify-content: center;
-}
+.price-card .btn { width: 100%; justify-content: center; }
 
 .price-card.featured .btn {
   background: var(--cream);
@@ -734,25 +969,27 @@ a { color: var(--ink); }
   border-color: var(--brick);
 }
 
+.pricing-foot {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--ink-40);
+}
+
 /* ============================================
    CTA
    ============================================ */
 
-.cta-section {
-  padding: 100px 0;
-  text-align: center;
-}
+.cta-section { padding: 100px 0; text-align: center; }
 
 .cta-section .section-title {
-  font-size: 42px;
-  max-width: 600px;
+  font-size: 44px;
+  max-width: 620px;
   margin: 0 auto 24px;
+  letter-spacing: -1px;
 }
 
-.cta-section .section-subtitle {
-  margin: 0 auto 36px;
-  text-align: center;
-}
+.cta-section .section-subtitle { margin: 0 auto 36px; text-align: center; }
 
 /* ============================================
    FOOTER
@@ -760,14 +997,15 @@ a { color: var(--ink); }
 
 .footer {
   border-top: var(--border);
-  padding: 40px 0;
+  padding: 36px 0;
   background: var(--cream-light);
 }
 
 .footer-inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 32px;
   align-items: center;
-  justify-content: space-between;
 }
 
 .footer-brand {
@@ -778,6 +1016,14 @@ a { color: var(--ink); }
 }
 
 .footer-brand span { color: var(--brick); }
+
+.footer-middle {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
 
 .footer-links {
   display: flex;
@@ -794,9 +1040,74 @@ a { color: var(--ink); }
 
 .footer-links a:hover { color: var(--ink); }
 
-.footer-copy {
+.footer-copy { font-size: 12px; color: var(--ink-40); }
+
+/* Lang switcher */
+.lang-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-70);
+  cursor: pointer;
+  padding: 6px 10px;
+  border: 1.5px solid var(--ink-15);
+  border-radius: var(--radius);
+  background: var(--cream);
+  user-select: none;
+}
+
+.lang-switcher:hover { border-color: var(--ink); color: var(--ink); }
+
+.lang-switcher::after {
+  content: '▾';
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.lang-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: var(--cream);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  min-width: 180px;
+  z-index: 200;
+  box-shadow: 4px 4px 0 var(--ink-15);
+}
+
+.lang-switcher.open .lang-menu { display: flex; }
+
+.lang-menu a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-70);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lang-menu a:hover { background: var(--cream-light); color: var(--ink); }
+
+.lang-menu a.current { color: var(--ink); font-weight: 700; }
+
+.lang-menu .lang-code {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1px;
   color: var(--ink-40);
+  text-transform: uppercase;
 }
 
 /* ============================================
@@ -814,13 +1125,13 @@ a { color: var(--ink); }
 }
 
 @keyframes slideInRight {
-  from { opacity: 0; transform: translateX(30px) rotate(1deg); }
-  to   { opacity: 1; transform: translateX(0) rotate(1deg); }
+  from { opacity: 0; transform: translateX(30px) rotate(1.2deg); }
+  to   { opacity: 1; transform: translateX(0) rotate(1.2deg); }
 }
 
 @keyframes float {
-  0%, 100% { transform: rotate(1deg) translateY(0); }
-  50% { transform: rotate(1deg) translateY(-8px); }
+  0%, 100% { transform: rotate(1.2deg) translateY(0); }
+  50%      { transform: rotate(1.2deg) translateY(-8px); }
 }
 
 .hero-content { animation: fadeInUp 0.6s ease-out; }
@@ -834,10 +1145,7 @@ a { color: var(--ink); }
   transition: opacity 0.5s ease-out, transform 0.5s ease-out;
 }
 
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
+.reveal.visible { opacity: 1; transform: translateY(0); }
 
 .reveal-stagger > * {
   opacity: 0;
@@ -850,6 +1158,9 @@ a { color: var(--ink); }
 .reveal-stagger.visible > *:nth-child(3) { transition-delay: 0.19s; opacity: 1; transform: translateY(0); }
 .reveal-stagger.visible > *:nth-child(4) { transition-delay: 0.26s; opacity: 1; transform: translateY(0); }
 .reveal-stagger.visible > *:nth-child(5) { transition-delay: 0.33s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(6) { transition-delay: 0.40s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(7) { transition-delay: 0.47s; opacity: 1; transform: translateY(0); }
+.reveal-stagger.visible > *:nth-child(8) { transition-delay: 0.54s; opacity: 1; transform: translateY(0); }
 
 /* Nav shrink on scroll */
 .nav.scrolled {
@@ -858,8 +1169,8 @@ a { color: var(--ink); }
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Task card demo */
-.task-card-demo {
+/* Memory card mockup (used inside feature card) */
+.memory-card-demo {
   background: var(--cream);
   border: var(--border);
   border-radius: var(--radius);
@@ -871,40 +1182,190 @@ a { color: var(--ink); }
   box-shadow: 6px 6px 0 var(--ink-15);
 }
 
-.task-card-demo .tcd-header {
+.mcd-header {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--ink-40);
+  letter-spacing: 1px;
+  color: var(--brick);
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1.5px solid var(--ink-15);
+  display: flex;
+  justify-content: space-between;
 }
 
-.task-card-demo .tcd-title {
+.mcd-header .mcd-kind {
+  background: var(--ochre-light);
+  border: 1px solid var(--ochre);
+  padding: 2px 8px;
+  border-radius: 2px;
+  color: var(--ochre);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.mcd-fact {
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14.5px;
   margin-bottom: 8px;
+  font-family: var(--font-display);
 }
 
-.task-card-demo .tcd-meta {
-  font-size: 12px;
+.mcd-meta {
+  font-size: 11.5px;
   color: var(--ink-40);
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.task-card-demo .tcd-footer {
+.mcd-footer {
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1.5px solid var(--ink-15);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--ink-40);
   letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
+
+/* Calendar mini-grid mockup (used inside feature card) */
+.cal-mini {
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--cream);
+  padding: 14px;
+  max-width: 320px;
+  transform: rotate(1deg);
+  box-shadow: 6px 6px 0 var(--ink-15);
+}
+
+.cal-mini-header {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-40);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.cal-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-mini-day {
+  aspect-ratio: 1;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-70);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cream-light);
+  border-radius: 2px;
+  position: relative;
+}
+
+.cal-mini-day.dim { color: var(--ink-15); }
+.cal-mini-day.today { background: var(--ink); color: var(--cream); }
+.cal-mini-day.today.has-event::before,
+.cal-mini-day.today.has-todo::after { opacity: 0.85; }
+
+/* Bottom stripe = category indicator. Single source = full-width stripe;
+   both sources = brick (left half) + teal (right half). */
+.cal-mini-day.has-event::before,
+.cal-mini-day.has-todo::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  height: 3px;
+}
+.cal-mini-day.has-event::before {
+  left: 0;
+  right: 0;
+  background: var(--brick);
+}
+.cal-mini-day.has-todo::after {
+  left: 0;
+  right: 0;
+  background: var(--teal);
+}
+.cal-mini-day.has-event.has-todo::before { right: 50%; }
+.cal-mini-day.has-event.has-todo::after  { left: 50%; }
+
+.cal-mini-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1.5px dashed var(--ink-15);
+  font-size: 11px;
+  color: var(--ink-70);
+}
+
+.cal-mini-foot .legend {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.cal-mini-foot .legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-mini-foot .dot-event,
+.cal-mini-foot .dot-todo {
+  width: 12px; height: 3px;
+  display: inline-block;
+}
+
+.cal-mini-foot .dot-event { background: var(--brick); }
+.cal-mini-foot .dot-todo  { background: var(--teal); }
+
+/* Schedule chip (used in features section) */
+.schedule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ochre-light);
+  border: 1.5px solid var(--ochre);
+  padding: 6px 12px;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--ink);
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.schedule-chip .recurr {
+  background: var(--ochre);
+  color: white;
+  font-family: var(--font-display);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 2px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   RTL (loaded via class on html)
+   ============================================ */
+
+html[dir="rtl"] .hero-visual { left: 32px; right: auto; }
+html[dir="rtl"] .hero-eyebrow::before { margin-left: 0; margin-right: 0; }
+html[dir="rtl"] .chat-msg.user { align-self: flex-start; border-bottom-left-radius: 2px; border-bottom-right-radius: 8px; }
+html[dir="rtl"] .chat-msg.bot  { align-self: flex-end;   border-bottom-right-radius: 2px; border-bottom-left-radius: 8px; }
+html[dir="rtl"] .price-card.featured::before { right: auto; left: 20px; }
+html[dir="rtl"] .lang-menu { right: auto; left: 0; }
 
 /* ============================================
    RESPONSIVE
@@ -913,17 +1374,41 @@ a { color: var(--ink); }
 @media (max-width: 900px) {
   .hero h1 { font-size: 38px; }
   .hero-visual { display: none; }
+  .remembers-grid { grid-template-columns: 1fr; }
   .how-steps { grid-template-columns: 1fr; }
   .how-step { border-right: none; border-bottom: var(--border); }
   .how-step:last-child { border-bottom: none; }
   .features-grid { grid-template-columns: 1fr; }
   .feature-card.feature-large { grid-column: span 1; grid-template-columns: 1fr; }
+  .snippets { grid-template-columns: 1fr; }
   .pricing-grid { grid-template-columns: 1fr; }
   .price-card { border-right: none; border-bottom: var(--border); }
   .price-card:last-child { border-bottom: none; }
-  .demo-iframe { height: 400px; }
+  .privacy-block { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+  .privacy-bullets { grid-template-columns: 1fr; text-align: left; }
+  .privacy-mark { font-size: 80px; }
+  .demo-iframe { height: 460px; }
+  .footer-inner { grid-template-columns: 1fr; text-align: center; gap: 16px; }
+  .footer-middle { flex-direction: column; gap: 12px; }
 }
 </style>
+
+
+<link rel="alternate" hreflang="en" href="https://grumps.io/">
+<link rel="alternate" hreflang="es" href="https://grumps.io/es/">
+<link rel="alternate" hreflang="pt-BR" href="https://grumps.io/pt-BR/">
+<link rel="alternate" hreflang="fr" href="https://grumps.io/fr/">
+<link rel="alternate" hreflang="de" href="https://grumps.io/de/">
+<link rel="alternate" hreflang="it" href="https://grumps.io/it/">
+<link rel="alternate" hreflang="ru" href="https://grumps.io/ru/">
+<link rel="alternate" hreflang="tr" href="https://grumps.io/tr/">
+<link rel="alternate" hreflang="ar" href="https://grumps.io/ar/">
+<link rel="alternate" hreflang="hi" href="https://grumps.io/hi/">
+<link rel="alternate" hreflang="zh-CN" href="https://grumps.io/zh-CN/">
+<link rel="alternate" hreflang="ja" href="https://grumps.io/ja/">
+<link rel="alternate" hreflang="ko" href="https://grumps.io/ko/">
+<link rel="alternate" hreflang="id" href="https://grumps.io/id/">
+<link rel="alternate" hreflang="x-default" href="https://grumps.io/">
 </head>
 
 <body>
@@ -933,11 +1418,12 @@ a { color: var(--ink); }
   <div class="nav-inner">
     <a href="#" class="nav-brand">Grumps<span>.</span></a>
     <ul class="nav-links">
-      <li><a href="#how">How it works</a></li>
-      <li><a href="#features">Features</a></li>
-      <li><a href="#demo">Demo</a></li>
-      <li><a href="#pricing">Pricing</a></li>
-      <li><a href="#" class="btn btn-primary">Get Started</a></li>
+      <li><a href="#remembers" data-i18n="nav.memory">Memory</a></li>
+      <li><a href="#how" data-i18n="nav.how">How it works</a></li>
+      <li><a href="#features" data-i18n="nav.features">Features</a></li>
+      <li><a href="#demo" data-i18n="nav.demo">Demo</a></li>
+      <li><a href="#pricing" data-i18n="nav.pricing">Pricing</a></li>
+      <li><a href="#" class="btn btn-primary" data-i18n="nav.cta">Add to your group</a></li>
     </ul>
   </div>
 </nav>
@@ -946,14 +1432,17 @@ a { color: var(--ink); }
 <section class="hero">
   <div class="container">
     <div class="hero-content">
-      <div class="hero-eyebrow">For WhatsApp groups</div>
-      <h1>Your group chat just got <em>productive</em></h1>
-      <p class="hero-desc">Add Grumps to any WhatsApp group. Manage todos, share notes, store files, set reminders — all from the chat. When you need more, open the web workspace.</p>
+      <div class="hero-eyebrow" data-i18n="hero.eyebrow">For WhatsApp · Telegram · Discord</div>
+      <h1>
+        <span data-i18n="hero.h1_pre">Your group chat,</span>
+        <em data-i18n="hero.h1_em">with a memory.</em>
+      </h1>
+      <p class="hero-desc" data-i18n="hero.desc">An AI agent that lives in your group. Remembers what you decide, plans what's next, reminds the right person at the right time. Open the workspace when you need the full picture.</p>
       <div class="hero-actions">
-        <a href="#" class="btn btn-primary btn-large">Add to WhatsApp</a>
-        <a href="#demo" class="btn btn-large">See it in action</a>
+        <a href="#" class="btn btn-primary btn-large" data-i18n="hero.cta_primary">Add to your group</a>
+        <a href="#demo" class="btn btn-large" data-i18n="hero.cta_secondary">See it in action</a>
       </div>
-      <p class="hero-note">Free for 1 group · No app to install · Works in 30 seconds</p>
+      <p class="hero-note" data-i18n="hero.note">Free for 1 group · No app to install · Workspace-private memory</p>
     </div>
 
     <!-- Chat mockup -->
@@ -961,35 +1450,74 @@ a { color: var(--ink); }
       <div class="chat-mockup">
         <div class="chat-header">
           <span class="chat-dot"></span>
-          Roommates
+          <span data-i18n="hero.chat.group_name">Roommates</span>
         </div>
         <div class="chat-messages">
           <div class="chat-msg user">
             <div class="msg-sender sender-user">Alice</div>
-            TODO:<br>
-            &bull; Buy toilet paper<br>
-            &bull; Pay electricity bill @Bob
+            <span data-i18n="hero.chat.msg1">@grumps when's the gas inspection again?</span>
             <div class="msg-time">10:42</div>
           </div>
           <div class="chat-msg bot">
             <div class="msg-sender sender-bot">Grumps</div>
-            &#10003; 2 todos added:<br>
-            &#x1f4cb; #23 Buy toilet paper<br>
-            &#x1f4cb; #24 Pay electricity bill &rarr; @Bob<br>
-            &#x1f517; grumps.io/w/x7k9m2p4
+            <span data-i18n="hero.chat.msg2">Tuesday 14:00 — building lobby. Booked 6 weeks ago. I'll remind @Bob the day before.</span>
             <div class="msg-time">10:42</div>
           </div>
-          <div class="chat-msg user" style="max-width: 60%;">
+          <div class="chat-msg user" style="max-width: 70%;">
             <div class="msg-sender sender-user">Bob</div>
-            done toilet paper
-            <div class="msg-time">11:15</div>
+            <span data-i18n="hero.chat.msg3">make it 2 days before, I work late Mon</span>
+            <div class="msg-time">10:43</div>
           </div>
-          <div class="chat-msg bot" style="max-width: 70%;">
+          <div class="chat-msg bot" style="max-width: 75%;">
             <div class="msg-sender sender-bot">Grumps</div>
-            &#10003; "Buy toilet paper" (#23) &mdash; done.
-            <div class="msg-time">11:15</div>
+            <span data-i18n="hero.chat.msg4">Done. Sunday 18:00 instead. Saved as your default for inspections.</span>
+            <div class="msg-time">10:43</div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== WHAT IT REMEMBERS ===== -->
+<section class="remembers" id="remembers">
+  <div class="container">
+    <div class="section-label" data-i18n="remembers.label">What it remembers</div>
+    <div class="section-title" data-i18n="remembers.title">Three kinds of memory. Yours, not ours.</div>
+    <div class="section-subtitle" data-i18n="remembers.subtitle">Workspace-scoped: nothing crosses groups. You can pin, edit or wipe any of it.</div>
+
+    <div class="remembers-grid reveal-stagger">
+      <div class="remember-card">
+        <div class="ribbon" data-i18n="remembers.col1.ribbon">— Facts</div>
+        <h3 data-i18n="remembers.col1.title">Things about your group</h3>
+        <p data-i18n="remembers.col1.desc">People, preferences, recurring details. The bot learns them as you talk and surfaces them when relevant.</p>
+        <ul class="examples">
+          <li data-i18n="remembers.col1.ex1">Alice is allergic to peanuts.</li>
+          <li data-i18n="remembers.col1.ex2">WiFi password is stored under "Notes".</li>
+          <li data-i18n="remembers.col1.ex3">Trash day is Tuesday.</li>
+        </ul>
+      </div>
+
+      <div class="remember-card">
+        <div class="ribbon" data-i18n="remembers.col2.ribbon">— Decisions</div>
+        <h3 data-i18n="remembers.col2.title">What you agreed on</h3>
+        <p data-i18n="remembers.col2.desc">Choices, plans, who's doing what — kept with the context. No more "wait, what did we decide?".</p>
+        <ul class="examples">
+          <li data-i18n="remembers.col2.ex1">We're going to Lisbon, July 12–18.</li>
+          <li data-i18n="remembers.col2.ex2">Bob handles utilities. Alice handles groceries.</li>
+          <li data-i18n="remembers.col2.ex3">We split everything evenly.</li>
+        </ul>
+      </div>
+
+      <div class="remember-card">
+        <div class="ribbon" data-i18n="remembers.col3.ribbon">— Schedule</div>
+        <h3 data-i18n="remembers.col3.title">What's coming up</h3>
+        <p data-i18n="remembers.col3.desc">Deadlines, recurring chores, follow-ups. The bot keeps the calendar — and pings the right person at the right moment.</p>
+        <ul class="examples">
+          <li data-i18n="remembers.col3.ex1">Rent due on the 1st.</li>
+          <li data-i18n="remembers.col3.ex2">Take out the trash every Tuesday.</li>
+          <li data-i18n="remembers.col3.ex3">Follow up with the landlord in 2 weeks.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -998,25 +1526,30 @@ a { color: var(--ink); }
 <!-- ===== HOW IT WORKS ===== -->
 <section class="section" id="how">
   <div class="container">
-    <div class="section-label">How it works</div>
-    <div class="section-title">Three steps. Zero friction.</div>
-    <div class="section-subtitle">No app to download, no signup form, no onboarding wizard.</div>
+    <div class="section-label" data-i18n="how.label">How it works</div>
+    <div class="section-title" data-i18n="how.title">Three steps. Zero friction.</div>
+    <div class="section-subtitle" data-i18n="how.subtitle">No app to download. No signup form. No onboarding wizard.</div>
 
     <div class="how-steps reveal-stagger">
       <div class="how-step">
         <div class="step-num">01</div>
-        <h3>Add the bot</h3>
-        <p>Add @grumps to your WhatsApp group. That's it. The workspace is created automatically.</p>
+        <h3 data-i18n="how.step1.title">Add it to your group</h3>
+        <p data-i18n="how.step1.desc">One contact to add. The workspace is created automatically and only the people in the group can access it.</p>
+        <div class="platform-pills">
+          <span class="platform-pill wa" data-i18n="how.platform.wa">WhatsApp</span>
+          <span class="platform-pill tg" data-i18n="how.platform.tg">Telegram</span>
+          <span class="platform-pill dc" data-i18n="how.platform.dc">Discord</span>
+        </div>
       </div>
       <div class="how-step">
         <div class="step-num">02</div>
-        <h3>Talk normally</h3>
-        <p>Type <strong>TODO:</strong> to add tasks, <strong>NOTE:</strong> to pin info, or @mention the bot for anything else. Your group keeps chatting.</p>
+        <h3 data-i18n="how.step2.title">Talk like a person</h3>
+        <p data-i18n="how.step2.desc">No commands to learn. "Remind us Tuesday." "Note down the WiFi." "What did we decide about the trip?". The agent figures the rest out.</p>
       </div>
       <div class="how-step">
         <div class="step-num">03</div>
-        <h3>Open the workspace</h3>
-        <p>When you need the full picture — todos, notes, files, history — open your private web workspace. Phone verification keeps it secure.</p>
+        <h3 data-i18n="how.step3.title">It remembers and acts</h3>
+        <p data-i18n="how.step3.desc">Plans, reminds, follows up — without being asked twice. Open the workspace anytime to see todos, calendar, notes, decisions and history.</p>
       </div>
     </div>
   </div>
@@ -1025,83 +1558,257 @@ a { color: var(--ink); }
 <!-- ===== FEATURES ===== -->
 <section class="section" id="features" style="background: var(--cream-light); border-top: var(--border); border-bottom: var(--border);">
   <div class="container">
-    <div class="section-label">Features</div>
-    <div class="section-title">Chat when it's quick. Web when it's not.</div>
-    <div class="section-subtitle">Everything you add from chat appears in the workspace. Everything you do on the web syncs back to the group.</div>
+    <div class="section-label" data-i18n="features.label">Features</div>
+    <div class="section-title" data-i18n="features.title">An agent. A memory. A real workspace.</div>
+    <div class="section-subtitle" data-i18n="features.subtitle">Everything you say in the chat is captured, structured, recallable. Everything you do on the web syncs back.</div>
 
     <div class="features-grid reveal-stagger">
-      <div class="feature-card">
-        <div class="feature-icon">&#x2610;</div>
-        <h3>Todos that stick</h3>
-        <p>Add todos from chat with natural language. Assign people, set deadlines, add priorities. Reply "done" to a task card to complete it. View them as a list or kanban board on the web.</p>
+
+      <!-- Memory (accent dark card) -->
+      <div class="feature-card feature-accent">
+        <div class="feature-icon">M</div>
+        <h3 data-i18n="features.memory.title">Memory that compounds</h3>
+        <p data-i18n="features.memory.desc">Structured facts plus semantic search across every message. The agent finds what you said three months ago in seconds. You decide what stays, what gets pinned, what gets forgotten.</p>
         <div class="feature-tags">
-          <span class="feature-tag">assignments</span>
-          <span class="feature-tag">deadlines</span>
-          <span class="feature-tag">priorities</span>
-          <span class="feature-tag">kanban</span>
+          <span class="feature-tag" data-i18n="features.memory.tag1">workspace-scoped</span>
+          <span class="feature-tag" data-i18n="features.memory.tag2">RAG search</span>
+          <span class="feature-tag" data-i18n="features.memory.tag3">pin / forget</span>
+          <span class="feature-tag" data-i18n="features.memory.tag4">auto-extract</span>
         </div>
       </div>
 
+      <!-- Schedule -->
       <div class="feature-card">
-        <div class="feature-icon">&para;</div>
-        <h3>Notes that don't get buried</h3>
-        <p>Pin important info with NOTE: in the chat. WiFi passwords, house rules, contact details — always findable. Edit with a full Markdown editor on the web.</p>
+        <div class="feature-icon">S</div>
+        <h3 data-i18n="features.schedule.title">Schedule anything</h3>
+        <p data-i18n="features.schedule.desc">One-time reminders, recurring chores, conditional follow-ups. "Ping me if Bob hasn't replied by Friday" — that's a single sentence.</p>
         <div class="feature-tags">
-          <span class="feature-tag">markdown</span>
-          <span class="feature-tag">rich editor</span>
-          <span class="feature-tag">full-text search</span>
+          <span class="feature-tag" data-i18n="features.schedule.tag1">recurring</span>
+          <span class="feature-tag" data-i18n="features.schedule.tag2">conditional</span>
+          <span class="feature-tag" data-i18n="features.schedule.tag3">follow-ups</span>
+        </div>
+        <div class="schedule-chip">
+          <span class="recurr" data-i18n="features.schedule.chip_badge">RRULE</span>
+          <span data-i18n="features.schedule.chip_text">Every Tuesday at 09:00 — take out the trash</span>
         </div>
       </div>
 
-      <div class="feature-card">
-        <div class="feature-icon">&#x25F0;</div>
-        <h3>Files in one place</h3>
-        <p>Reply @grumps store to any image or document in the chat. It's saved, named, and previewable on the web. No more scrolling back through months of messages.</p>
-        <div class="feature-tags">
-          <span class="feature-tag">PDF preview</span>
-          <span class="feature-tag">image gallery</span>
-          <span class="feature-tag">drag & drop</span>
-        </div>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">&#x23F0;</div>
-        <h3>Reminders that fire</h3>
-        <p>"@grumps remind @Bob tomorrow 9am take out the trash." Recurring reminders too. The bot sends a WhatsApp message when it's time. No app notifications to ignore.</p>
-        <div class="feature-tags">
-          <span class="feature-tag">one-time</span>
-          <span class="feature-tag">recurring</span>
-          <span class="feature-tag">natural language</span>
-        </div>
-      </div>
-
+      <!-- Calendar (large with mockup) -->
       <div class="feature-card feature-large">
         <div>
-          <div class="feature-icon" style="font-size: 22px;">&#x25EB;</div>
-          <h3>A real web workspace</h3>
-          <p>Not a dashboard with three stats. A full workspace with todos, notes, files, activity history, and settings. Accessible only to verified group members via WhatsApp OTP. Dark mode, search, exports, mobile-friendly.</p>
+          <div class="feature-icon">C</div>
+          <h3 data-i18n="features.calendar.title">A real calendar</h3>
+          <p data-i18n="features.calendar.desc">Events, todos with deadlines, recurring tasks, scheduled actions — one timeline. Export as iCal to Google, Apple or Outlook. The agent talks to your existing calendar so nothing falls through.</p>
           <div class="feature-tags">
-            <span class="feature-tag">OTP auth</span>
-            <span class="feature-tag">member-only</span>
-            <span class="feature-tag">mobile-ready</span>
-            <span class="feature-tag">dark mode</span>
-            <span class="feature-tag">export</span>
+            <span class="feature-tag" data-i18n="features.calendar.tag1">events</span>
+            <span class="feature-tag" data-i18n="features.calendar.tag2">deadlines</span>
+            <span class="feature-tag" data-i18n="features.calendar.tag3">recurring</span>
+            <span class="feature-tag" data-i18n="features.calendar.tag4">iCal export</span>
+            <span class="feature-tag" data-i18n="features.calendar.tag5">Google · Apple · Outlook</span>
           </div>
         </div>
         <div style="display: flex; justify-content: center; align-items: center;">
-          <div class="task-card-demo">
-            <div class="tcd-header">&#x1f4cb; Task #42</div>
-            <div class="tcd-title">Follow up with client Dupont</div>
-            <div class="tcd-meta">
-              <span>&#x1f464; @Pierre</span>
-              <span>&#x23F0; Friday April 18</span>
-              <span>&#x1f534; High priority</span>
-              <span>&#x1f3f7;&#xFE0F; #sales #client</span>
+          <div class="cal-mini">
+            <div class="cal-mini-header" data-i18n="features.calendar.mock_month">April 2026</div>
+            <div class="cal-mini-grid">
+              <div class="cal-mini-day dim">31</div>
+              <div class="cal-mini-day">1</div>
+              <div class="cal-mini-day has-todo">2</div>
+              <div class="cal-mini-day">3</div>
+              <div class="cal-mini-day">4</div>
+              <div class="cal-mini-day">5</div>
+              <div class="cal-mini-day">6</div>
+              <div class="cal-mini-day">7</div>
+              <div class="cal-mini-day has-event">8</div>
+              <div class="cal-mini-day">9</div>
+              <div class="cal-mini-day">10</div>
+              <div class="cal-mini-day has-todo">11</div>
+              <div class="cal-mini-day">12</div>
+              <div class="cal-mini-day">13</div>
+              <div class="cal-mini-day">14</div>
+              <div class="cal-mini-day today">15</div>
+              <div class="cal-mini-day has-event has-todo">16</div>
+              <div class="cal-mini-day">17</div>
+              <div class="cal-mini-day">18</div>
+              <div class="cal-mini-day">19</div>
+              <div class="cal-mini-day has-todo">20</div>
+              <div class="cal-mini-day">21</div>
+              <div class="cal-mini-day has-event">22</div>
+              <div class="cal-mini-day">23</div>
+              <div class="cal-mini-day">24</div>
+              <div class="cal-mini-day">25</div>
+              <div class="cal-mini-day">26</div>
+              <div class="cal-mini-day">27</div>
+              <div class="cal-mini-day has-todo">28</div>
+              <div class="cal-mini-day has-event">29</div>
+              <div class="cal-mini-day">30</div>
+              <div class="cal-mini-day dim">1</div>
+              <div class="cal-mini-day dim">2</div>
+              <div class="cal-mini-day dim">3</div>
+              <div class="cal-mini-day dim">4</div>
             </div>
-            <div class="tcd-footer">Reply: done &middot; snooze &middot; edit &middot; @reassign</div>
+            <div class="cal-mini-foot">
+              <div class="legend">
+                <span><i class="dot-event"></i><span data-i18n="features.calendar.legend_event">events</span></span>
+                <span><i class="dot-todo"></i><span data-i18n="features.calendar.legend_todo">todos</span></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Todos -->
+      <div class="feature-card">
+        <div class="feature-icon">T</div>
+        <h3 data-i18n="features.todos.title">Todos that stick</h3>
+        <p data-i18n="features.todos.desc">Add from chat in plain language. Assign people, set deadlines, add priorities. Reply "done" to a task card to complete. List or kanban view on the web.</p>
+        <div class="feature-tags">
+          <span class="feature-tag" data-i18n="features.todos.tag1">assignments</span>
+          <span class="feature-tag" data-i18n="features.todos.tag2">deadlines</span>
+          <span class="feature-tag" data-i18n="features.todos.tag3">priorities</span>
+          <span class="feature-tag" data-i18n="features.todos.tag4">kanban</span>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="feature-card">
+        <div class="feature-icon">N</div>
+        <h3 data-i18n="features.notes.title">Notes that don't get buried</h3>
+        <p data-i18n="features.notes.desc">Pin important info from the chat. WiFi passwords, house rules, contact details — always findable, always editable in a real Markdown editor on the web.</p>
+        <div class="feature-tags">
+          <span class="feature-tag" data-i18n="features.notes.tag1">markdown</span>
+          <span class="feature-tag" data-i18n="features.notes.tag2">rich editor</span>
+          <span class="feature-tag" data-i18n="features.notes.tag3">full-text search</span>
+        </div>
+      </div>
+
+      <!-- Files -->
+      <div class="feature-card">
+        <div class="feature-icon">F</div>
+        <h3 data-i18n="features.files.title">Files in one place</h3>
+        <p data-i18n="features.files.desc">Reply "save this" to any image or document. Stored, named, previewable on the web. No more scrolling back through months of messages to find the lease.</p>
+        <div class="feature-tags">
+          <span class="feature-tag" data-i18n="features.files.tag1">PDF preview</span>
+          <span class="feature-tag" data-i18n="features.files.tag2">image gallery</span>
+          <span class="feature-tag" data-i18n="features.files.tag3">drag &amp; drop</span>
+        </div>
+      </div>
+
+      <!-- Web search -->
+      <div class="feature-card">
+        <div class="feature-icon">W</div>
+        <h3 data-i18n="features.web.title">Web search built-in</h3>
+        <p data-i18n="features.web.desc">"Find a plumber near Lyon open Sunday." The agent searches the web, cites its sources, and pins the answer if you ask. Open backend (Brave today, self-hosted SearXNG soon).</p>
+        <div class="feature-tags">
+          <span class="feature-tag" data-i18n="features.web.tag1">sourced answers</span>
+          <span class="feature-tag" data-i18n="features.web.tag2">open backend</span>
+        </div>
+      </div>
+
+      <!-- Workspace large card with memory mockup -->
+      <div class="feature-card feature-large">
+        <div>
+          <div class="feature-icon">G</div>
+          <h3 data-i18n="features.workspace.title">A workspace, not a dashboard</h3>
+          <p data-i18n="features.workspace.desc">Memory, calendar, scheduled actions, todos, notes, files, history, settings. Member-only access via phone OTP — no passwords, no email signup. Mobile-friendly. Dark mode. Export your data anytime.</p>
+          <div class="feature-tags">
+            <span class="feature-tag" data-i18n="features.workspace.tag1">OTP login</span>
+            <span class="feature-tag" data-i18n="features.workspace.tag2">member-only</span>
+            <span class="feature-tag" data-i18n="features.workspace.tag3">mobile-ready</span>
+            <span class="feature-tag" data-i18n="features.workspace.tag4">dark mode</span>
+            <span class="feature-tag" data-i18n="features.workspace.tag5">export</span>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: center; align-items: center;">
+          <div class="memory-card-demo">
+            <div class="mcd-header">
+              <span data-i18n="features.workspace.memo_label">Memory · #142</span>
+              <span class="mcd-kind" data-i18n="features.workspace.memo_kind">Preference</span>
+            </div>
+            <div class="mcd-fact" data-i18n="features.workspace.memo_fact">Bob prefers reminders 2 days before any inspection.</div>
+            <div class="mcd-meta">
+              <span data-i18n="features.workspace.memo_source">Source: chat — Apr 12, 10:43</span>
+              <span data-i18n="features.workspace.memo_used">Used 4× in the last 30 days</span>
+              <span data-i18n="features.workspace.memo_actor">Tied to: @Bob</span>
+            </div>
+            <div class="mcd-footer" data-i18n="features.workspace.memo_actions">pin · edit · forget</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW IT TALKS BACK ===== -->
+<section class="talks-back" id="talks-back">
+  <div class="container">
+    <div class="section-label" data-i18n="talks.label">How it talks back</div>
+    <div class="section-title" data-i18n="talks.title">Three real conversations.</div>
+    <div class="section-subtitle" data-i18n="talks.subtitle">Not a feature list — actual exchanges with the agent.</div>
+
+    <div class="snippets reveal-stagger">
+
+      <div class="snippet">
+        <div class="snippet-tag" data-i18n="talks.s1.tag">Planning a trip</div>
+        <div class="snippet-line you">
+          <div class="who">Marie</div>
+          <span data-i18n="talks.s1.l1">@grumps we want to go somewhere warm in October, 4 of us, max €600pp</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s1.l2">Noted. Lisbon, Sevilla, Athens fit your budget that month. Want me to draft a poll?</span>
+        </div>
+        <div class="snippet-line you">
+          <div class="who">Marie</div>
+          <span data-i18n="talks.s1.l3">go for a poll, +Marrakech</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s1.l4">Posted. I'll close it Sunday and book the winning option's flights for review.</span>
+        </div>
+      </div>
+
+      <div class="snippet">
+        <div class="snippet-tag" data-i18n="talks.s2.tag">Splitting bills</div>
+        <div class="snippet-line you">
+          <div class="who">Tom</div>
+          <span data-i18n="talks.s2.l1">paid €87 for groceries today</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s2.l2">Logged. Split 4 ways: Alice owes €21.75, Bob €21.75, Marie €21.75. Updated the tally.</span>
+        </div>
+        <div class="snippet-line you">
+          <div class="who">Alice</div>
+          <span data-i18n="talks.s2.l3">how much do I owe everyone right now?</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s2.l4">Net: you owe Tom €34.10. Everyone else is even with you.</span>
+        </div>
+      </div>
+
+      <div class="snippet">
+        <div class="snippet-tag" data-i18n="talks.s3.tag">A recurring chore</div>
+        <div class="snippet-line you">
+          <div class="who">Bob</div>
+          <span data-i18n="talks.s3.l1">we keep forgetting to water the plants when one of us is away</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s3.l2">I can ping whoever's home every Wednesday. Want me to check the calendar to know who's around?</span>
+        </div>
+        <div class="snippet-line you">
+          <div class="who">Bob</div>
+          <span data-i18n="talks.s3.l3">yes do that</span>
+        </div>
+        <div class="snippet-line bot">
+          <div class="who">Grumps</div>
+          <span data-i18n="talks.s3.l4">Set up. First ping: tomorrow, @Marie (Bob and Alice both away).</span>
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
@@ -1109,24 +1816,25 @@ a { color: var(--ink); }
 <!-- ===== DEMO ===== -->
 <section class="demo-section" id="demo">
   <div class="container">
-    <div class="section-label">Live demo</div>
-    <div class="section-title">Try the workspace</div>
-    <div class="section-subtitle">This is the real thing. Click around — todos, notes, files, settings. All yours.</div>
+    <div class="section-label" data-i18n="demo.label">Live demo</div>
+    <div class="section-title" data-i18n="demo.title">Try the workspace.</div>
+    <div class="section-subtitle" data-i18n="demo.subtitle">This is the real thing. Click around — every page, every screen.</div>
 
     <div class="demo-frame-wrapper reveal">
       <div class="demo-browser-bar">
         <div class="demo-dots"><span></span><span></span><span></span></div>
         <div class="demo-url">grumps.io/w/x7k9m2p4</div>
       </div>
-      <iframe src="workspace.html" class="demo-iframe" title="Grumps workspace demo"></iframe>
+      <iframe src="/demo/?lang=en" class="demo-iframe" title="Grumps workspace demo"></iframe>
     </div>
 
     <div class="demo-nav">
-      <button class="active" onclick="navigateDemo('overview')">Overview</button>
-      <button onclick="navigateDemo('todos')">Todos</button>
-      <button onclick="navigateDemo('notes')">Notes</button>
-      <button onclick="navigateDemo('files')">Files</button>
-      <button onclick="navigateDemo('history')">History</button>
+      <button onclick="navigateDemo('overview', this)" data-i18n="demo.tab.overview">Overview</button>
+      <button onclick="navigateDemo('memory', this)" data-i18n="demo.tab.memory">Memory</button>
+      <button onclick="navigateDemo('calendar', this)" data-i18n="demo.tab.calendar">Calendar</button>
+      <button onclick="navigateDemo('scheduled', this)" data-i18n="demo.tab.scheduled">Scheduled</button>
+      <button onclick="navigateDemo('todos', this)" data-i18n="demo.tab.todos">Todos</button>
+      <button onclick="navigateDemo('notes', this)" data-i18n="demo.tab.notes">Notes</button>
     </div>
   </div>
 </section>
@@ -1134,59 +1842,68 @@ a { color: var(--ink); }
 <!-- ===== VS COMPETITION ===== -->
 <section class="section" id="compare">
   <div class="container">
-    <div class="section-label">Comparison</div>
-    <div class="section-title">Not another chat bot.</div>
-    <div class="section-subtitle">Other tools stop at the chat. Grumps gives you a full workspace.</div>
+    <div class="section-label" data-i18n="compare.label">Comparison</div>
+    <div class="section-title" data-i18n="compare.title">Not a chatbot. Not a project tool.</div>
+    <div class="section-subtitle" data-i18n="compare.subtitle">Group memory + agentic actions + a real workspace, where the conversation already happens.</div>
 
     <div class="comparison reveal">
       <table>
         <thead>
           <tr>
-            <th>Feature</th>
-            <th>Typical chat bots</th>
+            <th data-i18n="compare.head.feature">Feature</th>
+            <th data-i18n="compare.head.chatbots">ChatGPT / Claude</th>
+            <th data-i18n="compare.head.tools">Notion / Asana</th>
             <th class="col-grumps">Grumps</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Todos via @mention</td>
-            <td class="check">&#10003;</td>
-            <td class="check">&#10003;</td>
+            <td data-i18n="compare.row1.label">Lives in your group chat</td>
+            <td class="cross">—</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong data-i18n="compare.row2.label">Workspace-scoped memory (not personal)</strong></td>
+            <td class="cross">—</td>
+            <td class="partial" data-i18n="compare.partial">partial</td>
+            <td class="check">✓</td>
           </tr>
           <tr>
-            <td>Task cards with reply actions</td>
-            <td class="check">&#10003;</td>
-            <td class="check">&#10003;</td>
+            <td data-i18n="compare.row3.label">Multi-platform (WA · Telegram · Discord)</td>
+            <td class="cross">—</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
+          </tr>
+          <tr class="highlight-row">
+            <td><strong data-i18n="compare.row4.label">Auto-extracts decisions and facts</strong></td>
+            <td class="cross">—</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
           </tr>
           <tr>
-            <td>Natural language understanding</td>
-            <td class="check">&#10003;</td>
-            <td class="check">&#10003;</td>
+            <td data-i18n="compare.row5.label">Calendar with iCal export</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
+            <td class="check">✓</td>
           </tr>
           <tr class="highlight-row">
-            <td><strong>Private web workspace</strong></td>
-            <td class="cross">&mdash;</td>
-            <td class="check">&#10003;</td>
+            <td><strong data-i18n="compare.row6.label">Scheduled and conditional actions</strong></td>
+            <td class="cross">—</td>
+            <td class="partial" data-i18n="compare.partial2">partial</td>
+            <td class="check">✓</td>
+          </tr>
+          <tr>
+            <td data-i18n="compare.row7.label">Web search with sources</td>
+            <td class="check">✓</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
           </tr>
           <tr class="highlight-row">
-            <td><strong>Markdown note editor</strong></td>
-            <td class="cross">&mdash;</td>
-            <td class="check">&#10003;</td>
-          </tr>
-          <tr class="highlight-row">
-            <td><strong>File storage + preview</strong></td>
-            <td class="cross">&mdash;</td>
-            <td class="check">&#10003;</td>
-          </tr>
-          <tr class="highlight-row">
-            <td><strong>Automatic recaps</strong></td>
-            <td class="cross">&mdash;</td>
-            <td class="check">&#10003;</td>
-          </tr>
-          <tr class="highlight-row">
-            <td><strong>Multi-platform</strong></td>
-            <td class="cross">&mdash;</td>
-            <td class="check">&#10003;</td>
+            <td><strong data-i18n="compare.row8.label">Member-only workspace · OTP login</strong></td>
+            <td class="cross">—</td>
+            <td class="cross">—</td>
+            <td class="check">✓</td>
           </tr>
         </tbody>
       </table>
@@ -1194,71 +1911,98 @@ a { color: var(--ink); }
   </div>
 </section>
 
+<!-- ===== PRIVACY ===== -->
+<section class="privacy-section" id="privacy">
+  <div class="container">
+    <div class="privacy-block">
+      <div class="privacy-mark">
+        EU
+        <span class="smallcap" data-i18n="privacy.mark_label">hosted · GDPR</span>
+      </div>
+      <div>
+        <div class="section-label" data-i18n="privacy.label">Privacy</div>
+        <h2 data-i18n="privacy.title">Your group's memory stays in your group's workspace.</h2>
+        <p data-i18n="privacy.desc">No cross-workspace mixing. No personal account that follows you across groups. Hosted on Cloudflare's EU edge. Export and wipe anytime.</p>
+        <ul class="privacy-bullets">
+          <li data-i18n="privacy.b1">Workspace-scoped data silos</li>
+          <li data-i18n="privacy.b2">No training on your messages</li>
+          <li data-i18n="privacy.b3">EU edge hosting</li>
+          <li data-i18n="privacy.b4">Self-host option (open licence)</li>
+          <li data-i18n="privacy.b5">One-click export</li>
+          <li data-i18n="privacy.b6">One-click wipe</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ===== PRICING ===== -->
 <section class="section" id="pricing" style="background: var(--cream-light); border-top: var(--border); border-bottom: var(--border);">
   <div class="container">
-    <div class="section-label">Pricing</div>
-    <div class="section-title">Start free. Upgrade when you need to.</div>
-    <div class="section-subtitle">No credit card required. No trial that expires. Just add the bot and go.</div>
+    <div class="section-label" data-i18n="pricing.label">Pricing</div>
+    <div class="section-title" data-i18n="pricing.title">Start free. Upgrade when you need more turns.</div>
+    <div class="section-subtitle" data-i18n="pricing.subtitle">An "agent turn" = one round trip with the LLM. Most things only cost one turn.</div>
 
     <div class="pricing-grid reveal-stagger">
       <div class="price-card">
-        <h3>Free</h3>
-        <div class="price-amount"><span class="currency">&euro;</span>0</div>
-        <div class="price-period">forever</div>
+        <h3 data-i18n="pricing.free.name">Free</h3>
+        <div class="price-amount"><span class="currency">€</span>0</div>
+        <div class="price-period" data-i18n="pricing.free.period">forever</div>
         <ul class="price-features">
-          <li>1 group</li>
-          <li>25 open todos</li>
-          <li>10 notes</li>
-          <li>100 MB file storage</li>
-          <li>50 AI messages/month</li>
-          <li>Weekly recap</li>
+          <li data-i18n="pricing.free.l1">1 group</li>
+          <li data-i18n="pricing.free.l2">25 open todos</li>
+          <li data-i18n="pricing.free.l3">10 notes · 100 memories</li>
+          <li data-i18n="pricing.free.l4">100 MB file storage</li>
+          <li data-i18n="pricing.free.l5">100 agent turns / month</li>
+          <li data-i18n="pricing.free.l6">Weekly recap</li>
         </ul>
-        <a href="#" class="btn" style="width: 100%; justify-content: center;">Get started</a>
+        <a href="#" class="btn" data-i18n="pricing.free.cta">Get started</a>
       </div>
 
-      <div class="price-card featured">
-        <h3>Pro</h3>
-        <div class="price-amount"><span class="currency">&euro;</span>5</div>
-        <div class="price-period">per month</div>
+      <div class="price-card featured" data-i18n-badge="POPULAR">
+        <h3 data-i18n="pricing.pro.name">Pro</h3>
+        <div class="price-amount"><span class="currency">€</span>5</div>
+        <div class="price-period" data-i18n="pricing.pro.period">per month</div>
         <ul class="price-features">
-          <li>5 groups</li>
-          <li>200 open todos</li>
-          <li>100 notes</li>
-          <li>5 GB file storage</li>
-          <li>500 AI messages/month</li>
-          <li>Daily + custom recaps</li>
-          <li>Full web workspace</li>
+          <li data-i18n="pricing.pro.l1">5 groups</li>
+          <li data-i18n="pricing.pro.l2">200 open todos</li>
+          <li data-i18n="pricing.pro.l3">100 notes · 1 000 memories</li>
+          <li data-i18n="pricing.pro.l4">5 GB file storage</li>
+          <li data-i18n="pricing.pro.l5">1 000 agent turns / month</li>
+          <li data-i18n="pricing.pro.l6">Calendar · iCal export</li>
+          <li data-i18n="pricing.pro.l7">Daily + custom recaps</li>
         </ul>
-        <a href="#" class="btn">Start Pro</a>
+        <a href="#" class="btn" data-i18n="pricing.pro.cta">Start Pro</a>
       </div>
 
       <div class="price-card">
-        <h3>Business</h3>
-        <div class="price-amount"><span class="currency">&euro;</span>15</div>
-        <div class="price-period">per month</div>
+        <h3 data-i18n="pricing.biz.name">Business</h3>
+        <div class="price-amount"><span class="currency">€</span>15</div>
+        <div class="price-period" data-i18n="pricing.biz.period">per month</div>
         <ul class="price-features">
-          <li>Unlimited groups</li>
-          <li>Unlimited todos</li>
-          <li>Unlimited notes</li>
-          <li>50 GB file storage</li>
-          <li>2,000 AI messages/month</li>
-          <li>Priority support</li>
-          <li>Export & API access</li>
+          <li data-i18n="pricing.biz.l1">Unlimited groups</li>
+          <li data-i18n="pricing.biz.l2">Unlimited todos · notes</li>
+          <li data-i18n="pricing.biz.l3">Unlimited memories</li>
+          <li data-i18n="pricing.biz.l4">50 GB file storage</li>
+          <li data-i18n="pricing.biz.l5">5 000 agent turns / month</li>
+          <li data-i18n="pricing.biz.l6">Priority support</li>
+          <li data-i18n="pricing.biz.l7">Bring your own LLM key</li>
         </ul>
-        <a href="#" class="btn" style="width: 100%; justify-content: center;">Contact us</a>
+        <a href="#" class="btn" data-i18n="pricing.biz.cta">Contact us</a>
       </div>
     </div>
+
+    <p class="pricing-foot" data-i18n="pricing.foot">All plans: workspace-private memory · EU hosting · open-source friendly · cancel anytime.</p>
   </div>
 </section>
 
 <!-- ===== CTA ===== -->
 <section class="cta-section">
   <div class="container">
-    <div class="section-title">Ready to get things done?</div>
-    <div class="section-subtitle">Add Grumps to your group. It takes 30 seconds. Your chat stays the same — just more productive.</div>
+    <div class="section-title" data-i18n="cta.title">Give your group a memory.</div>
+    <div class="section-subtitle" data-i18n="cta.subtitle">30 seconds to add. Years of context to gain. Your chat stays the same — just sharper.</div>
     <div class="hero-actions" style="justify-content: center;">
-      <a href="#" class="btn btn-primary btn-large">Add to WhatsApp</a>
+      <a href="#" class="btn btn-primary btn-large" data-i18n="cta.button">Add to your group</a>
     </div>
   </div>
 </section>
@@ -1268,30 +2012,60 @@ a { color: var(--ink); }
   <div class="container">
     <div class="footer-inner">
       <div class="footer-brand">Grumps<span>.</span></div>
-      <ul class="footer-links">
-        <li><a href="#">Privacy</a></li>
-        <li><a href="#">Terms</a></li>
-        <li><a href="#">Contact</a></li>
-      </ul>
-      <div class="footer-copy">&copy; 2026 Grumps</div>
+      <div class="footer-middle">
+        <ul class="footer-links">
+          <li><a href="#" data-i18n="footer.privacy">Privacy</a></li>
+          <li><a href="#" data-i18n="footer.terms">Terms</a></li>
+          <li><a href="#" data-i18n="footer.contact">Contact</a></li>
+          <li><a href="#" data-i18n="footer.docs">Docs</a></li>
+          <li><a href="https://github.com/" data-i18n="footer.github">GitHub</a></li>
+        </ul>
+      </div>
+      <div class="lang-switcher" id="lang-switcher" tabindex="0">
+        <span id="current-lang">English</span>
+        <div class="lang-menu">
+          <a href="/<a href="/en/""  class="current"><span>English</span><span class="lang-code">EN</span></a>
+          <a href="/es/"><span>Español</span><span class="lang-code">ES</span></a>
+          <a href="/pt-BR/"><span>Português (BR)</span><span class="lang-code">PT</span></a>
+          <a href="/fr/"><span>Français</span><span class="lang-code">FR</span></a>
+          <a href="/de/"><span>Deutsch</span><span class="lang-code">DE</span></a>
+          <a href="/it/"><span>Italiano</span><span class="lang-code">IT</span></a>
+          <a href="/ru/"><span>Русский</span><span class="lang-code">RU</span></a>
+          <a href="/tr/"><span>Türkçe</span><span class="lang-code">TR</span></a>
+          <a href="/ar/"><span>العربية</span><span class="lang-code">AR</span></a>
+          <a href="/hi/"><span>हिन्दी</span><span class="lang-code">HI</span></a>
+          <a href="/zh-CN/"><span>简体中文</span><span class="lang-code">ZH</span></a>
+          <a href="/ja/"><span>日本語</span><span class="lang-code">JA</span></a>
+          <a href="/ko/"><span>한국어</span><span class="lang-code">KO</span></a>
+          <a href="/id/"><span>Bahasa Indonesia</span><span class="lang-code">ID</span></a>
+        </div>
+      </div>
     </div>
+    <div style="text-align: center; margin-top: 16px;" class="footer-copy" data-i18n="footer.copy">© 2026 Grumps. Made for groups, not for accounts.</div>
   </div>
 </footer>
 
 <script>
-function navigateDemo(page) {
+// Demo nav buttons under the iframe. We talk to the Leptos SPA inside
+// via postMessage so the SPA can use its own router (no full reload, no
+// 404 from a static dev server). The SPA registers a `message` listener
+// that calls leptos_router::navigate.
+function navigateDemo(page, btn) {
   const iframe = document.querySelector('.demo-iframe');
-  iframe.contentWindow.showPage(page);
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage(
+      { type: 'grumps:navigate', page },
+      window.location.origin
+    );
+  }
   document.querySelectorAll('.demo-nav button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
 }
 
 // Scroll reveal observer
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-    }
+    if (entry.isIntersecting) entry.target.classList.add('visible');
   });
 }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
 
@@ -1301,6 +2075,16 @@ document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.obs
 window.addEventListener('scroll', () => {
   document.querySelector('.nav').classList.toggle('scrolled', window.scrollY > 20);
 }, { passive: true });
+
+// Lang switcher
+const langSwitcher = document.getElementById('lang-switcher');
+if (langSwitcher) {
+  langSwitcher.addEventListener('click', (e) => {
+    e.stopPropagation();
+    langSwitcher.classList.toggle('open');
+  });
+  document.addEventListener('click', () => langSwitcher.classList.remove('open'));
+}
 </script>
 
 </body>

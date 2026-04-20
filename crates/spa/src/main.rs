@@ -3,6 +3,8 @@ use leptos::prelude::*;
 mod app;
 mod api;
 mod auth;
+mod demo;
+mod i18n;
 mod pages;
 mod components;
 

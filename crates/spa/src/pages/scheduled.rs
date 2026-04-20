@@ -3,6 +3,7 @@ use leptos_router::hooks::use_params_map;
 use crate::auth::use_auth;
 use crate::api::ScheduledActionItem;
 use crate::components::header::PageHeader;
+use crate::i18n::tr;
 use crate::components::scheduled_card::ScheduledCard;
 
 #[component]
@@ -122,60 +123,62 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let status_opts = vec!["all", "active", "paused", "done", "failed"];
 
     view! {
-        <PageHeader title="Scheduled Actions".into() subtitle="Automated triggers and reminders".to_string()>
+        <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
             <button
                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
                 on:click=open_create
-            >"+ New action"</button>
+            >"+ "{move || tr("schedule.action.new")}</button>
         </PageHeader>
 
         <div class="flex-1 overflow-y-auto p-8">
             // Filters
             <div class="flex gap-4 items-center mb-5 flex-wrap">
                 <div class="flex gap-2 flex-wrap">
-                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">"Type:"</span>
+                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">{move || tr("schedule.filter.type")}":"</span>
                     {type_opts.into_iter().map(|k| {
                         let k = k.to_string();
                         let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
+                        let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.type.{}", k) };
                         view! {
                             <button
-                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer capitalize"
+                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer"
                                 class:bg-ink=move || type_filter.get() == k
                                 class:text-cream=move || type_filter.get() == k2
                                 style:border-color=move || if type_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
                                 on:click=move |_| set_type_filter.set(k4.clone())
-                            >{k.clone()}</button>
+                            >{move || tr(&lk)}</button>
                         }
                     }).collect_view()}
                 </div>
                 <div class="flex gap-2 flex-wrap">
-                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">"Status:"</span>
+                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">{move || tr("schedule.filter.status")}":"</span>
                     {status_opts.into_iter().map(|k| {
                         let k = k.to_string();
                         let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
+                        let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.status.{}", k) };
                         view! {
                             <button
-                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer capitalize"
+                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer"
                                 class:bg-ink=move || status_filter.get() == k
                                 class:text-cream=move || status_filter.get() == k2
                                 style:border-color=move || if status_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
                                 on:click=move |_| set_status_filter.set(k4.clone())
-                            >{k.clone()}</button>
+                            >{move || tr(&lk)}</button>
                         }
                     }).collect_view()}
                 </div>
             </div>
 
             // List
-            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">"Loading..."</div> }>
+            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || {
                     let items: Vec<ScheduledActionItem> = filtered();
                     if items.is_empty() {
                         return view! {
                             <div class="text-center py-16">
-                                <p class="font-display text-lg font-bold">"No scheduled actions."</p>
-                                <p class="text-sm mt-1" style="color: var(--ink-40);">"Create recurring reminders, recaps, and more."</p>
+                                <p class="font-display text-lg font-bold">{move || tr("schedule.empty.title")}</p>
+                                <p class="text-sm mt-1" style="color: var(--ink-40);">{move || tr("schedule.empty.hint")}</p>
                             </div>
                         }.into_any();
                     }

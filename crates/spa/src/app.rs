@@ -4,12 +4,21 @@ use leptos_router::path;
 
 use crate::pages;
 use crate::auth::provide_auth;
+use crate::i18n::provide_locale;
 
 #[component]
 pub fn App() -> impl IntoView {
+    provide_locale();
     provide_auth();
+    if crate::demo::is_demo() {
+        crate::demo::install_postmessage_nav();
+    }
+    // When the SPA runs under /demo/ (landing iframe), tell the router
+    // to strip that prefix before matching routes — otherwise every URL
+    // falls through to the 404 catch-all.
+    let base: &'static str = if crate::demo::is_demo() { "/demo" } else { "" };
     view! {
-        <Router>
+        <Router base=base>
             <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">"404 — Not found."</div> }>
                 <Route path=path!("/login") view=pages::login::LoginPage />
                 <Route path=path!("/dashboard") view=pages::dashboard::DashboardPage />
@@ -27,7 +36,13 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/calendar") view=pages::calendar::CalendarPage />
                     <Route path=path!("/admin/observability") view=pages::observability::ObservabilityPage />
                 </ParentRoute>
-                <Route path=path!("/") view=|| view! { <Redirect path="/login" /> } />
+                <Route path=path!("/") view=|| {
+                    if crate::demo::is_demo() {
+                        view! { <Redirect path=format!("/w/{}", crate::demo::DEMO_SLUG) /> }.into_any()
+                    } else {
+                        view! { <Redirect path="/login".to_string() /> }.into_any()
+                    }
+                } />
             </Routes>
         </Router>
     }

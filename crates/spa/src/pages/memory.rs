@@ -3,6 +3,7 @@ use leptos_router::hooks::use_params_map;
 use crate::auth::use_auth;
 use crate::api::MemoryItem;
 use crate::components::header::PageHeader;
+use crate::i18n::tr;
 use crate::components::memory_card::MemoryCard;
 
 #[component]
@@ -126,12 +127,12 @@ pub fn MemoryPage() -> impl IntoView {
     let kinds = vec!["all", "fact", "preference", "skill", "event", "reminder"];
 
     view! {
-        <PageHeader title="Memory".into() subtitle="What Grumps knows about your group".to_string()>
+        <PageHeader title=tr("page.memory.title") subtitle=tr("page.memory.subtitle")>
             <button
                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
                 on:click=open_create
-            >"+ Add memory"</button>
+            >"+ "{move || tr("memory.action.add")}</button>
         </PageHeader>
 
         <div class="flex-1 overflow-y-auto p-8">
@@ -142,27 +143,28 @@ pub fn MemoryPage() -> impl IntoView {
                     let k2 = k.clone();
                     let k3 = k.clone();
                     let k4 = k.clone();
+                    let label_key: String = if k == "all" { "common.filter.all".into() } else { format!("memory.kind.{}", k) };
                     view! {
                         <button
-                            class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer transition-colors capitalize"
+                            class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer transition-colors"
                             class:bg-ink=move || kind_filter.get() == k
                             class:text-cream=move || kind_filter.get() == k2
                             style:border-color=move || if kind_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
                             on:click=move |_| set_kind_filter.set(k4.clone())
-                        >{k.clone()}</button>
+                        >{move || tr(&label_key)}</button>
                     }
                 }).collect_view()}
             </div>
 
             // Memory list
-            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">"Loading..."</div> }>
+            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || {
                     let items = filtered();
                     if items.is_empty() {
                         return view! {
                             <div class="text-center py-16">
-                                <p class="font-display text-lg font-bold">"Nothing remembered yet."</p>
-                                <p class="text-sm mt-1" style="color: var(--ink-40);">"Add facts, preferences, or let the agent learn automatically."</p>
+                                <p class="font-display text-lg font-bold">{move || tr("memory.empty.title")}</p>
+                                <p class="text-sm mt-1" style="color: var(--ink-40);">{move || tr("memory.empty.hint")}</p>
                             </div>
                         }.into_any();
                     }

@@ -266,10 +266,12 @@ impl ApiClient {
     // =====================
 
     pub async fn get_workspaces(&self) -> Result<Vec<WorkspaceInfo>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::workspaces()); }
         self.get("/api/workspaces").await
     }
 
     pub async fn get_workspace_info(&self, slug: &str) -> Result<StatusCounts, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::status_counts()); }
         self.get(&format!("/api/w/{}", slug)).await
     }
 
@@ -278,18 +280,26 @@ impl ApiClient {
     // =====================
 
     pub async fn get_todos(&self, slug: &str, filter: &str) -> Result<Vec<TodoItem>, String> {
+        if crate::demo::is_demo() {
+            let mut items = crate::demo::todos();
+            if filter != "all" { items.retain(|t| t.status == filter); }
+            return Ok(items);
+        }
         self.get(&format!("/api/w/{}/todos?status={}", slug, filter)).await
     }
 
     pub async fn create_todo(&self, slug: &str, title: &str, priority: i32) -> Result<TodoItem, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::new_todo(title, priority)); }
         self.post(&format!("/api/w/{}/todos", slug), &serde_json::json!({"title": title, "priority": priority})).await
     }
 
     pub async fn update_todo(&self, slug: &str, id: &str, updates: &serde_json::Value) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.patch(&format!("/api/w/{}/todos/{}", slug, id), updates).await
     }
 
     pub async fn delete_todo(&self, slug: &str, id: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.delete(&format!("/api/w/{}/todos/{}", slug, id)).await
     }
 
@@ -298,22 +308,31 @@ impl ApiClient {
     // =====================
 
     pub async fn get_notes(&self, slug: &str) -> Result<Vec<NoteItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::notes()); }
         self.get(&format!("/api/w/{}/notes", slug)).await
     }
 
     pub async fn get_note(&self, slug: &str, id: &str) -> Result<NoteItem, String> {
+        if crate::demo::is_demo() {
+            return crate::demo::notes().into_iter()
+                .find(|n| n.id == id)
+                .ok_or_else(|| "demo: note not found".into());
+        }
         self.get(&format!("/api/w/{}/notes/{}", slug, id)).await
     }
 
     pub async fn create_note(&self, slug: &str, title: &str, content: &str) -> Result<NoteItem, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::new_note(title, content)); }
         self.post(&format!("/api/w/{}/notes", slug), &serde_json::json!({"title": title, "content": content})).await
     }
 
     pub async fn update_note(&self, slug: &str, id: &str, title: &str, content: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.put(&format!("/api/w/{}/notes/{}", slug, id), &serde_json::json!({"title": title, "content": content})).await
     }
 
     pub async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.delete(&format!("/api/w/{}/notes/{}", slug, id)).await
     }
 
@@ -322,10 +341,12 @@ impl ApiClient {
     // =====================
 
     pub async fn get_history(&self, slug: &str) -> Result<Vec<ActivityItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::activity()); }
         self.get(&format!("/api/w/{}/history", slug)).await
     }
 
     pub async fn get_members(&self, slug: &str) -> Result<Vec<MemberItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::members()); }
         self.get(&format!("/api/w/{}/members", slug)).await
     }
 
@@ -334,18 +355,22 @@ impl ApiClient {
     // =====================
 
     pub async fn list_memory(&self, slug: &str) -> Result<Vec<MemoryItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::memories()); }
         self.get(&format!("/api/w/{}/memory", slug)).await
     }
 
     pub async fn create_memory(&self, slug: &str, body: &serde_json::Value) -> Result<MemoryItem, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::new_memory(body)); }
         self.post(&format!("/api/w/{}/memory", slug), body).await
     }
 
     pub async fn update_memory(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.patch(&format!("/api/w/{}/memory/{}", slug, id), body).await
     }
 
     pub async fn delete_memory(&self, slug: &str, id: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.delete(&format!("/api/w/{}/memory/{}", slug, id)).await
     }
 
@@ -354,18 +379,22 @@ impl ApiClient {
     // =====================
 
     pub async fn list_events(&self, slug: &str) -> Result<Vec<EventItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::events()); }
         self.get(&format!("/api/w/{}/events", slug)).await
     }
 
     pub async fn create_event(&self, slug: &str, body: &serde_json::Value) -> Result<EventItem, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::new_event(body)); }
         self.post(&format!("/api/w/{}/events", slug), body).await
     }
 
     pub async fn update_event(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.patch(&format!("/api/w/{}/events/{}", slug, id), body).await
     }
 
     pub async fn delete_event(&self, slug: &str, id: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.delete(&format!("/api/w/{}/events/{}", slug, id)).await
     }
 
@@ -374,18 +403,22 @@ impl ApiClient {
     // =====================
 
     pub async fn list_scheduled_actions(&self, slug: &str) -> Result<Vec<ScheduledActionItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::scheduled_actions()); }
         self.get(&format!("/api/w/{}/scheduled-actions", slug)).await
     }
 
     pub async fn create_scheduled_action(&self, slug: &str, body: &serde_json::Value) -> Result<ScheduledActionItem, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::new_scheduled(body)); }
         self.post(&format!("/api/w/{}/scheduled-actions", slug), body).await
     }
 
     pub async fn update_scheduled_action(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.patch(&format!("/api/w/{}/scheduled-actions/{}", slug, id), body).await
     }
 
     pub async fn delete_scheduled_action(&self, slug: &str, id: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.delete(&format!("/api/w/{}/scheduled-actions/{}", slug, id)).await
     }
 
@@ -394,6 +427,7 @@ impl ApiClient {
     // =====================
 
     pub async fn list_calendar(&self, slug: &str, from: &str, to: &str) -> Result<Vec<CalendarItem>, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::calendar_items()); }
         self.get(&format!("/api/w/{}/calendar?from={}&to={}", slug, from, to)).await
     }
 
@@ -402,10 +436,12 @@ impl ApiClient {
     // =====================
 
     pub async fn get_settings(&self, slug: &str) -> Result<WorkspaceSettings, String> {
+        if crate::demo::is_demo() { return Ok(crate::demo::settings()); }
         self.get(&format!("/api/w/{}/settings", slug)).await
     }
 
     pub async fn update_settings(&self, slug: &str, body: &serde_json::Value) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
         self.put(&format!("/api/w/{}/settings", slug), body).await
     }
 

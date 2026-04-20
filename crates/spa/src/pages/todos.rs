@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use crate::auth::use_auth;
 use crate::components::header::PageHeader;
+use crate::i18n::tr;
 
 #[component]
 pub fn TodosPage() -> impl IntoView {
@@ -34,21 +35,22 @@ pub fn TodosPage() -> impl IntoView {
         });
     };
 
-    let filters = vec![
-        ("open", "Open"), ("all", "All"), ("done", "Done"), ("mine", "Mine"),
+    let filters: Vec<(&'static str, &'static str)> = vec![
+        ("open", "todo.filter.open"), ("all", "todo.filter.all"),
+        ("done", "todo.filter.done"), ("mine", "todo.filter.mine"),
     ];
 
     view! {
-        <PageHeader title="Todos".into() subtitle="Manage your tasks".to_string()>
+        <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
             <button
                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
-            >"+ Add todo"</button>
+            >"+ "{move || tr("todo.action.add")}</button>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             // Filter bar
             <div class="flex gap-2 items-center mb-5 flex-wrap">
-                {filters.into_iter().map(|(val, label)| {
+                {filters.into_iter().map(|(val, label_key)| {
                     let val = val.to_string();
                     let val2 = val.clone();
                     let val3 = val.clone();
@@ -60,20 +62,20 @@ pub fn TodosPage() -> impl IntoView {
                             class:text-cream=move || filter.get() == val2
                             style:border-color=move || if filter.get() == val3 { "var(--ink)" } else { "var(--ink-15)" }
                             on:click=move |_| set_filter.set(val4.clone())
-                        >{label}</button>
+                        >{move || tr(label_key)}</button>
                     }
                 }).collect_view()}
             </div>
 
             // Todo list
-            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">"Loading..."</div> }>
+            <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || todos.get().map(|data| {
                     let items: Vec<_> = (*data).clone();
                     if items.is_empty() {
                         return view! {
                             <div class="text-center py-16">
-                                <p class="font-display text-lg font-bold">"Nothing to do."</p>
-                                <p class="text-sm mt-1" style="color: var(--ink-40);">"Suspicious."</p>
+                                <p class="font-display text-lg font-bold">{move || tr("todo.empty.title")}</p>
+                                <p class="text-sm mt-1" style="color: var(--ink-40);">{move || tr("todo.empty.sub")}</p>
                             </div>
                         }.into_any();
                     }
@@ -101,7 +103,7 @@ pub fn TodosPage() -> impl IntoView {
                                             </div>
                                             <div class="flex-1 min-w-0">
                                                 <div class="font-semibold text-sm" class:line-through=is_done style:color=move || if is_done { "var(--ink-40)" } else { "var(--ink)" }>
-                                                    {todo.title.clone()}
+                                                    {let t = todo.title.clone(); move || tr(&t)}
                                                 </div>
                                                 <div class="flex items-center gap-2.5 mt-1 text-xs" style="color: var(--ink-40);">
                                                     <span class="font-display text-[11px] font-bold">{format!("#{}", todo.seq_num)}</span>
@@ -124,7 +126,7 @@ pub fn TodosPage() -> impl IntoView {
                     type="text"
                     class="flex-1 border-none bg-transparent text-sm outline-none"
                     style="font-family: var(--font-body); color: var(--ink);"
-                    placeholder="Add a todo..."
+                    prop:placeholder=move || tr("todo.add.placeholder")
                     on:input=move |ev| set_new_title.set(event_target_value(&ev))
                     on:keydown=move |ev| { if ev.key() == "Enter" { on_create(ev); } }
                     prop:value=new_title

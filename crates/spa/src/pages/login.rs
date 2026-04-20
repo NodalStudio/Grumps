@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::auth::use_auth;
+use crate::i18n::tr;
 
 #[component]
 pub fn LoginPage() -> impl IntoView {
@@ -53,7 +54,7 @@ pub fn LoginPage() -> impl IntoView {
                         "GRUMPS"<span class="text-brick">"."</span>
                     </h1>
                     <p class="text-xs uppercase tracking-widest mt-1" style="color: var(--ink-40);">
-                        {move || if step.get() == 1 { "Gets it done. No small talk." } else { "Check your WhatsApp" }}
+                        {move || if step.get() == 1 { tr("brand.tagline") } else { tr("auth.login.check_messaging") }}
                     </p>
                 </div>
 
@@ -67,13 +68,13 @@ pub fn LoginPage() -> impl IntoView {
                     // Step 1: Phone
                     <div style:display=move || if step.get() == 1 { "block" } else { "none" }>
                         <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--ink-70);">
-                            "Your WhatsApp number"
+                            {move || tr("auth.login.phone_label")}
                         </label>
                         <input
                             type="tel"
                             class="w-full text-base p-3 border-2 border-ink rounded-sm outline-none focus:border-brick"
                             style="background: var(--cream); font-family: var(--font-body);"
-                            placeholder="+33 6 12 34 56 78"
+                            prop:placeholder=move || tr("auth.login.phone_placeholder")
                             on:input=move |ev| set_phone.set(event_target_value(&ev))
                             prop:value=phone
                         />
@@ -83,17 +84,17 @@ pub fn LoginPage() -> impl IntoView {
                             on:click=send_otp
                             disabled=loading
                         >
-                            {move || if loading.get() { "Sending..." } else { "Send code" }}
+                            {move || if loading.get() { tr("auth.login.sending") } else { tr("auth.login.send_code") }}
                         </button>
                         <p class="text-center text-xs mt-4" style="color: var(--ink-40); line-height: 1.5;">
-                            "We\u{2019}ll send a 6-digit code to verify you\u{2019}re in the group."
+                            {move || tr("auth.login.note_send")}
                         </p>
                     </div>
 
                     // Step 2: OTP
                     <div style:display=move || if step.get() == 2 { "block" } else { "none" }>
                         <label class="block text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--ink-70);">
-                            "Enter the 6-digit code"
+                            {move || tr("auth.login.code_label")}
                         </label>
                         <input
                             type="text"
@@ -110,13 +111,13 @@ pub fn LoginPage() -> impl IntoView {
                             on:click=verify
                             disabled=loading
                         >
-                            {move || if loading.get() { "Verifying..." } else { "Verify" }}
+                            {move || if loading.get() { tr("auth.login.verifying") } else { tr("auth.login.verify") }}
                         </button>
                         <p class="text-center text-xs mt-4" style="color: var(--ink-40);">
-                            "Didn\u{2019}t get it? "
+                            {move || tr("auth.login.didnt_get_it")}
                             <a href="#" class="font-semibold" style="color: var(--brick);"
                                 on:click=move |_| set_step.set(1)>
-                                "Try again"
+                                {move || tr("auth.login.try_again")}
                             </a>
                         </p>
                     </div>

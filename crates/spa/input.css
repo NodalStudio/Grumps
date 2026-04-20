@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* Primitives (unchanged) */
     --cream: #F5F0E8;
     --cream-light: #FAF8F4;
     --ink: #1A1915;
@@ -21,25 +22,59 @@
     --warm-gray-light: #E8E4DB;
     --font-display: 'Bitter', Georgia, serif;
     --font-body: 'DM Sans', -apple-system, sans-serif;
+
+    /* Semantic layer (light defaults) */
+    --surface-base:         var(--cream);
+    --surface-raised:       var(--cream-light);
+    --text-primary:         var(--ink);
+    --text-secondary:       var(--ink-70);
+    --text-muted:           var(--ink-40);
+    --border-strong:        var(--ink);
+    --border-subtle:        var(--ink-15);
+    --hover-tint:           var(--ink-08);
+    --accent-primary:       var(--brick);
+    --accent-primary-hover: var(--brick-hover);
+    --accent-success:       var(--teal);
+    --accent-success-bg:    var(--teal-light);
+    --accent-warning:       var(--ochre);
+    --accent-warning-bg:    var(--ochre-light);
+    --grain-opacity:        0.025;
+  }
+
+  [data-theme="dark"] {
+    --surface-base:         #1A1915;
+    --surface-raised:       #221F19;
+    --text-primary:         #F5F0E8;
+    --text-secondary:       rgba(245, 240, 232, 0.75);
+    --text-muted:           rgba(245, 240, 232, 0.5);
+    --border-strong:        rgba(245, 240, 232, 0.88);
+    --border-subtle:        rgba(245, 240, 232, 0.18);
+    --hover-tint:           rgba(245, 240, 232, 0.08);
+    --accent-primary:       #E04A38;
+    --accent-primary-hover: #CB3E2E;
+    --accent-success:       #3FA58F;
+    --accent-success-bg:    #223A33;
+    --accent-warning:       #E8AA2C;
+    --accent-warning-bg:    #3A2F14;
+    --grain-opacity:        0.02;
   }
 
   body {
     font-family: var(--font-body);
     font-size: 14.5px;
     line-height: 1.55;
-    color: var(--ink);
-    background: var(--cream);
+    color: var(--text-primary);
+    background: var(--surface-base);
     -webkit-font-smoothing: antialiased;
   }
 
-  /* Grain texture */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     z-index: 9999;
     pointer-events: none;
-    opacity: 0.025;
+    opacity: var(--grain-opacity);
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
     background-size: 256px 256px;
   }
@@ -48,6 +83,17 @@
 
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--ink-15); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--ink-40); }
+  ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+}
+
+@layer utilities {
+  /* Typography scale — canonical named sizes */
+  .text-display-xl  { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.1;  letter-spacing: -0.01em; }
+  .text-display-lg  { font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.15; letter-spacing: -0.005em; }
+  .text-display     { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.2; }
+  .text-body        { font-family: var(--font-body); font-weight: 500; font-size: 15px; line-height: 1.6; }
+  .text-body-sm     { font-family: var(--font-body); font-weight: 500; font-size: 13px; line-height: 1.5; }
+  .text-meta        { font-family: var(--font-body); font-weight: 600; font-size: 11px; line-height: 1.4; text-transform: uppercase; letter-spacing: 0.05em; }
+  .text-eyebrow     { font-family: var(--font-body); font-weight: 700; font-size: 10px; line-height: 1.3; text-transform: uppercase; letter-spacing: 1.5px; }
 }

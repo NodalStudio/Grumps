@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::api::ScheduledActionItem;
+use crate::i18n::{tr, tr_n};
 
 fn type_icon(action_type: &str) -> &'static str {
     match action_type {
@@ -44,9 +45,9 @@ pub fn ScheduledCard(
             <div class="flex items-start gap-2">
                 <span class="text-xl flex-shrink-0">{type_icon(&atype)}</span>
                 <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm" style="color: var(--ink);">{item.title.clone()}</div>
+                    <div class="font-semibold text-sm" style="color: var(--ink);">{let t = item.title.clone(); move || tr(&t)}</div>
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">
-                        <span class="capitalize font-medium">{atype.clone()}</span>
+                        <span class="font-medium">{let k = format!("schedule.type.{}", atype); move || tr(&k)}</span>
                         <span>"·"</span>
                         <span>{item.trigger_at.clone()}</span>
                         {item.recurrence.clone().map(|r| view! {
@@ -60,28 +61,28 @@ pub fn ScheduledCard(
                     class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm flex-shrink-0"
                     style:background=move || status_color(&status)
                     style="color: white;"
-                >{status2.clone()}</span>
+                >{let k = format!("schedule.status.{}", status2); move || tr(&k)}</span>
             </div>
 
             <div class="text-[11px]" style="color: var(--ink-40);">
-                {format!("Fired {} time{}", item.fire_count, if item.fire_count == 1 { "" } else { "s" })}
+                {let n = item.fire_count; move || tr_n("schedule.fired", n, &[])}
             </div>
 
             <div class="flex items-center gap-2 pt-1 border-t" style="border-color: var(--ink-08);">
                 <button
                     class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
                     on:click=move |_| on_edit.run(item_edit.clone())
-                >"Edit"</button>
+                >{move || tr("common.edit")}</button>
                 <button
                     class="text-[11px] font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
                     style="border-color: var(--teal); color: var(--teal); background: transparent;"
                     on:click=move |_| on_execute.run(item_id_exec.clone())
-                >"Execute now"</button>
+                >{move || tr("schedule.action.execute")}</button>
                 <button
                     class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
                     style="border-color: var(--brick); color: var(--brick); background: transparent;"
                     on:click=move |_| on_delete.run(item_id_del.clone())
-                >"Delete"</button>
+                >{move || tr("common.delete")}</button>
             </div>
         </div>
     }
