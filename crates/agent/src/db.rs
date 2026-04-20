@@ -70,6 +70,20 @@ pub trait AgentDb {
     async fn get_int_setting(&self, key: &str) -> worker::Result<i64>;
     async fn increment_int_setting(&self, key: &str, delta: i64) -> worker::Result<()>;
 
+    // --- bot activity + quality signals ---
+    async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> worker::Result<Option<String>>;
+    async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> worker::Result<Vec<crate::ambient::RecentBotAction>>;
+    async fn log_quality_signal(
+        &self,
+        member_id: &str,
+        signal_type: &str,
+        target_activity_id: Option<&str>,
+        target_activity_type: Option<&str>,
+        raw_text: &str,
+        confidence: f64,
+        reason: &str,
+    ) -> worker::Result<()>;
+
     // --- agent sessions ---
     async fn upsert_agent_session(
         &self,

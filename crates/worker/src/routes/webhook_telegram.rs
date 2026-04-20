@@ -2,6 +2,7 @@ use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::telegram::TelegramAdapter;
 use grumps_nlu::parser;
+use grumps_agent::db::AgentDb as _;
 use crate::{db, d1_rest::D1RestClient, provisioning, handler};
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
@@ -85,22 +86,33 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     }
 
-    // Auto-extract (opt-in)
-    let auto_memory_on = ws_db.get_setting("auto_memory").await.ok().flatten().as_deref() == Some("true");
-    if auto_memory_on {
-        let _ = grumps_agent::auto_extract::process_message(&ctx.env, &ws_db, &workspace.slug, text, &member_id).await;
-    }
-
-    // Proactive mode (opt-in) — only if NOT already going to be handled by @mention
-    let proactive_on = ws_db.get_setting("proactive_mode").await.ok().flatten().as_deref() == Some("true");
-    let lower = clean_text.to_lowercase();
-    let has_mention = lower.contains("@grumps");
-    if proactive_on && !has_mention {
-        let sink = crate::agent_sink::WorkerMessagingSink {
-            env: &ctx.env,
-            ws_slug: workspace.slug.clone(),
+    // Unified ambient classifier (auto-memory + proactive + quality-signal feedback)
+    {
+        let auto_memory = ws_db.get_setting("auto_memory").await.ok().flatten().as_deref() == Some("true");
+        let proactive = ws_db.get_setting("proactive_mode").await.ok().flatten().as_deref() == Some("true");
+        let feedback_disabled = ws_db.get_setting("quality_feedback_disabled").await.ok().flatten().as_deref() == Some("true");
+        let modes = grumps_agent::ambient::AmbientModes {
+            auto_memory,
+            proactive_mode: proactive,
+            feedback_detection: !feedback_disabled,
         };
-        let _ = grumps_agent::proactive::maybe_intervene(&ctx.env, &ws_db, &sink, &workspace.slug, &member_id, text).await;
+        if auto_memory || proactive || !feedback_disabled {
+            let upper = text.trim_start().to_uppercase();
+            let is_command = upper.starts_with("TODO:") || upper.starts_with("DONE:") || upper.starts_with("NOTE:") || upper.starts_with("REMIND:");
+            if !is_command {
+                let members_short = ws_db.get_members().await.unwrap_or_default();
+                let member_names: Vec<String> = members_short.iter().filter_map(|m| m.display_name.clone()).collect();
+                let pinned = ws_db.list_pinned_memory().await.unwrap_or_default();
+                let pinned_summary: String = pinned.iter().take(10).map(|m| format!("- {}", m.value)).collect::<Vec<_>>().join("\n");
+                let recent = ws_db.list_recent_bot_actions(1800, 10).await.unwrap_or_default();
+                let analysis = grumps_agent::ambient::analyze(&ctx.env, text, &member_names, &pinned_summary, &recent, &modes).await;
+                let sink = crate::agent_sink::WorkerMessagingSink {
+                    env: &ctx.env,
+                    ws_slug: workspace.slug.clone(),
+                };
+                let _ = grumps_agent::ambient::apply_analysis(&ctx.env, &ws_db, &sink, &workspace.slug, &member_id, text, &analysis, &recent).await;
+            }
+        }
     }
 
     let parse_result = parser::parse(&clean_text, inbound.is_mention_to_bot, inbound.is_direct_message, is_reply_to_bot, inbound.quoted_message_id.is_some());

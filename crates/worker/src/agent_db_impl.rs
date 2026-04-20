@@ -136,6 +136,27 @@ impl AgentDb for WorkspaceDb<'_> {
         self.get_active_agent_session(member_id).await
     }
 
+    async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> Result<Option<String>> {
+        self.log_bot_action(kind, summary, target_id).await
+    }
+
+    async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
+        self.list_recent_bot_actions(max_age_seconds, limit).await
+    }
+
+    async fn log_quality_signal(
+        &self,
+        member_id: &str,
+        signal_type: &str,
+        target_activity_id: Option<&str>,
+        target_activity_type: Option<&str>,
+        raw_text: &str,
+        confidence: f64,
+        reason: &str,
+    ) -> Result<()> {
+        self.log_quality_signal(member_id, signal_type, target_activity_id, target_activity_type, raw_text, confidence, reason).await
+    }
+
     async fn get_setting(&self, key: &str) -> Result<String> {
         Ok(self.get_setting(key).await?.unwrap_or_else(|| "free".into()))
     }

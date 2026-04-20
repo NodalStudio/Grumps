@@ -8,8 +8,7 @@ pub mod router;
 pub mod session;
 pub mod loop_;
 pub mod tools;
-pub mod auto_extract;
-pub mod proactive;
+pub mod ambient;
 
 pub use router::{route_message, RouteResult, MessagingSink};
 pub use loop_::{run_loop, run_oneshot, LoopResult};

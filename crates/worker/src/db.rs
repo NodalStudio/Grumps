@@ -1154,6 +1154,91 @@ impl<'a> WorkspaceDb<'a> {
     }
 }
 
+// =============================================
+// Bot activity log + quality signals
+// =============================================
+
+impl<'a> WorkspaceDb<'a> {
+    /// Insert a bot action into activity_log (actor=NULL). Returns the new id.
+    /// Maps: action=kind (e.g. "bot.proactive_intervention"), target_type=summary, target_id=optional ref.
+    pub async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> Result<Option<String>> {
+        let id = uuid::Uuid::new_v4().to_string();
+        self.q(
+            "INSERT INTO activity_log (id, actor, action, target_type, target_id, source, created_at) \
+             VALUES (?1, NULL, ?2, ?3, ?4, 'bot', datetime('now'))",
+            vec![
+                id.clone().into(),
+                kind.into(),
+                summary.into(),
+                target_id.map(|s| serde_json::Value::String(s.to_string())).unwrap_or(serde_json::Value::Null),
+            ],
+        ).await?;
+        Ok(Some(id))
+    }
+
+    /// List recent bot actions (action LIKE 'bot.%') for ambient classifier context.
+    pub async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
+        #[derive(serde::Deserialize)]
+        struct Row {
+            id: String,
+            action: String,
+            target_type: Option<String>,
+            created_at: String,
+        }
+        let resp = self.q(
+            "SELECT id, action, target_type, created_at FROM activity_log \
+             WHERE source = 'bot' AND created_at >= datetime('now', ?1) \
+             ORDER BY created_at DESC LIMIT ?2",
+            vec![
+                format!("-{max_age_seconds} seconds").into(),
+                limit.into(),
+            ],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        let now = chrono::Utc::now();
+        Ok(rows.into_iter().map(|r| {
+            let age = chrono::DateTime::parse_from_rfc3339(&r.created_at)
+                .map(|dt| (now - dt.with_timezone(&chrono::Utc)).num_seconds())
+                .unwrap_or(0);
+            grumps_agent::ambient::RecentBotAction {
+                activity_id: r.id,
+                activity_type: r.action.clone(),
+                age_seconds: age,
+                summary: r.target_type.unwrap_or_else(|| r.action.clone()),
+            }
+        }).collect())
+    }
+
+    /// Insert a quality signal.
+    pub async fn log_quality_signal(
+        &self,
+        member_id: &str,
+        signal_type: &str,
+        target_activity_id: Option<&str>,
+        target_activity_type: Option<&str>,
+        raw_text: &str,
+        confidence: f64,
+        reason: &str,
+    ) -> Result<()> {
+        let id = uuid::Uuid::new_v4().to_string();
+        self.q(
+            "INSERT INTO quality_signals (id, member_id, signal_type, target_activity_id, target_activity_type, raw_text, classifier_confidence, classifier_reason, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
+            vec![
+                id.into(),
+                member_id.into(),
+                signal_type.into(),
+                target_activity_id.map(|s| serde_json::Value::String(s.to_string())).unwrap_or(serde_json::Value::Null),
+                target_activity_type.map(|s| serde_json::Value::String(s.to_string())).unwrap_or(serde_json::Value::Null),
+                raw_text.into(),
+                confidence.into(),
+                reason.into(),
+            ],
+        ).await?;
+        Ok(())
+    }
+}
+
 fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
     use chrono::{DateTime, Utc, TimeZone};
     let parse_dt = |s: &str| -> DateTime<Utc> {
