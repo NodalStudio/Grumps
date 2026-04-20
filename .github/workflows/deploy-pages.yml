@@ -59,7 +59,9 @@ jobs:
       - name: Install Tailwind + Trunk
         run: |
           npm install --no-save tailwindcss@3
-          curl -sSf https://github.com/trunk-rs/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C /usr/local/bin
+          TRUNK_VERSION=v0.21.14
+          curl -sSfL "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin
           trunk --version
 
       - name: Build SPA bundle
