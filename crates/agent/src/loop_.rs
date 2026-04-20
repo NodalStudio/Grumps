@@ -18,6 +18,16 @@ pub struct LoopResult {
 }
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
+    // Check quota before doing anything
+    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
+    if used >= limit {
+        let msg = format!("Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.");
+        ctx.sink.send(&msg).await.ok();
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+    }
+
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
     let tools_json = tools::schemas::all_tools();
@@ -46,6 +56,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         };
 
         let resp = anthropic::call(ctx.env, &req).await?;
+        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
         total_tokens = total_tokens
             .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
@@ -126,6 +137,16 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 
 /// One-shot variant for autonomous runs (scheduled actions). No session persistence.
 pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<LoopResult> {
+    // Check quota
+    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
+    if used >= limit {
+        let msg = format!("Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.");
+        ctx.sink.send(&msg).await.ok();
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+    }
+
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
     let tools_json = tools::schemas::all_tools();
@@ -146,6 +167,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             ..Default::default()
         };
         let resp = anthropic::call(ctx.env, &req).await?;
+        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
         total_tokens = total_tokens
             .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
@@ -224,6 +246,25 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
         })
         .collect();
     let now = chrono::Utc::now().to_rfc3339();
+
+    // Quota : read from DB, derive from plan
+    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let agent_calls_used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0) as u32;
+    let agent_quota = match plan.as_str() {
+        "pro" => 1000u32,
+        "business" => 5000,
+        _ => 200,
+    };
+    let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
+
+    let web_used = ctx.db.get_int_setting("web_search_quota_used_month").await.unwrap_or(0) as u32;
+    let web_quota = match plan.as_str() {
+        "pro" => 50u32,
+        "business" => 500,
+        _ => 5,
+    };
+    let web_remaining = web_quota.saturating_sub(web_used);
+
     Ok(PromptContext {
         workspace_name: ctx.workspace_slug.to_string(),       // Plan C will fetch the real name
         platform: "telegram".to_string(),                      // Plan C : look up from index DB
@@ -236,10 +277,10 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
         timezone: "UTC".to_string(),                           // Plan C : read from settings
         proactive_mode: false,                                 // Plan C : read from settings
         auto_memory: false,                                    // Plan C : read from settings
-        agent_calls_remaining: 1000,                           // Plan C : read from settings + billing
-        agent_calls_quota: 1000,
-        web_search_remaining: 50,
-        web_search_quota: 50,
+        agent_calls_remaining: agent_remaining,
+        agent_calls_quota: agent_quota,
+        web_search_remaining: web_remaining,
+        web_search_quota: web_quota,
     })
 }
 
