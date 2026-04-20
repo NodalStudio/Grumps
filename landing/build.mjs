@@ -82,8 +82,8 @@ function applyAttrI18n(html, strings, missing) {
 
 function injectHead(html, locale, hreflangLinks) {
   const fontTag = locale.font
-    ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS[locale.font]}&display=swap" rel="stylesheet">`
-    : (locale.code === 'ar' ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS.Arabic}&display=swap" rel="stylesheet">` : '');
+    ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS[locale.font]}&display=optional" rel="stylesheet">`
+    : (locale.code === 'ar' ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS.Arabic}&display=optional" rel="stylesheet">` : '');
 
   const fontFallback = (locale.font || locale.code === 'ar') ? `
 <style>
