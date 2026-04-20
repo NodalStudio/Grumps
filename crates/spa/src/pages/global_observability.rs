@@ -38,10 +38,10 @@ fn signal_label(s: &str) -> (&'static str, &'static str) {
 #[component]
 fn StatCard(label: &'static str, value: String) -> impl IntoView {
     view! {
-        <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
-             style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
+        <div class="flex-1 min-w-[160px] border-2 border-strong bg-surface p-4"
+             style="box-shadow: 3px 3px 0 var(--border-strong);">
             <div class="font-display text-[2.6rem] font-extrabold leading-none">{value}</div>
-            <div class="text-meta mt-1" style="color: var(--ink-40);">{label}</div>
+            <div class="text-meta mt-1 text-muted">{label}</div>
         </div>
     }
 }
@@ -51,8 +51,8 @@ fn StatCard(label: &'static str, value: String) -> impl IntoView {
 #[component]
 fn Section(title: &'static str, children: Children) -> impl IntoView {
     view! {
-        <section class="border-2 border-ink p-5 mb-6" style="box-shadow: 3px 3px 0 #1A1A1A; background: var(--cream);">
-            <h2 class="font-display text-xl font-extrabold uppercase tracking-tight mb-4 border-b-2 border-ink pb-2">{title}</h2>
+        <section class="border-2 border-strong bg-surface p-5 mb-6" style="box-shadow: 3px 3px 0 var(--border-strong);">
+            <h2 class="font-display text-xl font-extrabold uppercase tracking-tight mb-4 border-b-2 border-strong pb-2">{title}</h2>
             {children()}
         </section>
     }
@@ -63,7 +63,7 @@ fn Section(title: &'static str, children: Children) -> impl IntoView {
 #[component]
 fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
     if rows.is_empty() || total == 0.0 {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data yet."</div> }.into_any();
+        return view! { <div class="text-sm italic text-muted">"No data yet."</div> }.into_any();
     }
 
     let segments: Vec<_> = rows.iter().map(|r| {
@@ -74,7 +74,7 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
 
     view! {
         <div>
-            <div class="flex h-10 border-2 border-ink overflow-hidden mb-3">
+            <div class="flex h-10 border-2 border-strong overflow-hidden mb-3">
                 {segments.iter().map(|(pct, color, _m, _c, _n)| {
                     let style = format!("width: {}%; background: {}; flex-shrink:0;", pct, color);
                     view! { <div style=style></div> }
@@ -82,7 +82,7 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
             </div>
             <table class="w-full text-sm border-collapse">
                 <thead>
-                    <tr class="border-b-2 border-ink">
+                    <tr class="border-b-2 border-strong">
                         <th class="text-left text-meta py-1 pr-4">"Model"</th>
                         <th class="text-right text-meta py-1 px-2">"Calls"</th>
                         <th class="text-right text-meta py-1 pl-2">"Cost"</th>
@@ -95,9 +95,9 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
                         let calls = r.call_count;
                         let cost = fmt_usd(r.cost_usd);
                         view! {
-                            <tr class="border-b" style="border-color: var(--ink-15);">
+                            <tr class="border-b border-subtle">
                                 <td class="py-1.5 pr-4 flex items-center gap-2">
-                                    <span class="inline-block w-3 h-3 border border-ink flex-shrink-0"
+                                    <span class="inline-block w-3 h-3 border border-strong flex-shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>
@@ -117,13 +117,13 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
 #[component]
 fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
     if rows.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No workspaces."</div> }.into_any();
+        return view! { <div class="text-sm italic text-muted">"No workspaces."</div> }.into_any();
     }
     view! {
         <div class="overflow-x-auto">
             <table class="w-full text-sm border-collapse">
                 <thead>
-                    <tr class="border-b-2 border-ink">
+                    <tr class="border-b-2 border-strong">
                         <th class="text-left text-meta py-1 pr-4">"Slug"</th>
                         <th class="text-left text-meta py-1 pr-4">"Name"</th>
                         <th class="text-left text-meta py-1 pr-4">"Plan"</th>
@@ -143,8 +143,8 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                         let quality = format!("{:.0}%", r.quality_score * 100.0);
                         let detail_href = format!("/w/{}/admin/observability", r.slug);
                         view! {
-                            <tr class="border-b transition-colors hover:bg-black/[0.035]"
-                                style="border-color: var(--ink-15); cursor: pointer;"
+                            <tr class="border-b border-subtle transition-colors hover:bg-hover-tint"
+                                style="cursor: pointer;"
                                 on:click={
                                     let href = detail_href.clone();
                                     move |_| {
@@ -156,8 +156,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                                 <td class="py-1.5 pr-4 font-mono text-xs font-bold">{slug}</td>
                                 <td class="py-1.5 pr-4 text-sm">{name}</td>
                                 <td class="py-1.5 pr-4">
-                                    <span class="text-eyebrow px-1.5 py-0.5 border border-ink"
-                                          style="background: var(--cream-light);">{plan}</span>
+                                    <span class="text-eyebrow px-1.5 py-0.5 border border-strong bg-surface-raised">{plan}</span>
                                 </td>
                                 <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
                                 <td class="py-1.5 px-2 text-right font-mono font-bold">{cost}</td>
@@ -181,7 +180,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
 #[component]
 fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
     if signals.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No quality signals yet."</div> }.into_any();
+        return view! { <div class="text-sm italic text-muted">"No quality signals yet."</div> }.into_any();
     }
     let max_count = signals.iter().map(|s| s.count).max().unwrap_or(1).max(1);
 
@@ -194,7 +193,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
                 view! {
                     <div class="flex items-center gap-3">
                         <div class="w-24 text-xs font-bold" style=move || format!("color:{};", color)>{label}</div>
-                        <div class="flex-1 h-5 border border-ink overflow-hidden" style="background: var(--cream-light);">
+                        <div class="flex-1 h-5 border border-strong bg-surface-raised overflow-hidden">
                             <div style=move || format!("width:{}%; height:100%; background:{};", pct, color)></div>
                         </div>
                         <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
@@ -216,7 +215,7 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
         <div class="overflow-x-auto">
             <table class="w-full text-xs border-collapse">
                 <thead>
-                    <tr class="border-b-2 border-ink">
+                    <tr class="border-b-2 border-strong">
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Workspace"</th>
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Timestamp"</th>
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
@@ -232,12 +231,12 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
                         let model = e.model.clone();
                         let err = e.error.clone();
                         view! {
-                            <tr class="border-b" style="border-color:var(--ink-15);">
+                            <tr class="border-b border-subtle">
                                 <td class="py-1.5 pr-3 font-mono font-bold">{ws}</td>
                                 <td class="py-1.5 pr-3 font-mono whitespace-nowrap">{ts}</td>
                                 <td class="py-1.5 pr-3">{prov}</td>
                                 <td class="py-1.5 pr-3 font-mono">{model}</td>
-                                <td class="py-1.5 text-brick truncate max-w-[300px]">{err}</td>
+                                <td class="py-1.5 text-accent truncate max-w-[300px]">{err}</td>
                             </tr>
                         }
                     }).collect::<Vec<_>>()}
@@ -260,28 +259,26 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
     });
 
     view! {
-        <div class="flex min-h-screen" style="background: var(--cream-light);">
+        <div class="flex min-h-screen bg-surface-raised">
             // Minimal sidebar for global admin page
-            <aside class="w-56 min-w-[220px] flex flex-col border-r-2 border-ink" style="background: var(--cream-light);">
-                <div class="px-5 pt-6 pb-5 border-b-2 border-ink">
+            <aside class="w-56 min-w-[220px] flex flex-col border-r-2 border-strong bg-surface-raised">
+                <div class="px-5 pt-6 pb-5 border-b-2 border-strong">
                     <h1 class="font-display text-xl font-extrabold uppercase tracking-tight">
-                        "GRUMPS"<span class="text-brick">"."</span>
+                        "GRUMPS"<span class="text-accent">"."</span>
                     </h1>
-                    <p class="text-eyebrow mt-0.5" style="color: var(--ink-40);">
+                    <p class="text-eyebrow mt-0.5 text-muted">
                         "Super Admin"
                     </p>
                 </div>
                 <nav class="py-3 flex-1">
-                    <div class="px-5 pt-4 pb-1.5 text-eyebrow" style="color: var(--ink-40);">"Admin"</div>
+                    <div class="px-5 pt-4 pb-1.5 text-eyebrow text-muted">"Admin"</div>
                     <A href="/admin/observability"
-                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-brick"
-                       attr:style="color: var(--ink);">
+                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-accent text-primary">
                         <Icon name="globe" class="size-4 flex-shrink-0"/>
                         "Observabilité globale"
                     </A>
                     <A href="/dashboard"
-                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover:bg-black/[0.04]"
-                       attr:style="color: var(--ink-70);">
+                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover:bg-hover-tint text-secondary">
                         <span class="w-[18px] text-center text-body">"⊞"</span>
                         "My Workspaces"
                     </A>
@@ -294,12 +291,12 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     let maybe = data.get().map(|w| (*w).clone());
                     match maybe {
                         None => view! {
-                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Loading…"</div>
+                            <div class="font-display text-xl animate-pulse text-muted">"Loading…"</div>
                         }.into_any(),
                         Some(None) => view! {
-                            <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                                <div class="font-display text-xl font-extrabold text-brick">"Accès refusé ou erreur."</div>
-                                <p class="text-sm mt-2" style="color:var(--ink-70);">"Cette page est réservée aux super admins."</p>
+                            <div class="border-2 border-strong bg-surface p-6" style="box-shadow:3px 3px 0 var(--border-strong);">
+                                <div class="font-display text-xl font-extrabold text-accent">"Accès refusé ou erreur."</div>
+                                <p class="text-sm mt-2 text-secondary">"Cette page est réservée aux super admins."</p>
                             </div>
                         }.into_any(),
                         Some(Some(d)) => {
@@ -315,9 +312,9 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                                     <div class="mb-8">
                                         <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
                                             "Observabilité globale"
-                                            <span class="text-brick">"."</span>
+                                            <span class="text-accent">"."</span>
                                         </h1>
-                                        <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
+                                        <p class="text-sm font-medium uppercase tracking-widest mt-1 text-muted">
                                             {d.generated_at.clone()}
                                         </p>
                                     </div>
