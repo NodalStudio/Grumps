@@ -2,7 +2,19 @@ use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 use leptos::prelude::*;
 
-const API_BASE: &str = "http://localhost:8787"; // TODO: make configurable
+fn api_base() -> String {
+    web_sys::window()
+        .and_then(|w| w.location().origin().ok())
+        .map(|origin| {
+            if origin.contains("localhost") || origin.contains("127.0.0.1") {
+                "http://localhost:8787".to_string()
+            } else {
+                // Worker is served at api.grumps.io; SPA lives at grumps.io
+                origin.replace("grumps.io", "api.grumps.io")
+            }
+        })
+        .unwrap_or_else(|| "http://localhost:8787".to_string())
+}
 
 // =====================
 // Response types
@@ -179,7 +191,7 @@ impl ApiClient {
     }
 
     async fn get<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Result<T, String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = format!("{}{}", api_base(), path);
         let mut req = Request::get(&url);
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", &auth);
@@ -192,7 +204,7 @@ impl ApiClient {
     }
 
     async fn post<B: Serialize, T: for<'de> Deserialize<'de>>(&self, path: &str, body: &B) -> Result<T, String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = format!("{}{}", api_base(), path);
         let mut req = Request::post(&url).header("Content-Type", "application/json");
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", &auth);
@@ -205,7 +217,7 @@ impl ApiClient {
     }
 
     async fn put<B: Serialize>(&self, path: &str, body: &B) -> Result<(), String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = format!("{}{}", api_base(), path);
         let mut req = Request::put(&url).header("Content-Type", "application/json");
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", &auth);
@@ -216,7 +228,7 @@ impl ApiClient {
     }
 
     async fn patch<B: Serialize>(&self, path: &str, body: &B) -> Result<(), String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = format!("{}{}", api_base(), path);
         let mut req = Request::patch(&url).header("Content-Type", "application/json");
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", &auth);
@@ -227,7 +239,7 @@ impl ApiClient {
     }
 
     async fn delete(&self, path: &str) -> Result<(), String> {
-        let url = format!("{}{}", API_BASE, path);
+        let url = format!("{}{}", api_base(), path);
         let mut req = Request::delete(&url);
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", &auth);
