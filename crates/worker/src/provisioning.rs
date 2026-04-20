@@ -5,6 +5,7 @@ const WORKSPACE_SCHEMA_0001: &str = include_str!("../../../migrations/workspace/
 const WORKSPACE_SCHEMA_0002: &str = include_str!("../../../migrations/workspace/0002_memory.sql");
 const WORKSPACE_SCHEMA_0003: &str = include_str!("../../../migrations/workspace/0003_calendar.sql");
 const WORKSPACE_SCHEMA_0004: &str = include_str!("../../../migrations/workspace/0004_scheduling.sql");
+const WORKSPACE_SCHEMA_0007: &str = include_str!("../../../migrations/workspace/0007_quality_signals.sql");
 
 pub fn generate_slug() -> String {
     uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string()
@@ -19,6 +20,7 @@ pub async fn provision_workspace(d1_client: &D1RestClient, index_db: &D1Database
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0002).await?;
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0003).await?;
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0004).await?;
+    d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0007).await?;
     index_db.prepare("INSERT INTO workspaces_meta (slug, platform, platform_channel_id, d1_database_id) VALUES (?1, ?2, ?3, ?4)")
         .bind(&[slug.clone().into(), platform.into(), channel_id.into(), database_id.clone().into()])?.run().await?;
     Ok((slug, database_id))
