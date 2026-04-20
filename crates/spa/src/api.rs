@@ -65,6 +65,90 @@ pub struct StatusCounts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryItem {
+    pub id: String,
+    pub key: Option<String>,
+    pub value: String,
+    pub kind: String,
+    pub related_member: Option<String>,
+    pub source: String,
+    pub confidence: f64,
+    pub pinned: bool,
+    pub expires_at: Option<String>,
+    pub created_by: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventItem {
+    pub id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+    pub all_day: bool,
+    pub location: Option<String>,
+    pub recurrence: Option<String>,
+    pub attendees: Vec<String>,
+    pub color: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledActionItem {
+    pub id: String,
+    pub action_type: String,
+    pub title: String,
+    pub trigger_at: String,
+    pub recurrence: Option<String>,
+    pub status: String,
+    pub fire_count: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalendarItem {
+    pub id: String,
+    pub source: String,
+    pub title: String,
+    pub starts_at: String,
+    pub ends_at: Option<String>,
+    pub all_day: bool,
+    pub location: Option<String>,
+    pub color: String,
+    pub member_id: Option<String>,
+    pub recurrence: Option<String>,
+    pub editable: bool,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkspaceSettings {
+    pub language: Option<String>,
+    pub timezone: Option<String>,
+    pub quiet_mode: Option<bool>,
+    pub auto_recap: Option<bool>,
+    pub persona: Option<String>,
+    pub proactive_mode: Option<bool>,
+    pub auto_memory: Option<bool>,
+    pub ical_token: Option<String>,
+    pub agent_calls_used: Option<i64>,
+    pub agent_calls_limit: Option<i64>,
+    pub web_search_used: Option<i64>,
+    pub web_search_limit: Option<i64>,
+    pub storage_used_mb: Option<f64>,
+    pub storage_limit_mb: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ICalTokenResponse {
+    pub token: String,
+    pub url: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OtpResponse {
     pub ok: bool,
 }
@@ -231,5 +315,89 @@ impl ApiClient {
 
     pub async fn get_members(&self, slug: &str) -> Result<Vec<MemberItem>, String> {
         self.get(&format!("/api/w/{}/members", slug)).await
+    }
+
+    // =====================
+    // Memory
+    // =====================
+
+    pub async fn list_memory(&self, slug: &str) -> Result<Vec<MemoryItem>, String> {
+        self.get(&format!("/api/w/{}/memory", slug)).await
+    }
+
+    pub async fn create_memory(&self, slug: &str, body: &serde_json::Value) -> Result<MemoryItem, String> {
+        self.post(&format!("/api/w/{}/memory", slug), body).await
+    }
+
+    pub async fn update_memory(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        self.patch(&format!("/api/w/{}/memory/{}", slug, id), body).await
+    }
+
+    pub async fn delete_memory(&self, slug: &str, id: &str) -> Result<(), String> {
+        self.delete(&format!("/api/w/{}/memory/{}", slug, id)).await
+    }
+
+    // =====================
+    // Events
+    // =====================
+
+    pub async fn list_events(&self, slug: &str) -> Result<Vec<EventItem>, String> {
+        self.get(&format!("/api/w/{}/events", slug)).await
+    }
+
+    pub async fn create_event(&self, slug: &str, body: &serde_json::Value) -> Result<EventItem, String> {
+        self.post(&format!("/api/w/{}/events", slug), body).await
+    }
+
+    pub async fn update_event(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        self.patch(&format!("/api/w/{}/events/{}", slug, id), body).await
+    }
+
+    pub async fn delete_event(&self, slug: &str, id: &str) -> Result<(), String> {
+        self.delete(&format!("/api/w/{}/events/{}", slug, id)).await
+    }
+
+    // =====================
+    // Scheduled Actions
+    // =====================
+
+    pub async fn list_scheduled_actions(&self, slug: &str) -> Result<Vec<ScheduledActionItem>, String> {
+        self.get(&format!("/api/w/{}/scheduled-actions", slug)).await
+    }
+
+    pub async fn create_scheduled_action(&self, slug: &str, body: &serde_json::Value) -> Result<ScheduledActionItem, String> {
+        self.post(&format!("/api/w/{}/scheduled-actions", slug), body).await
+    }
+
+    pub async fn update_scheduled_action(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String> {
+        self.patch(&format!("/api/w/{}/scheduled-actions/{}", slug, id), body).await
+    }
+
+    pub async fn delete_scheduled_action(&self, slug: &str, id: &str) -> Result<(), String> {
+        self.delete(&format!("/api/w/{}/scheduled-actions/{}", slug, id)).await
+    }
+
+    // =====================
+    // Calendar (aggregated)
+    // =====================
+
+    pub async fn list_calendar(&self, slug: &str, from: &str, to: &str) -> Result<Vec<CalendarItem>, String> {
+        self.get(&format!("/api/w/{}/calendar?from={}&to={}", slug, from, to)).await
+    }
+
+    // =====================
+    // Workspace Settings
+    // =====================
+
+    pub async fn get_settings(&self, slug: &str) -> Result<WorkspaceSettings, String> {
+        self.get(&format!("/api/w/{}/settings", slug)).await
+    }
+
+    pub async fn update_settings(&self, slug: &str, body: &serde_json::Value) -> Result<(), String> {
+        self.put(&format!("/api/w/{}/settings", slug), body).await
+    }
+
+    pub async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String> {
+        self.post(&format!("/api/w/{}/calendar/ical-token", slug), &serde_json::json!({})).await
     }
 }
