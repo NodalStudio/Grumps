@@ -420,6 +420,18 @@ impl ApiClient {
     pub async fn get_observability(&self, slug: &str) -> Result<ObservabilityData, String> {
         self.get(&format!("/api/w/{}/admin/observability", slug)).await
     }
+
+    // =====================
+    // Super admin
+    // =====================
+
+    pub async fn get_admin_me(&self) -> Result<AdminMe, String> {
+        self.get("/api/admin/me").await
+    }
+
+    pub async fn get_global_observability(&self) -> Result<GlobalObservabilityData, String> {
+        self.get("/api/admin/observability").await
+    }
 }
 
 // ── Observability types ───────────────────────────────────────────────────────
@@ -483,5 +495,52 @@ pub struct ObservabilityData {
     pub cascade_efficiency: CascadeEfficiency,
     pub top_tools: Vec<serde_json::Value>,
     pub recent_errors: Vec<LlmErrorEntry>,
+    pub quality_signals: Vec<QualitySignalCount>,
+}
+
+// ── Admin / Super admin types ─────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AdminMe {
+    pub is_super_admin: bool,
+    pub phone: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GlobalWorkspaceStats {
+    pub slug: String,
+    pub name: Option<String>,
+    pub plan: String,
+    pub cost_usd: f64,
+    pub calls: i64,
+    pub quality_score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GlobalModelCostAgg {
+    pub provider: String,
+    pub model: String,
+    pub cost_usd: f64,
+    pub call_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GlobalError {
+    pub workspace_slug: String,
+    pub created_at: String,
+    pub provider: String,
+    pub model: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GlobalObservabilityData {
+    pub generated_at: String,
+    pub workspaces_count: usize,
+    pub total_cost_usd: f64,
+    pub total_calls: i64,
+    pub by_workspace: Vec<GlobalWorkspaceStats>,
+    pub cost_by_model: Vec<GlobalModelCostAgg>,
+    pub recent_errors: Vec<GlobalError>,
     pub quality_signals: Vec<QualitySignalCount>,
 }

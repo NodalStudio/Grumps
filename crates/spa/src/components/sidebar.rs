@@ -1,9 +1,18 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
+use crate::auth::use_auth;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
     let base = format!("/w/{}", slug);
+
+    // Check super admin status once on mount
+    let auth = use_auth();
+    let api = auth.api.clone();
+    let admin_me = LocalResource::new(move || {
+        let api = api.clone();
+        async move { api.get_admin_me().await.ok() }
+    });
 
     view! {
         <aside class="w-64 min-w-[260px] flex flex-col overflow-y-auto border-r-2 border-ink" style="background: var(--cream-light);">
@@ -28,6 +37,28 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
             // Nav
             <nav class="py-3 flex-1">
+                // Super admin link — rendered only if user is super admin
+                {move || {
+                    let is_super = admin_me.get()
+                        .and_then(|m| (*m).clone())
+                        .map(|m| m.is_super_admin)
+                        .unwrap_or(false);
+                    if is_super {
+                        view! {
+                            <div>
+                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
+                                <A href="/admin/observability"
+                                   attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
+                                   attr:style="color: var(--ink);">
+                                    <span class="w-[18px] text-center text-[15px]">"🌐"</span>
+                                    "Observabilité globale"
+                                </A>
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <span></span> }.into_any()
+                    }
+                }}
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Workspace"</div>
                 <NavItem href=base.clone() label="Overview" icon="\u{25EB}" />
                 <NavItem href=format!("{}/todos", base) label="Todos" icon="\u{2610}" />

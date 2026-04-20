@@ -13,6 +13,7 @@ pub fn App() -> impl IntoView {
             <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">"404 — Not found."</div> }>
                 <Route path=path!("/login") view=pages::login::LoginPage />
                 <Route path=path!("/dashboard") view=pages::dashboard::DashboardPage />
+                <Route path=path!("/admin/observability") view=pages::global_observability::GlobalObservabilityPage />
                 <ParentRoute path=path!("/w/:slug") view=pages::workspace::WorkspaceLayout>
                     <Route path=path!("/") view=pages::overview::OverviewPage />
                     <Route path=path!("/todos") view=pages::todos::TodosPage />
