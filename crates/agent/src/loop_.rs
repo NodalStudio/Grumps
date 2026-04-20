@@ -244,24 +244,9 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
 }
 
 fn session_msg_to_anthropic(m: &grumps_scheduler::SessionMessage) -> Message {
-    use grumps_scheduler::SessionMessage as SM;
-    match m {
-        SM::User { content } => Message {
-            role: "user".into(),
-            content: serde_json::Value::String(content.clone()),
-        },
-        SM::Assistant { content, .. } => Message {
-            role: "assistant".into(),
-            content: serde_json::Value::String(content.clone()),
-        },
-        SM::Tool { tool_use_id, content } => Message {
-            role: "user".into(),
-            content: serde_json::json!([{
-                "type": "tool_result",
-                "tool_use_id": tool_use_id,
-                "content": serde_json::to_string(content).unwrap_or_default(),
-            }]),
-        },
+    Message {
+        role: m.role.clone(),
+        content: m.content.clone(),
     }
 }
 
@@ -275,21 +260,13 @@ fn content_block_to_json(b: &ContentBlock) -> serde_json::Value {
 }
 
 async fn persist_session(ctx: &ToolContext<'_>, messages: &[Message]) -> Result<()> {
-    // Convert Anthropic Message back to grumps_scheduler::SessionMessage for storage.
-    // Only simple string-content messages survive the roundtrip; array-content messages
-    // (tool_use / tool_result) are filtered out to avoid double-serialisation issues.
+    // Convert Anthropic Messages to SessionMessage for storage, preserving all turns
+    // including tool_use (array content) and tool_result turns verbatim.
     let sess_msgs: Vec<grumps_scheduler::SessionMessage> = messages
         .iter()
-        .filter_map(|m| {
-            let content_str = m.content.as_str().map(String::from)?;
-            match m.role.as_str() {
-                "user" => Some(grumps_scheduler::SessionMessage::User { content: content_str }),
-                "assistant" => Some(grumps_scheduler::SessionMessage::Assistant {
-                    content: content_str,
-                    tool_calls: vec![],
-                }),
-                _ => None,
-            }
+        .map(|m| grumps_scheduler::SessionMessage {
+            role: m.role.clone(),
+            content: m.content.clone(),
         })
         .collect();
     ctx.db

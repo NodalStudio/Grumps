@@ -12,12 +12,12 @@ pub struct AgentSession {
     pub created_at: DateTime<Utc>,
 }
 
+/// Mirrors Anthropic's Message shape for lossless session storage.
+/// `content` may be a plain string (simple turns) or a JSON array (tool_use / tool_result turns).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "role", rename_all = "lowercase")]
-pub enum SessionMessage {
-    User { content: String },
-    Assistant { content: String, #[serde(default)] tool_calls: Vec<serde_json::Value> },
-    Tool { tool_use_id: String, content: serde_json::Value },
+pub struct SessionMessage {
+    pub role: String,           // "user" | "assistant"
+    pub content: serde_json::Value, // String OR Vec of content blocks
 }
 
 #[cfg(test)]
@@ -26,21 +26,19 @@ mod tests {
 
     #[test]
     fn message_serializes_role() {
-        let m = SessionMessage::User { content: "hi".into() };
+        let m = SessionMessage { role: "user".into(), content: serde_json::Value::String("hi".into()) };
         let j = serde_json::to_value(&m).unwrap();
         assert_eq!(j["role"], "user");
         assert_eq!(j["content"], "hi");
     }
 
     #[test]
-    fn assistant_with_no_tool_calls_omits_default() {
-        let m = SessionMessage::Assistant { content: "ok".into(), tool_calls: vec![] };
+    fn assistant_with_tool_array_roundtrips() {
+        let content = serde_json::json!([{"type": "tool_use", "id": "x", "name": "foo", "input": {}}]);
+        let m = SessionMessage { role: "assistant".into(), content: content.clone() };
         let j = serde_json::to_string(&m).unwrap();
-        // tool_calls is included as empty array — that's fine, just ensure roundtrip
         let back: SessionMessage = serde_json::from_str(&j).unwrap();
-        match back {
-            SessionMessage::Assistant { content, .. } => assert_eq!(content, "ok"),
-            _ => panic!("wrong variant"),
-        }
+        assert_eq!(back.role, "assistant");
+        assert_eq!(back.content, content);
     }
 }
