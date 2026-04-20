@@ -5,12 +5,12 @@ use crate::components::lang_switcher::LangSwitcher;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
-    // In demo mode the SPA is mounted under `/demo/` (Leptos router has
-    // `base="/demo"`). The router strips that prefix on URL matching, but
+    // In demo mode the SPA is mounted under `/demo/` (or `/Grumps/demo/`
+    // on GH Pages). The router strips that prefix on URL matching, but
     // `<A href>` inputs are passed verbatim — so links must include the
     // prefix to land on the right page after a click that triggers a real
     // navigation (middle-click, opener, etc.).
-    let prefix = if crate::demo::is_demo() { "/demo" } else { "" };
+    let prefix = crate::demo::router_base();
     let base = format!("{}/w/{}", prefix, slug);
 
     // Check super admin status once on mount.
@@ -54,7 +54,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                         view! {
                             <div>
                                 <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
-                                <A href=format!("{}/admin/observability", prefix)
+                                <A href=format!("{}/admin/observability", crate::demo::router_base())
                                    attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
                                    attr:style="color: var(--ink);">
                                     <span class="w-[18px] text-center text-[15px]">"🌐"</span>
@@ -78,7 +78,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
                 <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
-                <A href=format!("{}/dashboard", prefix) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
+                <A href=format!("{}/dashboard", crate::demo::router_base()) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
                     <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
                     "My Workspaces"
                 </A>

@@ -135,6 +135,12 @@ async function main() {
   const canonicalBase = process.env.CANONICAL_BASE || 'https://grumps.io';
   const hreflangLinks = buildHreflangs(canonicalBase);
 
+  // Sub-path the site is served under. Empty for a custom domain ("/"),
+  // "/Grumps" for `username.github.io/Grumps/`. Controls the iframe src
+  // and the per-locale demo shim redirect target — must match the
+  // `--public-url` passed to `trunk build`.
+  const sitePath = (process.env.SITE_PATH || '').replace(/\/$/, '');
+
   const spaDistExists = await fs.access(path.join(ROOT, 'crates', 'spa', 'dist', 'index.html'))
     .then(() => true).catch(() => false);
 
@@ -159,9 +165,10 @@ async function main() {
     // ?lang= so the iframe locale matches the surrounding landing rather than
     // whatever the SPA happened to cache in localStorage from a prior visit.
     if (spaDistExists) {
+      const iframeSrc = `${sitePath}/demo/?lang=${locale.code}`;
       html = html.replace(
-        /<iframe\s+src="(workspace\.html|\/workspace\.html|\/demo\/?(\?[^"]*)?)"/,
-        `<iframe src="/demo/?lang=${locale.code}"`
+        /<iframe\s+src="(workspace\.html|\/[^"]*demo[^"]*|\/workspace\.html)"/,
+        `<iframe src="${iframeSrc}"`
       );
     }
 
@@ -217,12 +224,12 @@ async function main() {
     }
     console.log(`  + SPA demo bundle copied to ${path.relative(ROOT, demoOut)}/`);
 
-    // Per-locale shim: tiny redirect to /demo/?lang={code} (avoids duplicating the wasm bundle).
+    // Per-locale shim: tiny redirect to {sitePath}/demo/?lang={code} (avoids duplicating the wasm bundle).
     for (const locale of LOCALES) {
       if (locale.code === 'en') continue;
       const shim = `<!doctype html><meta charset="utf-8"><title>Grumps demo</title>` +
-                   `<meta http-equiv="refresh" content="0; url=/demo/?lang=${locale.code}">` +
-                   `<link rel="canonical" href="/demo/">` +
+                   `<meta http-equiv="refresh" content="0; url=${sitePath}/demo/?lang=${locale.code}">` +
+                   `<link rel="canonical" href="${sitePath}/demo/">` +
                    `<p>Redirecting to demo…</p>`;
       const dir = path.join(OUT_DIR, locale.code, 'demo');
       await fs.mkdir(dir, { recursive: true });

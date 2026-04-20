@@ -9,17 +9,36 @@ use crate::api::{
     ScheduledActionItem, StatusCounts, TodoItem, WorkspaceInfo, WorkspaceSettings,
 };
 
-/// `true` when the current page is running in demo mode.
+/// `true` when the current page is running in demo mode. Checks for
+/// `/demo` anywhere in the pathname (so it works whether the SPA is
+/// mounted at `/demo/` on a custom domain or at `/Grumps/demo/` on GH
+/// Pages) and for `?demo=1` in the query.
 pub fn is_demo() -> bool {
     let Some(win) = web_sys::window() else { return false; };
     let loc = win.location();
     if let Ok(pathname) = loc.pathname() {
-        if pathname.starts_with("/demo") { return true; }
+        if pathname.contains("/demo") { return true; }
     }
     if let Ok(search) = loc.search() {
         if search.contains("demo=1") || search.contains("demo=true") { return true; }
     }
     false
+}
+
+/// Returns the URL prefix to prepend to all SPA routes when running in
+/// demo mode — derived from the actual `window.location.pathname`. For
+/// example, on GH Pages serving `/Grumps/demo/...` this returns
+/// `"/Grumps/demo"`; on a custom domain serving `/demo/...` it returns
+/// `"/demo"`. Empty string when not in demo mode.
+pub fn router_base() -> String {
+    if !is_demo() { return String::new(); }
+    let Some(win) = web_sys::window() else { return String::new(); };
+    let pathname = win.location().pathname().unwrap_or_default();
+    // Find `/demo` and keep everything up to and including it.
+    if let Some(idx) = pathname.find("/demo") {
+        return pathname[..idx + "/demo".len()].to_string();
+    }
+    "/demo".to_string()
 }
 
 pub const DEMO_SLUG: &str = "roommates";
@@ -247,16 +266,17 @@ pub fn install_postmessage_nav() {
         if type_v.as_string().as_deref() != Some("grumps:navigate") { return; }
         let page = js_sys::Reflect::get(obj, &"page".into())
             .ok().and_then(|v| v.as_string()).unwrap_or_default();
+        let base = router_base();
         let path = match page.as_str() {
-            "overview"  => format!("/demo/w/{}",           DEMO_SLUG),
-            "todos"     => format!("/demo/w/{}/todos",     DEMO_SLUG),
-            "notes"     => format!("/demo/w/{}/notes",     DEMO_SLUG),
-            "files"     => format!("/demo/w/{}/files",     DEMO_SLUG),
-            "history"   => format!("/demo/w/{}/history",   DEMO_SLUG),
-            "calendar"  => format!("/demo/w/{}/calendar",  DEMO_SLUG),
-            "memory"    => format!("/demo/w/{}/memory",    DEMO_SLUG),
-            "scheduled" => format!("/demo/w/{}/scheduled", DEMO_SLUG),
-            "settings"  => format!("/demo/w/{}/settings",  DEMO_SLUG),
+            "overview"  => format!("{}/w/{}",           base, DEMO_SLUG),
+            "todos"     => format!("{}/w/{}/todos",     base, DEMO_SLUG),
+            "notes"     => format!("{}/w/{}/notes",     base, DEMO_SLUG),
+            "files"     => format!("{}/w/{}/files",     base, DEMO_SLUG),
+            "history"   => format!("{}/w/{}/history",   base, DEMO_SLUG),
+            "calendar"  => format!("{}/w/{}/calendar",  base, DEMO_SLUG),
+            "memory"    => format!("{}/w/{}/memory",    base, DEMO_SLUG),
+            "scheduled" => format!("{}/w/{}/scheduled", base, DEMO_SLUG),
+            "settings"  => format!("{}/w/{}/settings",  base, DEMO_SLUG),
             _ => return,
         };
         // Drive the router via History API + popstate (works without a

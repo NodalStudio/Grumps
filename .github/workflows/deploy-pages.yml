@@ -1,0 +1,96 @@
+name: Deploy landing + SPA demo to GitHub Pages
+
+# Builds the static landing page (14 locales) plus the Leptos SPA demo
+# bundle and publishes the resulting `dist/` to GitHub Pages. The deploy
+# is purely static — no runtime secrets are baked in. The Cloudflare
+# worker (which holds API keys) deploys separately via `wrangler` and is
+# not in scope for this workflow.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Single concurrent deploy; cancel in-progress runs on a new push.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+# Permissions required by the Pages action.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust (wasm32 target)
+        run: |
+          rustup target add wasm32-unknown-unknown
+          rustc --version
+
+      - name: Cache cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            crates/spa/dist
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Tailwind + Trunk
+        run: |
+          npm install --no-save tailwindcss@3
+          curl -sSf https://github.com/trunk-rs/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C /usr/local/bin
+          trunk --version
+
+      - name: Build SPA bundle
+        working-directory: crates/spa
+        run: |
+          mkdir -p dist
+          npx tailwindcss -i ./input.css -o ./dist/styles.css --minify
+          trunk build --release --public-url /Grumps/demo/
+
+      - name: Build landing (14 locales) + copy SPA into /demo
+        env:
+          # CANONICAL_BASE controls the hreflang URLs in the generated HTML.
+          # Override at deploy time when serving from a custom domain.
+          CANONICAL_BASE: https://nodalstudio.github.io/Grumps
+        run: node landing/build.mjs
+
+      - name: Patch _redirects for GitHub Pages SPA fallback
+        run: |
+          # GitHub Pages doesn't honour Cloudflare-style _redirects, but it
+          # does serve a custom 404.html. Copy the SPA shell to /demo/404.html
+          # so any deep URL under /demo/ falls back to the SPA shell instead
+          # of a generic 404, mirroring CF Pages SPA-fallback behaviour.
+          if [ -f dist/demo/index.html ]; then
+            cp dist/demo/index.html dist/demo/404.html
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

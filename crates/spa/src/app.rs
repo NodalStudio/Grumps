@@ -15,8 +15,10 @@ pub fn App() -> impl IntoView {
     }
     // When the SPA runs under /demo/ (landing iframe), tell the router
     // to strip that prefix before matching routes — otherwise every URL
-    // falls through to the 404 catch-all.
-    let base: &'static str = if crate::demo::is_demo() { "/demo" } else { "" };
+    // falls through to the 404 catch-all. The base may include a host
+    // sub-path (`/Grumps/demo` on GH Pages, `/demo` on a custom domain);
+    // demo::router_base() derives it from window.location.pathname.
+    let base: String = crate::demo::router_base();
     view! {
         <Router base=base>
             <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">"404 — Not found."</div> }>
@@ -38,6 +40,7 @@ pub fn App() -> impl IntoView {
                 </ParentRoute>
                 <Route path=path!("/") view=|| {
                     if crate::demo::is_demo() {
+                        // Router base is already stripped, so paths here are router-relative.
                         view! { <Redirect path=format!("/w/{}", crate::demo::DEMO_SLUG) /> }.into_any()
                     } else {
                         view! { <Redirect path="/login".to_string() /> }.into_any()

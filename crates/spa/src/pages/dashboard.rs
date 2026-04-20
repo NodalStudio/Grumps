@@ -17,7 +17,7 @@ pub fn DashboardPage() -> impl IntoView {
                         each=move || workspaces.get()
                         key=|ws| ws.slug.clone()
                         children=move |ws| {
-                            let prefix = if crate::demo::is_demo() { "/demo" } else { "" };
+                            let prefix = crate::demo::router_base();
                             let href = format!("{}/w/{}", prefix, ws.slug);
                             view! {
                                 <a href=href class="block p-6 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5" style="background: var(--cream-light);">
