@@ -76,6 +76,10 @@ jobs:
           # CANONICAL_BASE controls the hreflang URLs in the generated HTML.
           # Override at deploy time when serving from a custom domain.
           CANONICAL_BASE: https://nodalstudio.github.io/Grumps
+          # SITE_PATH prefixes every internal URL (iframe demo src, SPA
+          # shim redirects). Required when serving under a sub-path on
+          # GitHub Pages — drop when moving to a custom domain at root.
+          SITE_PATH: /Grumps
         run: node landing/build.mjs
 
       - name: Patch _redirects for GitHub Pages SPA fallback
