@@ -1596,6 +1596,18 @@ body::before {
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-40); }
 
 </style>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var auto = (t === null || t === 'auto');
+      var dark = auto
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
+        : t === 'dark';
+      if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
 </head>
 
 <body>
