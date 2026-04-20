@@ -19,7 +19,7 @@ fi
 echo "$WORKSPACES" | while IFS=$'\t' read -r db_id slug; do
     echo ""
     echo "=== Migrating workspace: $slug ($db_id) ==="
-    for mig in 0002_memory 0003_calendar 0004_scheduling 0005_migrate_reminders 0007_quality_signals; do
+    for mig in 0002_memory 0003_calendar 0004_scheduling 0005_migrate_reminders 0007_quality_signals 0008_llm_calls; do
         echo "  Applying $mig.sql..."
         wrangler d1 execute "$db_id" \
             --file="migrations/workspace/${mig}.sql" \
