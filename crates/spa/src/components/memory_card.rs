@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::api::MemoryItem;
+use crate::components::Icon;
 
 fn kind_color(kind: &str) -> &'static str {
     match kind {
@@ -86,7 +87,11 @@ pub fn MemoryCard(
                     style:background=move || if pinned { "var(--teal)" } else { "transparent" }
                     style:color=move || if pinned { "white" } else { "var(--ink)" }
                 >
-                    {if pinned { "📌 Pinned" } else { "Pin" }}
+                    {move || if pinned {
+                        view! { <span class="inline-flex items-center gap-1"><Icon name="pin" class="size-3"/>"Pinned"</span> }.into_any()
+                    } else {
+                        view! { <span>"Pin"</span> }.into_any()
+                    }}
                 </button>
 
                 <button

@@ -5,6 +5,7 @@ use js_sys;
 use crate::auth::use_auth;
 use crate::api::{StatusCounts, CalendarItem, MemoryItem};
 use crate::components::header::PageHeader;
+use crate::components::Icon;
 
 fn today_str() -> (i32, u32, u32) {
     let d = js_sys::Date::new_0();
@@ -159,7 +160,10 @@ pub fn OverviewPage() -> impl IntoView {
 
                 // Widget: Ce que je sais sur le groupe
                 <div class="border-2 border-ink rounded-sm p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
-                    <h3 class="font-display text-base font-bold mb-3">"📌 Ce que je sais"</h3>
+                    <h3 class="text-display mb-3 flex items-center gap-2">
+                        <Icon name="pin" class="size-4 text-muted"/>
+                        "Ce que je sais"
+                    </h3>
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">"Loading..."</div> }>
                         {move || memories.get().map(|data| {
                             let items: Vec<MemoryItem> = (*data).clone();

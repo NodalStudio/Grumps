@@ -1,14 +1,15 @@
 use leptos::prelude::*;
 use crate::api::ScheduledActionItem;
+use crate::components::Icon;
 
 fn type_icon(action_type: &str) -> &'static str {
     match action_type {
-        "message"    => "💬",
-        "reminder"   => "⏰",
-        "recap"      => "📋",
-        "task"       => "✅",
-        "webhook"    => "🔗",
-        _            => "⚡",
+        "message"    => "message",
+        "reminder"   => "scheduled",
+        "recap"      => "recap",
+        "task"       => "task-check",
+        "webhook"    => "webhook",
+        _            => "bolt",
     }
 }
 
@@ -42,7 +43,7 @@ pub fn ScheduledCard(
             style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;"
         >
             <div class="flex items-start gap-2">
-                <span class="text-xl flex-shrink-0">{type_icon(&atype)}</span>
+                <Icon name=type_icon(&atype) class="size-4 text-muted flex-shrink-0"/>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm" style="color: var(--ink);">{item.title.clone()}</div>
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">

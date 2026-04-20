@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
 use crate::api::{GlobalObservabilityData, GlobalWorkspaceStats, GlobalModelCostAgg, QualitySignalCount, GlobalError};
+use crate::components::Icon;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -275,7 +276,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     <A href="/admin/observability"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-brick"
                        attr:style="color: var(--ink);">
-                        <span class="w-[18px] text-center text-[15px]">"🌐"</span>
+                        <Icon name="globe" class="size-4 flex-shrink-0"/>
                         "Observabilité globale"
                     </A>
                     <A href="/dashboard"
