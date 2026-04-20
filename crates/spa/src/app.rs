@@ -21,6 +21,9 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/files") view=pages::files::FilesPage />
                     <Route path=path!("/history") view=pages::history::HistoryPage />
                     <Route path=path!("/settings") view=pages::settings::SettingsPage />
+                    <Route path=path!("/memory") view=pages::memory::MemoryPage />
+                    <Route path=path!("/scheduled") view=pages::scheduled::ScheduledActionsPage />
+                    <Route path=path!("/calendar") view=pages::calendar::CalendarPage />
                 </ParentRoute>
                 <Route path=path!("/") view=|| view! { <Redirect path="/login" /> } />
             </Routes>

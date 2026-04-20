@@ -8,3 +8,6 @@ pub mod note_editor;
 pub mod files;
 pub mod history;
 pub mod settings;
+pub mod memory;
+pub mod scheduled;
+pub mod calendar;

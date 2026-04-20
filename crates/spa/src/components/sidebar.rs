@@ -34,6 +34,9 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                 <NavItem href=format!("{}/notes", base) label="Notes" icon="\u{00B6}" />
                 <NavItem href=format!("{}/files", base) label="Files" icon="\u{25F0}" />
                 <NavItem href=format!("{}/history", base) label="History" icon="\u{21BB}" />
+                <NavItem href=format!("{}/calendar", base) label="Calendar" icon="\u{1F4C5}" />
+                <NavItem href=format!("{}/memory", base) label="Memory" icon="\u{1F9E0}" />
+                <NavItem href=format!("{}/scheduled", base) label="Scheduled" icon="\u{23F0}" />
 
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
                 <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
