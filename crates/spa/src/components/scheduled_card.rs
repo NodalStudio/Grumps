@@ -4,12 +4,12 @@ use crate::i18n::{tr, tr_n};
 
 fn type_icon(action_type: &str) -> &'static str {
     match action_type {
-        "message"    => "💬",
-        "reminder"   => "⏰",
-        "recap"      => "📋",
-        "task"       => "✅",
-        "webhook"    => "🔗",
-        _            => "⚡",
+        "message"    => "\u{00B6}",  // ¶
+        "reminder"   => "\u{25F7}",  // ◷
+        "recap"      => "\u{25A4}",  // ▤
+        "task"       => "\u{2610}",  // ☐
+        "webhook"    => "\u{229E}",  // ⊞
+        _            => "\u{25CA}",  // ◊
     }
 }
 
@@ -43,7 +43,7 @@ pub fn ScheduledCard(
             style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;"
         >
             <div class="flex items-start gap-2">
-                <span class="text-xl flex-shrink-0">{type_icon(&atype)}</span>
+                <span class="text-base flex-shrink-0 w-5 text-center" style="color: var(--ink-70);">{type_icon(&atype)}</span>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm" style="color: var(--ink);">{let t = item.title.clone(); move || tr(&t)}</div>
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">

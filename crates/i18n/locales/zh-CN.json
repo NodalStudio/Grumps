@@ -1,6 +1,5 @@
 {
   "brand.tagline": "把事情办了。不废话。",
-
   "common.save": "保存",
   "common.cancel": "取消",
   "common.delete": "删除",
@@ -15,7 +14,6 @@
   "common.filter.all": "全部",
   "common.irreversible": "无法撤销。",
   "common.someone": "某人",
-
   "sidebar.section.super_admin": "超级管理员",
   "sidebar.section.workspace": "工作区",
   "sidebar.section.manage": "管理",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "你",
   "sidebar.user.role.member": "成员",
   "sidebar.user.role.admin": "管理员",
-
+  "sidebar.section.language": "语言",
   "page.overview.title": "概览",
   "page.todos.title": "待办",
   "page.todos.subtitle": "管理你的任务",
@@ -53,10 +51,8 @@
   "page.settings.title": "设置",
   "page.observability.title": "可观测性",
   "page.dashboard.subtitle": "所有群组聚于一处",
-
   "dashboard.add_group.title": "添加群组",
   "dashboard.add_group.help": "把 @grumps 加到一个聊天群里",
-
   "overview.this_week": "本周",
   "overview.what_i_know": "我知道的",
   "overview.nothing_pinned": "还没置顶任何东西。",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "笔记",
   "overview.stat.files": "文件",
   "overview.stat.done_this_week": "本周已完成",
-
   "auth.login.check_messaging": "查看你的聊天应用",
   "auth.login.phone_label": "你的手机号",
   "auth.login.phone_placeholder": "+86 138 0000 0000",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "我们将发送 6 位验证码以确认你在群里。",
   "auth.login.didnt_get_it": "没收到? ",
   "auth.login.try_again": "重试",
-
   "todo.action.add": "添加待办",
   "todo.add.placeholder": "添加一项待办…",
   "todo.filter.open": "未完成",
@@ -88,20 +82,17 @@
   "todo.completed": "已完成",
   "todo.created": "已创建",
   "todo.deleted": "已删除",
-
   "note.action.new": "新建笔记",
   "note.empty.title": "没有笔记。",
   "note.empty.hint": "群组记忆是空的。",
   "note.pinned": "已置顶",
   "note.untitled": "无标题笔记",
   "note.edited": "已编辑",
-
   "files.drop": "把文件拖到这里",
   "files.drop.hint": "或点击浏览 · 即将推出",
   "files.empty.title": "还没有文件。",
   "files.empty.hint": "在聊天里用 @grumps store 保存文件",
   "file.uploaded": "已上传",
-
   "memory.action.add": "添加记忆",
   "memory.empty.title": "还没记下任何东西。",
   "memory.empty.hint": "添加事实、偏好,或让代理自动学习。",
@@ -127,7 +118,6 @@
   "memory.kind.other": "其他",
   "memory.action.pin": "置顶",
   "memory.pinned": "已置顶",
-
   "schedule.action.new": "新建操作",
   "schedule.action.execute": "立即执行",
   "schedule.filter.type": "类型",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "已触发 {n} 次",
   "schedule.fired.many": "已触发 {n} 次",
   "schedule.fired.other": "已触发 {n} 次",
-
   "calendar.prev": "上一",
   "calendar.next": "下一",
   "calendar.view.month": "月",
   "calendar.view.week": "周",
   "calendar.view.agenda": "议程",
-  "month.jan": "一月", "month.feb": "二月", "month.mar": "三月",
-  "month.apr": "四月",   "month.may": "五月",      "month.jun": "六月",
-  "month.jul": "七月",    "month.aug": "八月",   "month.sep": "九月",
-  "month.oct": "十月", "month.nov": "十一月", "month.dec": "十二月",
-  "dow.mon": "一", "dow.tue": "二", "dow.wed": "三", "dow.thu": "四",
-  "dow.fri": "五", "dow.sat": "六", "dow.sun": "日",
-
+  "month.jan": "一月",
+  "month.feb": "二月",
+  "month.mar": "三月",
+  "month.apr": "四月",
+  "month.may": "五月",
+  "month.jun": "六月",
+  "month.jul": "七月",
+  "month.aug": "八月",
+  "month.sep": "九月",
+  "month.oct": "十月",
+  "month.nov": "十一月",
+  "month.dec": "十二月",
+  "dow.mon": "一",
+  "dow.tue": "二",
+  "dow.wed": "三",
+  "dow.thu": "四",
+  "dow.fri": "五",
+  "dow.sat": "六",
+  "dow.sun": "日",
   "seed.workspace.name": "室友",
   "seed.todo.buy_toilet_paper": "买卫生纸",
   "seed.todo.pay_electricity": "交电费",

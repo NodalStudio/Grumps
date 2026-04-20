@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Faz acontecer. Sem papo furado.",
-
   "common.save": "Salvar",
   "common.cancel": "Cancelar",
   "common.delete": "Excluir",
@@ -15,7 +14,6 @@
   "common.filter.all": "Todos",
   "common.irreversible": "Isto não pode ser desfeito.",
   "common.someone": "Alguém",
-
   "sidebar.section.super_admin": "Super Admin",
   "sidebar.section.workspace": "Workspace",
   "sidebar.section.manage": "Gerenciar",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "Você",
   "sidebar.user.role.member": "Membro",
   "sidebar.user.role.admin": "Admin",
-
+  "sidebar.section.language": "Idioma",
   "page.overview.title": "Visão geral",
   "page.todos.title": "Tarefas",
   "page.todos.subtitle": "Gerencie suas tarefas",
@@ -53,10 +51,8 @@
   "page.settings.title": "Configurações",
   "page.observability.title": "Observabilidade",
   "page.dashboard.subtitle": "Todos os seus grupos em um só lugar",
-
   "dashboard.add_group.title": "Adicionar um grupo",
   "dashboard.add_group.help": "Adicione @grumps a um grupo de mensagens",
-
   "overview.this_week": "Esta semana",
   "overview.what_i_know": "O que eu sei",
   "overview.nothing_pinned": "Nada fixado ainda.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Notas",
   "overview.stat.files": "Arquivos",
   "overview.stat.done_this_week": "Feitas esta semana",
-
   "auth.login.check_messaging": "Confira seu app de mensagens",
   "auth.login.phone_label": "Seu número de telefone",
   "auth.login.phone_placeholder": "+55 11 91234 5678",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "Vamos enviar um código de 6 dígitos para confirmar que você está no grupo.",
   "auth.login.didnt_get_it": "Não recebeu? ",
   "auth.login.try_again": "Tentar de novo",
-
   "todo.action.add": "Adicionar tarefa",
   "todo.add.placeholder": "Adicionar uma tarefa…",
   "todo.filter.open": "Abertas",
@@ -88,20 +82,17 @@
   "todo.completed": "concluída",
   "todo.created": "criada",
   "todo.deleted": "excluída",
-
   "note.action.new": "Nova nota",
   "note.empty.title": "Sem notas.",
   "note.empty.hint": "A memória do grupo está em branco.",
   "note.pinned": "Fixada",
   "note.untitled": "Nota sem título",
   "note.edited": "editada",
-
   "files.drop": "Solte arquivos aqui",
   "files.drop.hint": "ou clique para procurar · em breve",
   "files.empty.title": "Sem arquivos ainda.",
   "files.empty.hint": "Salve arquivos do chat com @grumps store",
   "file.uploaded": "enviado",
-
   "memory.action.add": "Adicionar memória",
   "memory.empty.title": "Nada lembrado ainda.",
   "memory.empty.hint": "Adicione fatos, preferências ou deixe o agente aprender sozinho.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Outro",
   "memory.action.pin": "Fixar",
   "memory.pinned": "Fixado",
-
   "schedule.action.new": "Nova ação",
   "schedule.action.execute": "Executar agora",
   "schedule.filter.type": "Tipo",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "Disparada {n} vezes",
   "schedule.fired.many": "Disparada {n} vezes",
   "schedule.fired.other": "Disparada {n} vezes",
-
   "calendar.prev": "Ant.",
   "calendar.next": "Próx.",
   "calendar.view.month": "Mês",
   "calendar.view.week": "Semana",
   "calendar.view.agenda": "Agenda",
-  "month.jan": "Janeiro", "month.feb": "Fevereiro", "month.mar": "Março",
-  "month.apr": "Abril",   "month.may": "Maio",      "month.jun": "Junho",
-  "month.jul": "Julho",    "month.aug": "Agosto",   "month.sep": "Setembro",
-  "month.oct": "Outubro", "month.nov": "Novembro", "month.dec": "Dezembro",
-  "dow.mon": "Seg", "dow.tue": "Ter", "dow.wed": "Qua", "dow.thu": "Qui",
-  "dow.fri": "Sex", "dow.sat": "Sáb", "dow.sun": "Dom",
-
+  "month.jan": "Janeiro",
+  "month.feb": "Fevereiro",
+  "month.mar": "Março",
+  "month.apr": "Abril",
+  "month.may": "Maio",
+  "month.jun": "Junho",
+  "month.jul": "Julho",
+  "month.aug": "Agosto",
+  "month.sep": "Setembro",
+  "month.oct": "Outubro",
+  "month.nov": "Novembro",
+  "month.dec": "Dezembro",
+  "dow.mon": "Seg",
+  "dow.tue": "Ter",
+  "dow.wed": "Qua",
+  "dow.thu": "Qui",
+  "dow.fri": "Sex",
+  "dow.sat": "Sáb",
+  "dow.sun": "Dom",
   "seed.workspace.name": "Colegas de quarto",
   "seed.todo.buy_toilet_paper": "Comprar papel higiênico",
   "seed.todo.pay_electricity": "Pagar a conta de luz",

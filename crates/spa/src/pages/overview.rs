@@ -5,6 +5,7 @@ use js_sys;
 use crate::auth::use_auth;
 use crate::api::{StatusCounts, CalendarItem, MemoryItem};
 use crate::components::header::PageHeader;
+use crate::i18n::tr;
 
 fn today_str() -> (i32, u32, u32) {
     let d = js_sys::Date::new_0();
@@ -73,18 +74,18 @@ pub fn OverviewPage() -> impl IntoView {
     let mon_offset = ((js_dow as i32 + 6) % 7) as u32; // 0=today is Mon..6=today is Sun
 
     view! {
-        <PageHeader title=slug() subtitle="Workspace overview".to_string() />
+        <PageHeader title=slug() subtitle=tr("page.overview.title") />
         <div class="flex-1 overflow-y-auto p-8">
             // Stat blocks
-            <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">"Loading..."</div> }>
+            <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || counts.get().map(|data| {
                     let c = (*data).clone().unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
                     view! {
                         <div class="flex border-2 border-ink rounded-sm overflow-hidden mb-6" style="background: var(--cream-light);">
-                            <StatBlock number=c.open_todos label="Open todos" color="var(--brick)" />
-                            <StatBlock number=c.notes label="Notes" color="var(--ink)" />
-                            <StatBlock number=c.files label="Files" color="var(--ink)" />
-                            <StatBlock number=c.done_this_week label="Done this week" color="var(--teal)" />
+                            <StatBlock number=c.open_todos label=tr("overview.stat.open_todos") color="var(--brick)" />
+                            <StatBlock number=c.notes label=tr("overview.stat.notes") color="var(--ink)" />
+                            <StatBlock number=c.files label=tr("overview.stat.files") color="var(--ink)" />
+                            <StatBlock number=c.done_this_week label=tr("overview.stat.done_this_week") color="var(--teal)" />
                         </div>
                     }
                 })}
@@ -92,10 +93,10 @@ pub fn OverviewPage() -> impl IntoView {
 
             // Bottom widgets row
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                // Widget: Cette semaine au calendrier
+                // Widget: this week's calendar
                 <div class="border-2 border-ink rounded-sm p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
-                    <h3 class="font-display text-base font-bold mb-3">"Cette semaine"</h3>
-                    <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">"Loading..."</div> }>
+                    <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.this_week")}</h3>
+                    <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || week_items.get().map(|data| {
                             let items: Vec<CalendarItem> = (*data).clone();
                             let day_names = ["L","M","M","J","V","S","D"];
@@ -159,13 +160,13 @@ pub fn OverviewPage() -> impl IntoView {
 
                 // Widget: Ce que je sais sur le groupe
                 <div class="border-2 border-ink rounded-sm p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
-                    <h3 class="font-display text-base font-bold mb-3">"📌 Ce que je sais"</h3>
-                    <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">"Loading..."</div> }>
+                    <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.what_i_know")}</h3>
+                    <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || memories.get().map(|data| {
                             let items: Vec<MemoryItem> = (*data).clone();
                             if items.is_empty() {
                                 return view! {
-                                    <p class="text-sm" style="color: var(--ink-40);">"Nothing pinned yet."</p>
+                                    <p class="text-sm" style="color: var(--ink-40);">{move || tr("overview.nothing_pinned")}</p>
                                 }.into_any();
                             }
                             view! {
@@ -190,7 +191,7 @@ pub fn OverviewPage() -> impl IntoView {
 }
 
 #[component]
-fn StatBlock(number: i64, label: &'static str, color: &'static str) -> impl IntoView {
+fn StatBlock(number: i64, label: String, color: &'static str) -> impl IntoView {
     view! {
         <div class="flex-1 p-4 border-r-2 border-ink last:border-r-0">
             <div class="font-display text-3xl font-extrabold" style:color=color>{number}</div>

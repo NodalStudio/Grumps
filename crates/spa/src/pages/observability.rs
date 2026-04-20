@@ -19,22 +19,22 @@ fn fmt_ms(ms: i64) -> String {
 
 fn provider_color(provider: &str) -> &'static str {
     match provider {
-        "anthropic" => "#C0392B",  // brick-red
-        "gemini" => "#1A6B5E",     // teal
-        _ => "#555555",
+        "anthropic" => "var(--brick)",
+        "gemini"    => "var(--teal)",
+        _           => "var(--ink-40)",
     }
 }
 
 fn signal_label(s: &str) -> (&'static str, &'static str) {
-    // (label, hex color)
+    // (label, palette token)
     match s {
-        "praise"          => ("Praise",     "#1A6B5E"),
-        "thanks"          => ("Thanks",     "#2E8B57"),
-        "silence_request" => ("Silence",    "#C0392B"),
-        "forget_request"  => ("Forget",     "#E67E22"),
-        "correction"      => ("Correction", "#8B0000"),
-        "confusion"       => ("Confusion",  "#7D6608"),
-        _                 => ("Other",      "#555555"),
+        "praise"          => ("Praise",     "var(--teal)"),
+        "thanks"          => ("Thanks",     "var(--teal)"),
+        "silence_request" => ("Silence",    "var(--brick)"),
+        "forget_request"  => ("Forget",     "var(--ochre)"),
+        "correction"      => ("Correction", "var(--brick)"),
+        "confusion"       => ("Confusion",  "var(--ochre)"),
+        _                 => ("Other",      "var(--ink-40)"),
     }
 }
 

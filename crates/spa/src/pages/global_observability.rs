@@ -14,21 +14,21 @@ fn fmt_usd(v: f64) -> String {
 
 fn provider_color(provider: &str) -> &'static str {
     match provider {
-        "anthropic" => "#C0392B",
-        "gemini"    => "#1A6B5E",
-        _           => "#555555",
+        "anthropic" => "var(--brick)",
+        "gemini"    => "var(--teal)",
+        _           => "var(--ink-40)",
     }
 }
 
 fn signal_label(s: &str) -> (&'static str, &'static str) {
     match s {
-        "praise"          => ("Praise",     "#1A6B5E"),
-        "thanks"          => ("Thanks",     "#2E8B57"),
-        "silence_request" => ("Silence",    "#C0392B"),
-        "forget_request"  => ("Forget",     "#E67E22"),
-        "correction"      => ("Correction", "#8B0000"),
-        "confusion"       => ("Confusion",  "#7D6608"),
-        _                 => ("Other",      "#555555"),
+        "praise"          => ("Praise",     "var(--teal)"),
+        "thanks"          => ("Thanks",     "var(--teal)"),
+        "silence_request" => ("Silence",    "var(--brick)"),
+        "forget_request"  => ("Forget",     "var(--ochre)"),
+        "correction"      => ("Correction", "var(--brick)"),
+        "confusion"       => ("Confusion",  "var(--ochre)"),
+        _                 => ("Other",      "var(--ink-40)"),
     }
 }
 
@@ -209,7 +209,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
 #[component]
 fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
     if errors.is_empty() {
-        return view! { <div class="text-sm font-medium" style="color:#1A6B5E;">"Aucune erreur. Parfait."</div> }.into_any();
+        return view! { <div class="text-sm font-medium" style="color: var(--teal);">"Aucune erreur. Parfait."</div> }.into_any();
     }
     view! {
         <div class="overflow-x-auto">
@@ -275,7 +275,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     <A href="/admin/observability"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-brick"
                        attr:style="color: var(--ink);">
-                        <span class="w-[18px] text-center text-[15px]">"🌐"</span>
+                        <span class="w-[18px] text-center text-[15px]">{"\u{2295}"}</span>
                         "Observabilité globale"
                     </A>
                     <A href="/dashboard"

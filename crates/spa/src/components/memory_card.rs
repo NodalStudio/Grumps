@@ -6,9 +6,9 @@ fn kind_color(kind: &str) -> &'static str {
     match kind {
         "fact"        => "var(--teal)",
         "preference"  => "var(--brick)",
-        "skill"       => "#7C5CCC",
-        "event"       => "#2B7FD4",
-        "reminder"    => "#D4892B",
+        "skill"       => "var(--ink)",
+        "event"       => "var(--ochre)",
+        "reminder"    => "var(--brick)",
         _             => "var(--ink-40)",
     }
 }
@@ -87,7 +87,7 @@ pub fn MemoryCard(
                     style:background=move || if pinned { "var(--teal)" } else { "transparent" }
                     style:color=move || if pinned { "white" } else { "var(--ink)" }
                 >
-                    {move || if pinned { format!("📌 {}", tr("memory.pinned")) } else { tr("memory.action.pin") }}
+                    {move || if pinned { tr("memory.pinned") } else { tr("memory.action.pin") }}
                 </button>
 
                 <button

@@ -1,6 +1,5 @@
 {
   "brand.tagline": "やり遂げます。雑談はしません。",
-
   "common.save": "保存",
   "common.cancel": "キャンセル",
   "common.delete": "削除",
@@ -15,7 +14,6 @@
   "common.filter.all": "すべて",
   "common.irreversible": "元に戻せません。",
   "common.someone": "誰か",
-
   "sidebar.section.super_admin": "スーパー管理者",
   "sidebar.section.workspace": "ワークスペース",
   "sidebar.section.manage": "管理",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "あなた",
   "sidebar.user.role.member": "メンバー",
   "sidebar.user.role.admin": "管理者",
-
+  "sidebar.section.language": "言語",
   "page.overview.title": "概要",
   "page.todos.title": "タスク",
   "page.todos.subtitle": "タスクを管理します",
@@ -53,10 +51,8 @@
   "page.settings.title": "設定",
   "page.observability.title": "監視",
   "page.dashboard.subtitle": "すべてのグループを一か所に",
-
   "dashboard.add_group.title": "グループを追加",
   "dashboard.add_group.help": "メッセージグループに @grumps を追加します",
-
   "overview.this_week": "今週",
   "overview.what_i_know": "知っていること",
   "overview.nothing_pinned": "ピン留めはありません。",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "メモ",
   "overview.stat.files": "ファイル",
   "overview.stat.done_this_week": "今週完了",
-
   "auth.login.check_messaging": "メッセージアプリを確認してください",
   "auth.login.phone_label": "電話番号",
   "auth.login.phone_placeholder": "+81 90 1234 5678",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "グループに参加していることを確認するため、6 桁のコードを送信します。",
   "auth.login.didnt_get_it": "届きませんでしたか? ",
   "auth.login.try_again": "もう一度試す",
-
   "todo.action.add": "タスクを追加",
   "todo.add.placeholder": "タスクを追加…",
   "todo.filter.open": "未完了",
@@ -88,20 +82,17 @@
   "todo.completed": "完了しました",
   "todo.created": "作成されました",
   "todo.deleted": "削除されました",
-
   "note.action.new": "新しいメモ",
   "note.empty.title": "メモはありません。",
   "note.empty.hint": "グループのメモリは空です。",
   "note.pinned": "ピン留め",
   "note.untitled": "無題のメモ",
   "note.edited": "編集されました",
-
   "files.drop": "ファイルをここにドロップ",
   "files.drop.hint": "またはクリックして参照 · 近日公開",
   "files.empty.title": "ファイルはありません。",
   "files.empty.hint": "@grumps store でチャットからファイルを保存します",
   "file.uploaded": "アップロードされました",
-
   "memory.action.add": "メモリを追加",
   "memory.empty.title": "まだ何も覚えていません。",
   "memory.empty.hint": "事実や好みを追加するか、エージェントに自動で学習させます。",
@@ -127,7 +118,6 @@
   "memory.kind.other": "その他",
   "memory.action.pin": "ピン留め",
   "memory.pinned": "ピン留め",
-
   "schedule.action.new": "新しいアクション",
   "schedule.action.execute": "今すぐ実行",
   "schedule.filter.type": "種別",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "{n} 回実行されました",
   "schedule.fired.many": "{n} 回実行されました",
   "schedule.fired.other": "{n} 回実行されました",
-
   "calendar.prev": "前へ",
   "calendar.next": "次へ",
   "calendar.view.month": "月",
   "calendar.view.week": "週",
   "calendar.view.agenda": "予定",
-  "month.jan": "1月", "month.feb": "2月", "month.mar": "3月",
-  "month.apr": "4月",   "month.may": "5月",      "month.jun": "6月",
-  "month.jul": "7月",    "month.aug": "8月",   "month.sep": "9月",
-  "month.oct": "10月", "month.nov": "11月", "month.dec": "12月",
-  "dow.mon": "月", "dow.tue": "火", "dow.wed": "水", "dow.thu": "木",
-  "dow.fri": "金", "dow.sat": "土", "dow.sun": "日",
-
+  "month.jan": "1月",
+  "month.feb": "2月",
+  "month.mar": "3月",
+  "month.apr": "4月",
+  "month.may": "5月",
+  "month.jun": "6月",
+  "month.jul": "7月",
+  "month.aug": "8月",
+  "month.sep": "9月",
+  "month.oct": "10月",
+  "month.nov": "11月",
+  "month.dec": "12月",
+  "dow.mon": "月",
+  "dow.tue": "火",
+  "dow.wed": "水",
+  "dow.thu": "木",
+  "dow.fri": "金",
+  "dow.sat": "土",
+  "dow.sun": "日",
   "seed.workspace.name": "ルームメイト",
   "seed.todo.buy_toilet_paper": "トイレットペーパーを買う",
   "seed.todo.pay_electricity": "電気代を払う",

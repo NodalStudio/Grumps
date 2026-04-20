@@ -1,6 +1,5 @@
 {
   "brand.tagline": "काम पूरा करता है। बिना बकवास के।",
-
   "common.save": "सहेजें",
   "common.cancel": "रद्द करें",
   "common.delete": "हटाएं",
@@ -15,7 +14,6 @@
   "common.filter.all": "सभी",
   "common.irreversible": "इसे पूर्ववत नहीं किया जा सकता।",
   "common.someone": "कोई",
-
   "sidebar.section.super_admin": "सुपर एडमिन",
   "sidebar.section.workspace": "वर्कस्पेस",
   "sidebar.section.manage": "प्रबंधन",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "आप",
   "sidebar.user.role.member": "सदस्य",
   "sidebar.user.role.admin": "एडमिन",
-
+  "sidebar.section.language": "भाषा",
   "page.overview.title": "अवलोकन",
   "page.todos.title": "कार्य",
   "page.todos.subtitle": "अपने कार्य प्रबंधित करें",
@@ -53,10 +51,8 @@
   "page.settings.title": "सेटिंग्स",
   "page.observability.title": "निगरानी",
   "page.dashboard.subtitle": "आपके सभी समूह एक जगह",
-
   "dashboard.add_group.title": "समूह जोड़ें",
   "dashboard.add_group.help": "मैसेजिंग समूह में @grumps जोड़ें",
-
   "overview.this_week": "इस हफ़्ते",
   "overview.what_i_know": "जो मैं जानता हूँ",
   "overview.nothing_pinned": "अभी कुछ पिन नहीं।",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "नोट्स",
   "overview.stat.files": "फ़ाइलें",
   "overview.stat.done_this_week": "इस हफ़्ते पूरे",
-
   "auth.login.check_messaging": "अपना मैसेजिंग ऐप देखें",
   "auth.login.phone_label": "आपका फ़ोन नंबर",
   "auth.login.phone_placeholder": "+91 98765 43210",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "हम 6 अंकों का कोड भेजेंगे ताकि पुष्टि हो कि आप समूह में हैं।",
   "auth.login.didnt_get_it": "नहीं मिला? ",
   "auth.login.try_again": "फिर से कोशिश करें",
-
   "todo.action.add": "कार्य जोड़ें",
   "todo.add.placeholder": "कार्य जोड़ें…",
   "todo.filter.open": "खुले",
@@ -88,20 +82,17 @@
   "todo.completed": "पूरा हुआ",
   "todo.created": "बनाया गया",
   "todo.deleted": "हटाया गया",
-
   "note.action.new": "नया नोट",
   "note.empty.title": "कोई नोट नहीं।",
   "note.empty.hint": "समूह की स्मृति खाली है।",
   "note.pinned": "पिन किया",
   "note.untitled": "बिना शीर्षक नोट",
   "note.edited": "संपादित",
-
   "files.drop": "फ़ाइलें यहाँ छोड़ें",
   "files.drop.hint": "या ब्राउज़ करने के लिए क्लिक करें · जल्द ही",
   "files.empty.title": "अभी कोई फ़ाइल नहीं।",
   "files.empty.hint": "चैट से @grumps store के साथ फ़ाइलें सहेजें",
   "file.uploaded": "अपलोड हुआ",
-
   "memory.action.add": "स्मृति जोड़ें",
   "memory.empty.title": "अभी कुछ याद नहीं।",
   "memory.empty.hint": "तथ्य, प्राथमिकताएँ जोड़ें, या एजेंट को खुद सीखने दें।",
@@ -127,7 +118,6 @@
   "memory.kind.other": "अन्य",
   "memory.action.pin": "पिन करें",
   "memory.pinned": "पिन किया",
-
   "schedule.action.new": "नया कार्य",
   "schedule.action.execute": "अभी चलाएँ",
   "schedule.filter.type": "प्रकार",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "{n} बार चला",
   "schedule.fired.many": "{n} बार चला",
   "schedule.fired.other": "{n} बार चला",
-
   "calendar.prev": "पिछला",
   "calendar.next": "अगला",
   "calendar.view.month": "महीना",
   "calendar.view.week": "सप्ताह",
   "calendar.view.agenda": "एजेंडा",
-  "month.jan": "जनवरी", "month.feb": "फ़रवरी", "month.mar": "मार्च",
-  "month.apr": "अप्रैल",   "month.may": "मई",      "month.jun": "जून",
-  "month.jul": "जुलाई",    "month.aug": "अगस्त",   "month.sep": "सितंबर",
-  "month.oct": "अक्टूबर", "month.nov": "नवंबर", "month.dec": "दिसंबर",
-  "dow.mon": "सोम", "dow.tue": "मंगल", "dow.wed": "बुध", "dow.thu": "गुरु",
-  "dow.fri": "शुक्र", "dow.sat": "शनि", "dow.sun": "रवि",
-
+  "month.jan": "जनवरी",
+  "month.feb": "फ़रवरी",
+  "month.mar": "मार्च",
+  "month.apr": "अप्रैल",
+  "month.may": "मई",
+  "month.jun": "जून",
+  "month.jul": "जुलाई",
+  "month.aug": "अगस्त",
+  "month.sep": "सितंबर",
+  "month.oct": "अक्टूबर",
+  "month.nov": "नवंबर",
+  "month.dec": "दिसंबर",
+  "dow.mon": "सोम",
+  "dow.tue": "मंगल",
+  "dow.wed": "बुध",
+  "dow.thu": "गुरु",
+  "dow.fri": "शुक्र",
+  "dow.sat": "शनि",
+  "dow.sun": "रवि",
   "seed.workspace.name": "रूममेट्स",
   "seed.todo.buy_toilet_paper": "टॉयलेट पेपर खरीदें",
   "seed.todo.pay_electricity": "बिजली का बिल भरें",

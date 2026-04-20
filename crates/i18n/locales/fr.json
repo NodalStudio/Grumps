@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Ça avance. Sans bavardage.",
-
   "common.save": "Enregistrer",
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",
@@ -15,7 +14,6 @@
   "common.filter.all": "Tout",
   "common.irreversible": "Irréversible.",
   "common.someone": "Quelqu'un",
-
   "sidebar.section.super_admin": "Super Admin",
   "sidebar.section.workspace": "Espace",
   "sidebar.section.manage": "Gérer",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "Toi",
   "sidebar.user.role.member": "Membre",
   "sidebar.user.role.admin": "Admin",
-
+  "sidebar.section.language": "Langue",
   "page.overview.title": "Aperçu",
   "page.todos.title": "Tâches",
   "page.todos.subtitle": "Gère tes tâches",
@@ -53,10 +51,8 @@
   "page.settings.title": "Paramètres",
   "page.observability.title": "Observabilité",
   "page.dashboard.subtitle": "Tous tes groupes au même endroit",
-
   "dashboard.add_group.title": "Ajouter un groupe",
   "dashboard.add_group.help": "Ajoute @grumps à un groupe de messagerie",
-
   "overview.this_week": "Cette semaine",
   "overview.what_i_know": "Ce que je sais",
   "overview.nothing_pinned": "Rien d'épinglé.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Notes",
   "overview.stat.files": "Fichiers",
   "overview.stat.done_this_week": "Faites cette semaine",
-
   "auth.login.check_messaging": "Regarde ta messagerie",
   "auth.login.phone_label": "Ton numéro de téléphone",
   "auth.login.phone_placeholder": "+33 6 12 34 56 78",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "On t'envoie un code à 6 chiffres pour vérifier que tu es dans le groupe.",
   "auth.login.didnt_get_it": "Pas reçu ? ",
   "auth.login.try_again": "Réessayer",
-
   "todo.action.add": "Ajouter une tâche",
   "todo.add.placeholder": "Ajouter une tâche…",
   "todo.filter.open": "Ouvertes",
@@ -88,20 +82,17 @@
   "todo.completed": "terminée",
   "todo.created": "créée",
   "todo.deleted": "supprimée",
-
   "note.action.new": "Nouvelle note",
   "note.empty.title": "Aucune note.",
   "note.empty.hint": "La mémoire du groupe est vide.",
   "note.pinned": "Épinglée",
   "note.untitled": "Note sans titre",
   "note.edited": "modifiée",
-
   "files.drop": "Dépose les fichiers ici",
   "files.drop.hint": "ou clique pour parcourir · bientôt",
   "files.empty.title": "Aucun fichier.",
   "files.empty.hint": "Stocke des fichiers depuis le chat avec @grumps store",
   "file.uploaded": "envoyé",
-
   "memory.action.add": "Ajouter une mémoire",
   "memory.empty.title": "Rien en mémoire.",
   "memory.empty.hint": "Ajoute des faits, préférences, ou laisse l'agent apprendre seul.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Autre",
   "memory.action.pin": "Épingler",
   "memory.pinned": "Épinglée",
-
   "schedule.action.new": "Nouvelle action",
   "schedule.action.execute": "Exécuter",
   "schedule.filter.type": "Type",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "Déclenchée {n} fois",
   "schedule.fired.many": "Déclenchée {n} fois",
   "schedule.fired.other": "Déclenchée {n} fois",
-
   "calendar.prev": "Préc.",
   "calendar.next": "Suiv.",
   "calendar.view.month": "Mois",
   "calendar.view.week": "Semaine",
   "calendar.view.agenda": "Agenda",
-  "month.jan": "Janvier", "month.feb": "Février", "month.mar": "Mars",
-  "month.apr": "Avril",   "month.may": "Mai",      "month.jun": "Juin",
-  "month.jul": "Juillet",    "month.aug": "Août",   "month.sep": "Septembre",
-  "month.oct": "Octobre", "month.nov": "Novembre", "month.dec": "Décembre",
-  "dow.mon": "Lun", "dow.tue": "Mar", "dow.wed": "Mer", "dow.thu": "Jeu",
-  "dow.fri": "Ven", "dow.sat": "Sam", "dow.sun": "Dim",
-
+  "month.jan": "Janvier",
+  "month.feb": "Février",
+  "month.mar": "Mars",
+  "month.apr": "Avril",
+  "month.may": "Mai",
+  "month.jun": "Juin",
+  "month.jul": "Juillet",
+  "month.aug": "Août",
+  "month.sep": "Septembre",
+  "month.oct": "Octobre",
+  "month.nov": "Novembre",
+  "month.dec": "Décembre",
+  "dow.mon": "Lun",
+  "dow.tue": "Mar",
+  "dow.wed": "Mer",
+  "dow.thu": "Jeu",
+  "dow.fri": "Ven",
+  "dow.sat": "Sam",
+  "dow.sun": "Dim",
   "seed.workspace.name": "Colocataires",
   "seed.todo.buy_toilet_paper": "Acheter du papier toilette",
   "seed.todo.pay_electricity": "Payer la facture d'électricité",

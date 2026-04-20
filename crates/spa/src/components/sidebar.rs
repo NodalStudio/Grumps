@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
 use crate::components::lang_switcher::LangSwitcher;
+use crate::i18n::tr;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
@@ -23,13 +24,13 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
     view! {
         <aside class="w-64 min-w-[260px] flex flex-col overflow-y-auto border-r-2 border-ink" style="background: var(--cream-light);">
-            // Brand
-            <div class="px-5 pt-6 pb-5 border-b-2 border-ink">
+            // Brand — h-24 matches PageHeader so bottom borders align
+            <div class="px-5 h-24 pb-5 border-b-2 border-ink flex flex-col justify-end">
                 <h1 class="font-display text-xl font-extrabold uppercase tracking-tight">
                     "GRUMPS"<span class="text-brick">"."</span>
                 </h1>
                 <p class="text-[11px] uppercase tracking-wider mt-0.5 font-medium" style="color: var(--ink-40);">
-                    "Gets it done. No small talk."
+                    {move || tr("brand.tagline")}
                 </p>
             </div>
 
@@ -53,12 +54,12 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                     if is_super {
                         view! {
                             <div>
-                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
+                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">{move || tr("sidebar.section.super_admin")}</div>
                                 <A href=format!("{}/admin/observability", crate::demo::router_base())
                                    attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
                                    attr:style="color: var(--ink);">
-                                    <span class="w-[18px] text-center text-[15px]">"🌐"</span>
-                                    "Observabilité globale"
+                                    <span class="w-[18px] text-center text-[15px]">{"\u{2295}"}</span>
+                                    {move || tr("sidebar.global_observability")}
                                 </A>
                             </div>
                         }.into_any()
@@ -66,21 +67,21 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                         view! { <span></span> }.into_any()
                     }
                 }}
-                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Workspace"</div>
-                <NavItem href=base.clone() label="Overview" icon="\u{25EB}" />
-                <NavItem href=format!("{}/todos", base) label="Todos" icon="\u{2610}" />
-                <NavItem href=format!("{}/notes", base) label="Notes" icon="\u{00B6}" />
-                <NavItem href=format!("{}/files", base) label="Files" icon="\u{25F0}" />
-                <NavItem href=format!("{}/history", base) label="History" icon="\u{21BB}" />
-                <NavItem href=format!("{}/calendar", base) label="Calendar" icon="\u{1F4C5}" />
-                <NavItem href=format!("{}/memory", base) label="Memory" icon="\u{1F9E0}" />
-                <NavItem href=format!("{}/scheduled", base) label="Scheduled" icon="\u{23F0}" />
+                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">{move || tr("sidebar.section.workspace")}</div>
+                <NavItem href=base.clone() i18n_key="sidebar.nav.overview" icon="\u{25EB}" />
+                <NavItem href=format!("{}/todos", base) i18n_key="sidebar.nav.todos" icon="\u{2610}" />
+                <NavItem href=format!("{}/notes", base) i18n_key="sidebar.nav.notes" icon="\u{00B6}" />
+                <NavItem href=format!("{}/files", base) i18n_key="sidebar.nav.files" icon="\u{25F0}" />
+                <NavItem href=format!("{}/history", base) i18n_key="sidebar.nav.history" icon="\u{21BB}" />
+                <NavItem href=format!("{}/calendar", base) i18n_key="sidebar.nav.calendar" icon="\u{25A6}" />
+                <NavItem href=format!("{}/memory", base) i18n_key="sidebar.nav.memory" icon="\u{25C9}" />
+                <NavItem href=format!("{}/scheduled", base) i18n_key="sidebar.nav.scheduled" icon="\u{25F7}" />
 
-                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
-                <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
+                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">{move || tr("sidebar.section.manage")}</div>
+                <NavItem href=format!("{}/settings", base) i18n_key="sidebar.nav.settings" icon="\u{2699}" />
                 <A href=format!("{}/dashboard", crate::demo::router_base()) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
                     <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
-                    "My Workspaces"
+                    {move || tr("sidebar.my_workspaces")}
                 </A>
             </nav>
 
@@ -90,13 +91,13 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                     "A"
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-semibold truncate">"You"</div>
-                    <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">"Member"</div>
+                    <div class="text-[13px] font-semibold truncate">{move || tr("sidebar.user.you")}</div>
+                    <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">{move || tr("sidebar.user.role.member")}</div>
                 </div>
             </div>
             // Lang switcher
             <div class="px-5 py-3 border-t flex items-center justify-between gap-2" style="border-color: var(--ink-15);">
-                <span class="text-[10px] uppercase tracking-[1.5px] font-bold" style="color: var(--ink-40);">"Language"</span>
+                <span class="text-[10px] uppercase tracking-[1.5px] font-bold" style="color: var(--ink-40);">{move || tr("sidebar.section.language")}</span>
                 <LangSwitcher />
             </div>
         </aside>
@@ -104,11 +105,11 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 }
 
 #[component]
-fn NavItem(href: String, label: &'static str, icon: &'static str) -> impl IntoView {
+fn NavItem(href: String, i18n_key: &'static str, icon: &'static str) -> impl IntoView {
     view! {
         <A href=href attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
             <span class="w-[18px] text-center text-[15px]">{icon}</span>
-            {label}
+            {move || tr(i18n_key)}
         </A>
     }
 }

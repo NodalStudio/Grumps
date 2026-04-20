@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Halleder. Lafı uzatmaz.",
-
   "common.save": "Kaydet",
   "common.cancel": "İptal",
   "common.delete": "Sil",
@@ -15,7 +14,6 @@
   "common.filter.all": "Tümü",
   "common.irreversible": "Geri alınamaz.",
   "common.someone": "Biri",
-
   "sidebar.section.super_admin": "Süper Admin",
   "sidebar.section.workspace": "Çalışma alanı",
   "sidebar.section.manage": "Yönet",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "Sen",
   "sidebar.user.role.member": "Üye",
   "sidebar.user.role.admin": "Admin",
-
+  "sidebar.section.language": "Dil",
   "page.overview.title": "Genel bakış",
   "page.todos.title": "Görevler",
   "page.todos.subtitle": "Görevlerini yönet",
@@ -53,10 +51,8 @@
   "page.settings.title": "Ayarlar",
   "page.observability.title": "Gözlem",
   "page.dashboard.subtitle": "Tüm grupların tek yerde",
-
   "dashboard.add_group.title": "Grup ekle",
   "dashboard.add_group.help": "Mesajlaşma grubuna @grumps ekle",
-
   "overview.this_week": "Bu hafta",
   "overview.what_i_know": "Bildiklerim",
   "overview.nothing_pinned": "Sabitlenmiş bir şey yok.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Notlar",
   "overview.stat.files": "Dosyalar",
   "overview.stat.done_this_week": "Bu hafta yapılan",
-
   "auth.login.check_messaging": "Mesaj uygulamana bak",
   "auth.login.phone_label": "Telefon numaran",
   "auth.login.phone_placeholder": "+90 532 123 45 67",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "Grupta olduğunu doğrulamak için 6 haneli kod göndereceğiz.",
   "auth.login.didnt_get_it": "Gelmedi mi? ",
   "auth.login.try_again": "Tekrar dene",
-
   "todo.action.add": "Görev ekle",
   "todo.add.placeholder": "Görev ekle…",
   "todo.filter.open": "Açık",
@@ -88,20 +82,17 @@
   "todo.completed": "tamamlandı",
   "todo.created": "oluşturuldu",
   "todo.deleted": "silindi",
-
   "note.action.new": "Yeni not",
   "note.empty.title": "Not yok.",
   "note.empty.hint": "Grup belleği boş.",
   "note.pinned": "Sabitlendi",
   "note.untitled": "Başlıksız not",
   "note.edited": "düzenlendi",
-
   "files.drop": "Dosyaları buraya bırak",
   "files.drop.hint": "veya tıkla · yakında",
   "files.empty.title": "Henüz dosya yok.",
   "files.empty.hint": "Sohbetten @grumps store ile dosya kaydet",
   "file.uploaded": "yüklendi",
-
   "memory.action.add": "Bellek ekle",
   "memory.empty.title": "Hatırlananı bir şey yok.",
   "memory.empty.hint": "Bilgi, tercih ekle veya ajan kendisi öğrensin.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Diğer",
   "memory.action.pin": "Sabitle",
   "memory.pinned": "Sabit",
-
   "schedule.action.new": "Yeni işlem",
   "schedule.action.execute": "Şimdi çalıştır",
   "schedule.filter.type": "Tür",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "{n} kez tetiklendi",
   "schedule.fired.many": "{n} kez tetiklendi",
   "schedule.fired.other": "{n} kez tetiklendi",
-
   "calendar.prev": "Önc.",
   "calendar.next": "Sonr.",
   "calendar.view.month": "Ay",
   "calendar.view.week": "Hafta",
   "calendar.view.agenda": "Ajanda",
-  "month.jan": "Ocak", "month.feb": "Şubat", "month.mar": "Mart",
-  "month.apr": "Nisan",   "month.may": "Mayıs",      "month.jun": "Haziran",
-  "month.jul": "Temmuz",    "month.aug": "Ağustos",   "month.sep": "Eylül",
-  "month.oct": "Ekim", "month.nov": "Kasım", "month.dec": "Aralık",
-  "dow.mon": "Pzt", "dow.tue": "Sal", "dow.wed": "Çar", "dow.thu": "Per",
-  "dow.fri": "Cum", "dow.sat": "Cmt", "dow.sun": "Paz",
-
+  "month.jan": "Ocak",
+  "month.feb": "Şubat",
+  "month.mar": "Mart",
+  "month.apr": "Nisan",
+  "month.may": "Mayıs",
+  "month.jun": "Haziran",
+  "month.jul": "Temmuz",
+  "month.aug": "Ağustos",
+  "month.sep": "Eylül",
+  "month.oct": "Ekim",
+  "month.nov": "Kasım",
+  "month.dec": "Aralık",
+  "dow.mon": "Pzt",
+  "dow.tue": "Sal",
+  "dow.wed": "Çar",
+  "dow.thu": "Per",
+  "dow.fri": "Cum",
+  "dow.sat": "Cmt",
+  "dow.sun": "Paz",
   "seed.workspace.name": "Ev arkadaşları",
   "seed.todo.buy_toilet_paper": "Tuvalet kağıdı al",
   "seed.todo.pay_electricity": "Elektrik faturasını öde",

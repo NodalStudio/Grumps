@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Делает дело. Без лишних слов.",
-
   "common.save": "Сохранить",
   "common.cancel": "Отмена",
   "common.delete": "Удалить",
@@ -15,7 +14,6 @@
   "common.filter.all": "Все",
   "common.irreversible": "Это нельзя отменить.",
   "common.someone": "Кто-то",
-
   "sidebar.section.super_admin": "Супер-админ",
   "sidebar.section.workspace": "Воркспейс",
   "sidebar.section.manage": "Управление",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "Вы",
   "sidebar.user.role.member": "Участник",
   "sidebar.user.role.admin": "Админ",
-
+  "sidebar.section.language": "Язык",
   "page.overview.title": "Обзор",
   "page.todos.title": "Задачи",
   "page.todos.subtitle": "Управляйте задачами",
@@ -53,10 +51,8 @@
   "page.settings.title": "Настройки",
   "page.observability.title": "Наблюдаемость",
   "page.dashboard.subtitle": "Все ваши группы в одном месте",
-
   "dashboard.add_group.title": "Добавить группу",
   "dashboard.add_group.help": "Добавьте @grumps в групповой чат",
-
   "overview.this_week": "На этой неделе",
   "overview.what_i_know": "Что я знаю",
   "overview.nothing_pinned": "Ничего не закреплено.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Заметки",
   "overview.stat.files": "Файлы",
   "overview.stat.done_this_week": "Сделано за неделю",
-
   "auth.login.check_messaging": "Проверьте мессенджер",
   "auth.login.phone_label": "Ваш номер телефона",
   "auth.login.phone_placeholder": "+7 912 345 67 89",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "Мы отправим 6-значный код, чтобы убедиться, что вы в группе.",
   "auth.login.didnt_get_it": "Не получили? ",
   "auth.login.try_again": "Попробовать снова",
-
   "todo.action.add": "Добавить задачу",
   "todo.add.placeholder": "Добавить задачу…",
   "todo.filter.open": "Открытые",
@@ -88,20 +82,17 @@
   "todo.completed": "выполнена",
   "todo.created": "создана",
   "todo.deleted": "удалена",
-
   "note.action.new": "Новая заметка",
   "note.empty.title": "Заметок нет.",
   "note.empty.hint": "Память группы пуста.",
   "note.pinned": "Закреплена",
   "note.untitled": "Без названия",
   "note.edited": "изменена",
-
   "files.drop": "Бросьте файлы сюда",
   "files.drop.hint": "или нажмите, чтобы выбрать · скоро",
   "files.empty.title": "Файлов пока нет.",
   "files.empty.hint": "Сохраняйте файлы из чата командой @grumps store",
   "file.uploaded": "загружен",
-
   "memory.action.add": "Добавить память",
   "memory.empty.title": "Пока ничего не запомнено.",
   "memory.empty.hint": "Добавьте факты, предпочтения или дайте агенту учиться самому.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Другое",
   "memory.action.pin": "Закрепить",
   "memory.pinned": "Закреплено",
-
   "schedule.action.new": "Новое действие",
   "schedule.action.execute": "Запустить сейчас",
   "schedule.filter.type": "Тип",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "Запущено {n} раза",
   "schedule.fired.many": "Запущено {n} раз",
   "schedule.fired.other": "Запущено {n} раза",
-
   "calendar.prev": "Назад",
   "calendar.next": "Вперёд",
   "calendar.view.month": "Месяц",
   "calendar.view.week": "Неделя",
   "calendar.view.agenda": "Повестка",
-  "month.jan": "Январь", "month.feb": "Февраль", "month.mar": "Март",
-  "month.apr": "Апрель",   "month.may": "Май",      "month.jun": "Июнь",
-  "month.jul": "Июль",    "month.aug": "Август",   "month.sep": "Сентябрь",
-  "month.oct": "Октябрь", "month.nov": "Ноябрь", "month.dec": "Декабрь",
-  "dow.mon": "Пн", "dow.tue": "Вт", "dow.wed": "Ср", "dow.thu": "Чт",
-  "dow.fri": "Пт", "dow.sat": "Сб", "dow.sun": "Вс",
-
+  "month.jan": "Январь",
+  "month.feb": "Февраль",
+  "month.mar": "Март",
+  "month.apr": "Апрель",
+  "month.may": "Май",
+  "month.jun": "Июнь",
+  "month.jul": "Июль",
+  "month.aug": "Август",
+  "month.sep": "Сентябрь",
+  "month.oct": "Октябрь",
+  "month.nov": "Ноябрь",
+  "month.dec": "Декабрь",
+  "dow.mon": "Пн",
+  "dow.tue": "Вт",
+  "dow.wed": "Ср",
+  "dow.thu": "Чт",
+  "dow.fri": "Пт",
+  "dow.sat": "Сб",
+  "dow.sun": "Вс",
   "seed.workspace.name": "Соседи по квартире",
   "seed.todo.buy_toilet_paper": "Купить туалетную бумагу",
   "seed.todo.pay_electricity": "Оплатить счёт за электричество",

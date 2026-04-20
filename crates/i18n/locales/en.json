@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Gets it done. No small talk.",
-
   "common.save": "Save",
   "common.cancel": "Cancel",
   "common.delete": "Delete",
@@ -15,7 +14,6 @@
   "common.filter.all": "All",
   "common.irreversible": "This cannot be undone.",
   "common.someone": "Someone",
-
   "sidebar.section.super_admin": "Super Admin",
   "sidebar.section.workspace": "Workspace",
   "sidebar.section.manage": "Manage",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "You",
   "sidebar.user.role.member": "Member",
   "sidebar.user.role.admin": "Admin",
-
+  "sidebar.section.language": "Language",
   "page.overview.title": "Overview",
   "page.todos.title": "Todos",
   "page.todos.subtitle": "Manage your tasks",
@@ -53,10 +51,8 @@
   "page.settings.title": "Settings",
   "page.observability.title": "Observability",
   "page.dashboard.subtitle": "All your groups in one place",
-
   "dashboard.add_group.title": "Add a group",
   "dashboard.add_group.help": "Add @grumps to a messaging group",
-
   "overview.this_week": "This week",
   "overview.what_i_know": "What I know",
   "overview.nothing_pinned": "Nothing pinned yet.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Notes",
   "overview.stat.files": "Files",
   "overview.stat.done_this_week": "Done this week",
-
   "auth.login.check_messaging": "Check your messaging app",
   "auth.login.phone_label": "Your phone number",
   "auth.login.phone_placeholder": "+33 6 12 34 56 78",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "We'll send a 6-digit code to verify you're in the group.",
   "auth.login.didnt_get_it": "Didn't get it? ",
   "auth.login.try_again": "Try again",
-
   "todo.action.add": "Add todo",
   "todo.add.placeholder": "Add a todo…",
   "todo.filter.open": "Open",
@@ -88,20 +82,17 @@
   "todo.completed": "completed",
   "todo.created": "created",
   "todo.deleted": "deleted",
-
   "note.action.new": "New note",
   "note.empty.title": "No notes.",
   "note.empty.hint": "The group memory is blank.",
   "note.pinned": "Pinned",
   "note.untitled": "Untitled note",
   "note.edited": "edited",
-
   "files.drop": "Drop files here",
   "files.drop.hint": "or click to browse · coming soon",
   "files.empty.title": "No files yet.",
   "files.empty.hint": "Store files from chat with @grumps store",
   "file.uploaded": "uploaded",
-
   "memory.action.add": "Add memory",
   "memory.empty.title": "Nothing remembered yet.",
   "memory.empty.hint": "Add facts, preferences, or let the agent learn automatically.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Other",
   "memory.action.pin": "Pin",
   "memory.pinned": "Pinned",
-
   "schedule.action.new": "New action",
   "schedule.action.execute": "Execute now",
   "schedule.filter.type": "Type",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "Fired {n} times",
   "schedule.fired.many": "Fired {n} times",
   "schedule.fired.other": "Fired {n} times",
-
   "calendar.prev": "Prev",
   "calendar.next": "Next",
   "calendar.view.month": "Month",
   "calendar.view.week": "Week",
   "calendar.view.agenda": "Agenda",
-  "month.jan": "January", "month.feb": "February", "month.mar": "March",
-  "month.apr": "April",   "month.may": "May",      "month.jun": "June",
-  "month.jul": "July",    "month.aug": "August",   "month.sep": "September",
-  "month.oct": "October", "month.nov": "November", "month.dec": "December",
-  "dow.mon": "Mon", "dow.tue": "Tue", "dow.wed": "Wed", "dow.thu": "Thu",
-  "dow.fri": "Fri", "dow.sat": "Sat", "dow.sun": "Sun",
-
+  "month.jan": "January",
+  "month.feb": "February",
+  "month.mar": "March",
+  "month.apr": "April",
+  "month.may": "May",
+  "month.jun": "June",
+  "month.jul": "July",
+  "month.aug": "August",
+  "month.sep": "September",
+  "month.oct": "October",
+  "month.nov": "November",
+  "month.dec": "December",
+  "dow.mon": "Mon",
+  "dow.tue": "Tue",
+  "dow.wed": "Wed",
+  "dow.thu": "Thu",
+  "dow.fri": "Fri",
+  "dow.sat": "Sat",
+  "dow.sun": "Sun",
   "seed.workspace.name": "Roommates",
   "seed.todo.buy_toilet_paper": "Buy toilet paper",
   "seed.todo.pay_electricity": "Pay electricity bill",

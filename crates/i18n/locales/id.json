@@ -1,6 +1,5 @@
 {
   "brand.tagline": "Tuntas. Tanpa basa-basi.",
-
   "common.save": "Simpan",
   "common.cancel": "Batal",
   "common.delete": "Hapus",
@@ -15,7 +14,6 @@
   "common.filter.all": "Semua",
   "common.irreversible": "Tidak bisa dibatalkan.",
   "common.someone": "Seseorang",
-
   "sidebar.section.super_admin": "Super Admin",
   "sidebar.section.workspace": "Workspace",
   "sidebar.section.manage": "Kelola",
@@ -33,7 +31,7 @@
   "sidebar.user.you": "Kamu",
   "sidebar.user.role.member": "Anggota",
   "sidebar.user.role.admin": "Admin",
-
+  "sidebar.section.language": "Bahasa",
   "page.overview.title": "Ringkasan",
   "page.todos.title": "Tugas",
   "page.todos.subtitle": "Kelola tugasmu",
@@ -53,10 +51,8 @@
   "page.settings.title": "Pengaturan",
   "page.observability.title": "Observabilitas",
   "page.dashboard.subtitle": "Semua grupmu di satu tempat",
-
   "dashboard.add_group.title": "Tambah grup",
   "dashboard.add_group.help": "Tambahkan @grumps ke grup pesan",
-
   "overview.this_week": "Pekan ini",
   "overview.what_i_know": "Yang aku tahu",
   "overview.nothing_pinned": "Belum ada yang disematkan.",
@@ -64,7 +60,6 @@
   "overview.stat.notes": "Catatan",
   "overview.stat.files": "File",
   "overview.stat.done_this_week": "Selesai pekan ini",
-
   "auth.login.check_messaging": "Cek aplikasi pesanmu",
   "auth.login.phone_label": "Nomor teleponmu",
   "auth.login.phone_placeholder": "+62 812 3456 7890",
@@ -76,7 +71,6 @@
   "auth.login.note_send": "Kami akan mengirim kode 6 digit untuk memastikan kamu ada di grup.",
   "auth.login.didnt_get_it": "Belum dapat? ",
   "auth.login.try_again": "Coba lagi",
-
   "todo.action.add": "Tambah tugas",
   "todo.add.placeholder": "Tambah tugas…",
   "todo.filter.open": "Terbuka",
@@ -88,20 +82,17 @@
   "todo.completed": "selesai",
   "todo.created": "dibuat",
   "todo.deleted": "dihapus",
-
   "note.action.new": "Catatan baru",
   "note.empty.title": "Tidak ada catatan.",
   "note.empty.hint": "Memori grup kosong.",
   "note.pinned": "Disematkan",
   "note.untitled": "Catatan tanpa judul",
   "note.edited": "diedit",
-
   "files.drop": "Letakkan file di sini",
   "files.drop.hint": "atau klik untuk telusuri · segera hadir",
   "files.empty.title": "Belum ada file.",
   "files.empty.hint": "Simpan file dari obrolan dengan @grumps store",
   "file.uploaded": "diunggah",
-
   "memory.action.add": "Tambah memori",
   "memory.empty.title": "Belum ada yang diingat.",
   "memory.empty.hint": "Tambahkan fakta, preferensi, atau biarkan agen belajar sendiri.",
@@ -127,7 +118,6 @@
   "memory.kind.other": "Lainnya",
   "memory.action.pin": "Sematkan",
   "memory.pinned": "Disematkan",
-
   "schedule.action.new": "Aksi baru",
   "schedule.action.execute": "Jalankan sekarang",
   "schedule.filter.type": "Jenis",
@@ -160,19 +150,30 @@
   "schedule.fired.few": "Dipicu {n} kali",
   "schedule.fired.many": "Dipicu {n} kali",
   "schedule.fired.other": "Dipicu {n} kali",
-
   "calendar.prev": "Sebelum",
   "calendar.next": "Lanjut",
   "calendar.view.month": "Bulan",
   "calendar.view.week": "Pekan",
   "calendar.view.agenda": "Agenda",
-  "month.jan": "Januari", "month.feb": "Februari", "month.mar": "Maret",
-  "month.apr": "April",   "month.may": "Mei",      "month.jun": "Juni",
-  "month.jul": "Juli",    "month.aug": "Agustus",   "month.sep": "September",
-  "month.oct": "Oktober", "month.nov": "November", "month.dec": "Desember",
-  "dow.mon": "Sen", "dow.tue": "Sel", "dow.wed": "Rab", "dow.thu": "Kam",
-  "dow.fri": "Jum", "dow.sat": "Sab", "dow.sun": "Min",
-
+  "month.jan": "Januari",
+  "month.feb": "Februari",
+  "month.mar": "Maret",
+  "month.apr": "April",
+  "month.may": "Mei",
+  "month.jun": "Juni",
+  "month.jul": "Juli",
+  "month.aug": "Agustus",
+  "month.sep": "September",
+  "month.oct": "Oktober",
+  "month.nov": "November",
+  "month.dec": "Desember",
+  "dow.mon": "Sen",
+  "dow.tue": "Sel",
+  "dow.wed": "Rab",
+  "dow.thu": "Kam",
+  "dow.fri": "Jum",
+  "dow.sat": "Sab",
+  "dow.sun": "Min",
   "seed.workspace.name": "Teman sekos",
   "seed.todo.buy_toilet_paper": "Beli tisu toilet",
   "seed.todo.pay_electricity": "Bayar tagihan listrik",
