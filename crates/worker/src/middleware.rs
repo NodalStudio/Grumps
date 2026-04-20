@@ -73,3 +73,21 @@ pub fn with_cors(req: &Request, mut resp: Response) -> Result<Response> {
     add_cors(&mut resp, Some(&origin))?;
     Ok(resp)
 }
+
+/// Returns true if the authenticated user's phone is in the SUPER_ADMIN_PHONES env var.
+/// SUPER_ADMIN_PHONES is a comma-separated list of phone numbers (e.g. "+33612345678,+33612345679").
+pub fn is_super_admin(env: &worker::Env, claims: &Claims) -> bool {
+    let phones = env.var("SUPER_ADMIN_PHONES").map(|v| v.to_string()).unwrap_or_default();
+    if phones.is_empty() { return false; }
+    phones.split(',')
+        .map(|p| p.trim())
+        .any(|p| p == claims.phone)
+}
+
+/// Check if the current user has admin role in the given workspace.
+/// Returns true if super_admin (overrides), or if their member.role == 'admin'.
+pub async fn is_workspace_admin(env: &worker::Env, ws_db: &crate::db::WorkspaceDb<'_>, claims: &Claims) -> worker::Result<bool> {
+    if is_super_admin(env, claims) { return Ok(true); }
+    let role = ws_db.get_member_role(&claims.sub).await?.unwrap_or_default();
+    Ok(role == "admin")
+}

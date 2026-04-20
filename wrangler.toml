@@ -7,6 +7,7 @@ command = "cargo install -q worker-build && cd crates/worker && worker-build --r
 
 [vars]
 ENVIRONMENT = "development"
+SUPER_ADMIN_PHONES = ""    # set to your phone number(s) post-deploy
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WA_VERIFY_TOKEN = "grumps_verify_2026"
 WEB_SEARCH_PROVIDER = "brave"

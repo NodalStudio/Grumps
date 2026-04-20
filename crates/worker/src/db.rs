@@ -113,6 +113,14 @@ impl<'a> WorkspaceDb<'a> {
         Ok((row.map(|r| r.id).unwrap_or(id), is_first))
     }
 
+    /// Get the role of a member by their ID (which is user_id / JWT sub).
+    pub async fn get_member_role(&self, member_id: &str) -> Result<Option<String>> {
+        #[derive(Deserialize)]
+        struct Row { role: String }
+        let resp = self.q("SELECT role FROM members WHERE id = ?1", vec![member_id.into()]).await?;
+        Ok(extract_first::<Row>(&resp)?.map(|r| r.role))
+    }
+
     // --- Todos ---
 
     /// Insert todo with atomic seq_num. Returns (todo_id, seq_num).
