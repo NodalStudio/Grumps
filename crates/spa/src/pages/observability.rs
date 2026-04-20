@@ -1,0 +1,427 @@
+//! Observability admin dashboard — LLM cost/latency/quality charts.
+//! Route: /w/:slug/admin/observability
+
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
+use crate::auth::use_auth;
+use crate::api::{ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+fn fmt_usd(v: f64) -> String {
+    format!("${:.4}", v)
+}
+
+fn fmt_ms(ms: i64) -> String {
+    if ms >= 1000 { format!("{:.1}s", ms as f64 / 1000.0) } else { format!("{}ms", ms) }
+}
+
+fn provider_color(provider: &str) -> &'static str {
+    match provider {
+        "anthropic" => "#C0392B",  // brick-red
+        "gemini" => "#1A6B5E",     // teal
+        _ => "#555555",
+    }
+}
+
+fn signal_label(s: &str) -> (&'static str, &'static str) {
+    // (label, hex color)
+    match s {
+        "praise"          => ("Praise",     "#1A6B5E"),
+        "thanks"          => ("Thanks",     "#2E8B57"),
+        "silence_request" => ("Silence",    "#C0392B"),
+        "forget_request"  => ("Forget",     "#E67E22"),
+        "correction"      => ("Correction", "#8B0000"),
+        "confusion"       => ("Confusion",  "#7D6608"),
+        _                 => ("Other",      "#555555"),
+    }
+}
+
+// ── Hero stat card ────────────────────────────────────────────────────────────
+
+#[component]
+fn StatCard(label: &'static str, value: String) -> impl IntoView {
+    view! {
+        <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
+             style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
+            <div class="font-display text-[2.6rem] font-extrabold leading-none">{value}</div>
+            <div class="text-[11px] uppercase tracking-widest font-bold mt-1" style="color: var(--ink-40);">{label}</div>
+        </div>
+    }
+}
+
+// ── Stacked bar for cost by model ─────────────────────────────────────────────
+
+#[component]
+fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
+    if rows.is_empty() || total == 0.0 {
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data yet."</div> }.into_any();
+    }
+
+    let segments: Vec<_> = rows.iter().map(|r| {
+        let pct = if total > 0.0 { (r.cost_usd / total * 100.0) as u32 } else { 0 };
+        let color = provider_color(&r.provider);
+        (pct, color, r.model.clone(), r.cost_usd)
+    }).collect();
+
+    view! {
+        <div>
+            // Stacked bar
+            <div class="flex h-10 border-2 border-ink overflow-hidden mb-3">
+                {segments.iter().map(|(pct, color, _model, _cost)| {
+                    let style = format!("width: {}%; background: {}; flex-shrink:0;", pct, color);
+                    view! { <div style=style></div> }
+                }).collect::<Vec<_>>()}
+            </div>
+            // Legend table
+            <table class="w-full text-sm border-collapse">
+                <thead>
+                    <tr class="border-b-2 border-ink">
+                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
+                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
+                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Cost"</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.iter().map(|r| {
+                        let dot_color = provider_color(&r.provider).to_string();
+                        let model = r.model.clone();
+                        let calls = r.call_count;
+                        let cost = fmt_usd(r.cost_usd);
+                        view! {
+                            <tr class="border-b" style="border-color: var(--ink-15);">
+                                <td class="py-1.5 pr-4 flex items-center gap-2">
+                                    <span class="inline-block w-3 h-3 border border-ink flex-shrink-0"
+                                          style=move || format!("background: {};", dot_color)></span>
+                                    <span class="font-mono text-xs">{model}</span>
+                                </td>
+                                <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
+                                <td class="py-1.5 pl-2 text-right font-mono font-bold">{cost}</td>
+                            </tr>
+                        }
+                    }).collect::<Vec<_>>()}
+                </tbody>
+            </table>
+        </div>
+    }.into_any()
+}
+
+// ── Latency table ─────────────────────────────────────────────────────────────
+
+#[component]
+fn LatencyTable(rows: Vec<LlmLatencyByModel>) -> impl IntoView {
+    if rows.is_empty() {
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No latency data yet."</div> }.into_any();
+    }
+    let max_p99 = rows.iter().map(|r| r.p99_ms).max().unwrap_or(1).max(1);
+
+    view! {
+        <table class="w-full text-sm border-collapse">
+            <thead>
+                <tr class="border-b-2 border-ink">
+                    <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
+                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P50"</th>
+                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P95"</th>
+                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"P99"</th>
+                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Count"</th>
+                </tr>
+            </thead>
+            <tbody>
+                {rows.iter().map(|r| {
+                    let model = r.model.clone();
+                    let provider = r.provider.clone();
+                    let p50 = fmt_ms(r.p50_ms);
+                    let p95 = fmt_ms(r.p95_ms);
+                    let p99 = fmt_ms(r.p99_ms);
+                    let cnt = r.count;
+                    let bar_pct = (r.p95_ms * 100 / max_p99).min(100) as u32;
+                    let bar_color = provider_color(&provider).to_string();
+                    view! {
+                        <tr class="border-b" style="border-color: var(--ink-15);">
+                            <td class="py-1.5 pr-4">
+                                <span class="font-mono text-xs block">{model}</span>
+                                <div class="mt-1 h-1.5 w-full border border-ink overflow-hidden">
+                                    <div style=move || format!("width:{}%; height:100%; background:{};", bar_pct, bar_color)></div>
+                                </div>
+                            </td>
+                            <td class="py-1.5 px-2 text-right font-mono">{p50}</td>
+                            <td class="py-1.5 px-2 text-right font-mono">{p95}</td>
+                            <td class="py-1.5 pl-2 text-right font-mono font-bold">{p99}</td>
+                            <td class="py-1.5 pl-2 text-right font-mono">{cnt}</td>
+                        </tr>
+                    }
+                }).collect::<Vec<_>>()}
+            </tbody>
+        </table>
+    }.into_any()
+}
+
+// ── Donut chart (SVG) ─────────────────────────────────────────────────────────
+
+fn donut_path(start_deg: f64, end_deg: f64, cx: f64, cy: f64, r: f64) -> String {
+    let to_rad = |d: f64| d * std::f64::consts::PI / 180.0;
+    let x1 = cx + r * to_rad(start_deg).cos();
+    let y1 = cy + r * to_rad(start_deg).sin();
+    let x2 = cx + r * to_rad(end_deg).cos();
+    let y2 = cy + r * to_rad(end_deg).sin();
+    let large = if end_deg - start_deg > 180.0 { 1 } else { 0 };
+    format!(
+        "M {cx} {cy} L {x1:.2} {y1:.2} A {r} {r} 0 {large} 1 {x2:.2} {y2:.2} Z"
+    )
+}
+
+#[component]
+fn CascadeDonut(classifier: i64, sonnet: i64, saved_usd: f64) -> impl IntoView {
+    let total = (classifier + sonnet).max(1) as f64;
+    let gemini_deg = classifier as f64 / total * 360.0;
+    let sonnet_deg = 360.0 - gemini_deg;
+
+    let p1 = donut_path(-90.0, -90.0 + gemini_deg, 80.0, 80.0, 70.0);
+    let p2 = donut_path(-90.0 + gemini_deg, 270.0, 80.0, 80.0, 70.0);
+
+    let gemini_pct = (classifier as f64 / total * 100.0) as u32;
+    let sonnet_pct = 100 - gemini_pct;
+
+    view! {
+        <div class="flex flex-col md:flex-row items-start gap-6">
+            // Donut SVG
+            <svg width="160" height="160" viewBox="0 0 160 160" class="flex-shrink-0">
+                <circle cx="80" cy="80" r="70" fill="var(--cream-light)" stroke="#1A1A1A" stroke-width="2"/>
+                // Gemini slice
+                {if classifier > 0 {
+                    view! {
+                        <path d=p1 fill="#1A6B5E"/>
+                    }.into_any()
+                } else {
+                    view! { <span></span> }.into_any()
+                }}
+                // Sonnet slice
+                {if sonnet > 0 {
+                    view! {
+                        <path d=p2 fill="#C0392B"/>
+                    }.into_any()
+                } else {
+                    view! { <span></span> }.into_any()
+                }}
+                // Hole
+                <circle cx="80" cy="80" r="40" fill="var(--cream)" stroke="#1A1A1A" stroke-width="2"/>
+                // Center label
+                <text x="80" y="76" text-anchor="middle" font-size="12" font-weight="bold" fill="#1A1A1A">"GEMINI"</text>
+                <text x="80" y="91" text-anchor="middle" font-size="11" fill="#1A1A1A">{gemini_pct}"%"</text>
+            </svg>
+            // Legend + stats
+            <div class="flex-1">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="inline-block w-4 h-4 border border-ink" style="background: #1A6B5E;"></span>
+                    <span class="text-sm font-medium">"Gemini resolved — "</span>
+                    <span class="font-mono font-bold">{classifier}</span>
+                    <span class="text-sm" style="color:var(--ink-40);">" calls ("{gemini_pct}"% of total)"</span>
+                </div>
+                <div class="flex items-center gap-2 mb-4">
+                    <span class="inline-block w-4 h-4 border border-ink" style="background: #C0392B;"></span>
+                    <span class="text-sm font-medium">"Sonnet escalated — "</span>
+                    <span class="font-mono font-bold">{sonnet}</span>
+                    <span class="text-sm" style="color:var(--ink-40);">" calls ("{sonnet_pct}"% of total)"</span>
+                </div>
+                <div class="border-t-2 border-ink pt-3">
+                    <div class="text-[11px] uppercase tracking-widest font-bold mb-1" style="color:var(--ink-40);">"Estimated savings"</div>
+                    <div class="font-display text-2xl font-extrabold">{fmt_usd(saved_usd)}</div>
+                    <div class="text-xs mt-0.5" style="color:var(--ink-40);">"vs. routing all calls through Sonnet"</div>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+// ── Quality signals ───────────────────────────────────────────────────────────
+
+#[component]
+fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
+    if signals.is_empty() {
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No quality signals yet."</div> }.into_any();
+    }
+    let max_count = signals.iter().map(|s| s.count).max().unwrap_or(1).max(1);
+
+    view! {
+        <div class="space-y-2">
+            {signals.iter().map(|s| {
+                let (label, color) = signal_label(&s.signal_type);
+                let pct = (s.count * 100 / max_count).min(100) as u32;
+                let count = s.count;
+                view! {
+                    <div class="flex items-center gap-3">
+                        <div class="w-24 text-xs font-bold" style=move || format!("color:{};", color)>{label}</div>
+                        <div class="flex-1 h-5 border border-ink overflow-hidden" style="background: var(--cream-light);">
+                            <div style=move || format!("width:{}%; height:100%; background:{};", pct, color)></div>
+                        </div>
+                        <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
+                    </div>
+                }
+            }).collect::<Vec<_>>()}
+        </div>
+    }.into_any()
+}
+
+// ── Section wrapper ───────────────────────────────────────────────────────────
+
+#[component]
+fn Section(title: &'static str, children: Children) -> impl IntoView {
+    view! {
+        <section class="border-2 border-ink p-5 mb-6" style="box-shadow: 3px 3px 0 #1A1A1A; background: var(--cream);">
+            <h2 class="font-display text-xl font-extrabold uppercase tracking-tight mb-4 border-b-2 border-ink pb-2">{title}</h2>
+            {children()}
+        </section>
+    }
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+#[component]
+pub fn ObservabilityPage() -> impl IntoView {
+    let auth = use_auth();
+    let params = use_params_map();
+    let slug = move || params.read().get("slug").unwrap_or_default();
+
+    let api = auth.api.clone();
+    let data = LocalResource::new(move || {
+        let api = api.clone();
+        let s = slug();
+        async move { api.get_observability(&s).await.ok() }
+    });
+
+    view! {
+        <div class="flex-1 overflow-y-auto p-6 md:p-8" style="background: var(--cream-light);">
+            {move || {
+                let maybe = data.get().map(|w| (*w).clone());
+                match maybe {
+                    None => view! {
+                        <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Loading…"</div>
+                    }.into_any(),
+                    Some(None) => view! {
+                        <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
+                            <div class="font-display text-xl font-extrabold text-brick">"Error loading observability data."</div>
+                            <p class="text-sm mt-2" style="color:var(--ink-70);">"Check that the workspace has been migrated to schema 0008."</p>
+                        </div>
+                    }.into_any(),
+                    Some(Some(d)) => {
+                        let d: ObservabilityData = d;
+                        view! {
+                            <div>
+                                // Header
+                                <div class="mb-8">
+                                    <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
+                                        "Observabilité"
+                                        <span class="text-brick">"."</span>
+                                    </h1>
+                                    <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
+                                        {d.month.clone()}
+                                    </p>
+                                </div>
+
+                                // Hero stats
+                                <div class="flex flex-wrap gap-4 mb-8">
+                                    <StatCard label="Coût total (30j)" value=fmt_usd(d.total_cost_usd) />
+                                    <StatCard label="Total d'appels" value=d.total_calls.to_string() />
+                                    <StatCard label="Latence médiane" value=fmt_ms(d.median_latency_ms) />
+                                    <StatCard label="Score qualité" value=format!("{:.0}%", d.quality_score * 100.0) />
+                                </div>
+
+                                // Cost by model
+                                <Section title="Coût par modèle (30j)">
+                                    <CostBar rows=d.cost_by_model.clone() total=d.total_cost_usd />
+                                </Section>
+
+                                // Latency by model
+                                <Section title="Latence par modèle (7j)">
+                                    <LatencyTable rows=d.latency_by_model.clone() />
+                                </Section>
+
+                                // Cascade efficiency
+                                <Section title="Efficacité cascade Gemini → Sonnet">
+                                    <CascadeDonut
+                                        classifier=d.cascade_efficiency.classifier_resolved
+                                        sonnet=d.cascade_efficiency.sonnet_escalated
+                                        saved_usd=d.cascade_efficiency.saved_usd
+                                    />
+                                </Section>
+
+                                // Invocation types
+                                <Section title="Types d'invocations (30j)">
+                                    {if d.invocation_types.is_empty() {
+                                        view! { <div class="text-sm italic" style="color:var(--ink-40);">"Aucune donnée."</div> }.into_any()
+                                    } else {
+                                        let max_count = d.invocation_types.iter().map(|i| i.count).max().unwrap_or(1).max(1);
+                                        view! {
+                                            <div class="space-y-2">
+                                                {d.invocation_types.iter().map(|inv| {
+                                                    let pct = (inv.count * 100 / max_count).min(100) as u32;
+                                                    let label = inv.invocation_type.clone();
+                                                    let count = inv.count;
+                                                    view! {
+                                                        <div class="flex items-center gap-3">
+                                                            <div class="w-32 text-xs font-mono font-bold truncate">{label}</div>
+                                                            <div class="flex-1 h-5 border border-ink overflow-hidden" style="background:var(--cream-light);">
+                                                                <div style=move || format!("width:{}%; height:100%; background:#C0392B;", pct)></div>
+                                                            </div>
+                                                            <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
+                                                        </div>
+                                                    }
+                                                }).collect::<Vec<_>>()}
+                                            </div>
+                                        }.into_any()
+                                    }}
+                                </Section>
+
+                                // Quality signals
+                                <Section title="Signaux qualité (30j)">
+                                    <QualitySignals signals=d.quality_signals.clone() />
+                                </Section>
+
+                                // Recent errors
+                                <Section title="Erreurs récentes">
+                                    {if d.recent_errors.is_empty() {
+                                        view! { <div class="text-sm font-medium" style="color:#1A6B5E;">"Aucune erreur. Parfait."</div> }.into_any()
+                                    } else {
+                                        view! {
+                                            <div class="overflow-x-auto">
+                                                <table class="w-full text-xs border-collapse">
+                                                    <thead>
+                                                        <tr class="border-b-2 border-ink">
+                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Timestamp"</th>
+                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
+                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Model"</th>
+                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Type"</th>
+                                                            <th class="text-left font-bold py-1 uppercase tracking-wider">"Erreur"</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {d.recent_errors.iter().map(|e| {
+                                                            let ts = e.created_at.clone();
+                                                            let prov = e.provider.clone();
+                                                            let model = e.model.clone();
+                                                            let inv = e.invocation_type.clone();
+                                                            let err = e.error.clone();
+                                                            view! {
+                                                                <tr class="border-b" style="border-color:var(--ink-15);">
+                                                                    <td class="py-1.5 pr-3 font-mono whitespace-nowrap">{ts}</td>
+                                                                    <td class="py-1.5 pr-3">{prov}</td>
+                                                                    <td class="py-1.5 pr-3 font-mono">{model}</td>
+                                                                    <td class="py-1.5 pr-3 italic">{inv}</td>
+                                                                    <td class="py-1.5 text-brick truncate max-w-[300px]">{err}</td>
+                                                                </tr>
+                                                            }
+                                                        }).collect::<Vec<_>>()}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }.into_any()
+                                    }}
+                                </Section>
+                            </div>
+                        }.into_any()
+                    }
+                }
+            }}
+        </div>
+    }
+}

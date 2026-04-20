@@ -40,6 +40,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
                 <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
+                <NavItem href=format!("{}/admin/observability", base) label="Observability" icon="\u{1F4CA}" />
                 <A href="/dashboard" attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
                     <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
                     "My Workspaces"

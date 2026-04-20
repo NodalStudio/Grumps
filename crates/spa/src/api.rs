@@ -412,4 +412,76 @@ impl ApiClient {
     pub async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String> {
         self.post(&format!("/api/w/{}/calendar/ical-token", slug), &serde_json::json!({})).await
     }
+
+    // =====================
+    // Observability
+    // =====================
+
+    pub async fn get_observability(&self, slug: &str) -> Result<ObservabilityData, String> {
+        self.get(&format!("/api/w/{}/admin/observability", slug)).await
+    }
+}
+
+// ── Observability types ───────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmCostByModel {
+    pub provider: String,
+    pub model: String,
+    pub cost_usd: f64,
+    pub call_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmLatencyByModel {
+    pub provider: String,
+    pub model: String,
+    pub p50_ms: i64,
+    pub p95_ms: i64,
+    pub p99_ms: i64,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmInvocationCount {
+    pub invocation_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LlmErrorEntry {
+    pub created_at: String,
+    pub provider: String,
+    pub model: String,
+    pub error: String,
+    pub invocation_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct QualitySignalCount {
+    pub signal_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CascadeEfficiency {
+    pub classifier_resolved: i64,
+    pub sonnet_escalated: i64,
+    pub saved_usd: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ObservabilityData {
+    pub month: String,
+    pub total_cost_usd: f64,
+    pub total_calls: i64,
+    pub median_latency_ms: i64,
+    pub quality_score: f64,
+    pub cost_by_model: Vec<LlmCostByModel>,
+    pub latency_by_model: Vec<LlmLatencyByModel>,
+    pub invocation_types: Vec<LlmInvocationCount>,
+    pub cascade_efficiency: CascadeEfficiency,
+    pub top_tools: Vec<serde_json::Value>,
+    pub recent_errors: Vec<LlmErrorEntry>,
+    pub quality_signals: Vec<QualitySignalCount>,
 }

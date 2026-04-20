@@ -11,3 +11,4 @@ pub mod settings;
 pub mod memory;
 pub mod scheduled;
 pub mod calendar;
+pub mod observability;
