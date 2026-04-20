@@ -49,6 +49,9 @@ module.exports = {
       borderWidth: {
         'grumps': '2px',
       },
+      borderRadius: {
+        sm: '3px',
+      },
     },
   },
   plugins: [],
