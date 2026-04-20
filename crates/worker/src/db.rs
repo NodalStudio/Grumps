@@ -428,6 +428,43 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    /// Atomically increment a settings value (treated as integer).
+    /// Creates the row if missing (starting from delta).
+    pub async fn increment_setting_atomic(&self, key: &str, delta: i64) -> Result<i64> {
+        self.q(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) \
+             ON CONFLICT(key) DO UPDATE SET value = CAST((CAST(value AS INTEGER) + ?3) AS TEXT)",
+            vec![key.into(), delta.to_string().into(), delta.into()],
+        ).await?;
+        // Read back the new value
+        let row: Option<String> = self.get_setting(key).await?;
+        Ok(row.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0))
+    }
+
+    /// List active reminders in a [from, to] date range (SQL-filtered).
+    pub async fn list_reminders_active_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+        let resp = self.q(
+            "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
+             FROM reminders \
+             WHERE status = 'active' AND remind_at >= ?1 AND remind_at <= ?2 \
+             ORDER BY remind_at ASC",
+            vec![from.into(), to.into()],
+        ).await?;
+        extract_rows::<serde_json::Value>(&resp)
+    }
+
+    /// List pending scheduled actions in a [from, to] trigger_at range (SQL-filtered).
+    pub async fn list_scheduled_active_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+        let resp = self.q(
+            "SELECT id, action_type, title, trigger_at, recurrence, status, fire_count, created_by \
+             FROM scheduled_actions \
+             WHERE status = 'pending' AND trigger_at >= ?1 AND trigger_at <= ?2 \
+             ORDER BY trigger_at ASC",
+            vec![from.into(), to.into()],
+        ).await?;
+        extract_rows::<serde_json::Value>(&resp)
+    }
+
     // --- Todos with deadline ---
 
     /// Set (or clear) the deadline on a todo.

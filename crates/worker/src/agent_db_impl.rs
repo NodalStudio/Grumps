@@ -97,18 +97,7 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn list_reminders_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
-        let all = self.get_active_reminders().await?;
-        let results = all.into_iter()
-            .filter(|r| r.remind_at.as_str() >= from && r.remind_at.as_str() <= to)
-            .map(|r| serde_json::json!({
-                "id": r.id,
-                "title": r.title,
-                "remind_at": r.remind_at,
-                "recurrence": r.recurrence,
-                "target_member": r.target_member,
-            }))
-            .collect();
-        Ok(results)
+        self.list_reminders_active_in_range(from, to).await
     }
 
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
@@ -116,15 +105,17 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn list_scheduled_in_range(&self, from: &str, to: &str) -> Result<Vec<ScheduledAction>> {
-        // list_scheduled_actions returns all pending; filter by range
-        let all = self.list_scheduled_actions(Some("pending"), 200, 0).await?;
-        let filtered = all.into_iter()
-            .filter(|a| {
-                let t = a.trigger_at.to_rfc3339();
-                t.as_str() >= from && t.as_str() <= to
-            })
-            .collect();
-        Ok(filtered)
+        // Use SQL-filtered query; map JSON rows back to ScheduledAction via get_scheduled_action
+        let rows = self.list_scheduled_active_in_range(from, to).await?;
+        let mut results = Vec::with_capacity(rows.len());
+        for row in rows {
+            if let Some(id) = row.get("id").and_then(|v| v.as_str()) {
+                if let Ok(Some(action)) = self.get_scheduled_action(id).await {
+                    results.push(action);
+                }
+            }
+        }
+        Ok(results)
     }
 
     async fn list_todos_with_deadline(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
@@ -155,7 +146,6 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn increment_int_setting(&self, key: &str, delta: i64) -> Result<()> {
-        let current: i64 = self.get_setting(key).await?.unwrap_or_default().parse().unwrap_or(0);
-        self.set_setting(key, &(current + delta).to_string()).await
+        self.increment_setting_atomic(key, delta).await.map(|_| ())
     }
 }
