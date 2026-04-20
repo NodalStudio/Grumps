@@ -55,7 +55,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
             ..Default::default()
         };
 
-        let resp = anthropic::call(ctx.env, &req).await?;
+        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_react", Some(ctx.member_id), None, &req).await?;
         ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
         total_tokens = total_tokens
             .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
@@ -166,7 +166,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             tools: tools_json.clone(),
             ..Default::default()
         };
-        let resp = anthropic::call(ctx.env, &req).await?;
+        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_oneshot", Some(ctx.member_id), None, &req).await?;
         ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
         total_tokens = total_tokens
             .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);

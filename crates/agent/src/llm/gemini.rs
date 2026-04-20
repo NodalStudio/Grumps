@@ -100,6 +100,45 @@ struct GeminiPartResp {
     text: String,
 }
 
+/// classify_intent with telemetry recording.
+pub async fn classify_intent_with_telemetry(
+    env: &Env,
+    db: &dyn crate::db::AgentDb,
+    invocation_type: &str,
+    member_id: Option<&str>,
+    message: &str,
+    members: &[String],
+) -> Result<ClassifiedIntent> {
+    let t0 = worker::Date::now().as_millis();
+    let result = classify_intent(env, message, members).await;
+    let latency_ms = (worker::Date::now().as_millis().saturating_sub(t0)) as u32;
+
+    // Gemini doesn't return token counts in the response we parse — use 0 as placeholder.
+    // The actual token cost is very small (classifier prompt ~256 tokens out).
+    let (success, error) = match &result {
+        Ok(_) => (true, None),
+        Err(e) => (false, Some(e.to_string())),
+    };
+    let record = crate::telemetry::LlmCallRecord::build(
+        invocation_type,
+        "gemini",
+        "gemini-2.5-flash",
+        0, // input tokens not returned by Gemini REST in our parse
+        0, // output tokens
+        0,
+        0,
+        latency_ms,
+        success,
+        error,
+        member_id.map(|s| s.to_string()),
+        None,
+        vec![],
+    );
+    crate::telemetry::record_call(db, record).await;
+
+    result
+}
+
 /// Classify the intent of a chat message.
 /// Returns `complex_agent_task` with confidence 0.0 if the API fails or returns junk
 /// (caller will then escalate to Sonnet, which is the safe fallback).

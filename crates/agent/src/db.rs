@@ -4,6 +4,48 @@
 use grumps_memory::{MemoryEntry, NewMemoryEntry};
 use grumps_calendar::{Event, NewEvent};
 use grumps_scheduler::{NewScheduledAction, ScheduledAction, AgentSession, SessionMessage};
+use serde::{Deserialize, Serialize};
+
+// ── Observability response types ──────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmCostByModel {
+    pub provider: String,
+    pub model: String,
+    pub cost_usd: f64,
+    pub call_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmLatencyByModel {
+    pub provider: String,
+    pub model: String,
+    pub p50_ms: i64,
+    pub p95_ms: i64,
+    pub p99_ms: i64,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmInvocationCount {
+    pub invocation_type: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LlmErrorEntry {
+    pub created_at: String,
+    pub provider: String,
+    pub model: String,
+    pub error: String,
+    pub invocation_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualitySignalCount {
+    pub signal_type: String,
+    pub count: i64,
+}
 
 /// A short member record for prompt context.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -92,4 +134,12 @@ pub trait AgentDb {
         pending: Option<&serde_json::Value>,
     ) -> worker::Result<String>;
     async fn get_active_agent_session(&self, member_id: &str) -> worker::Result<Option<AgentSession>>;
+
+    // --- LLM observability ---
+    async fn log_llm_call(&self, record: &crate::telemetry::LlmCallRecord) -> worker::Result<()>;
+    async fn aggregate_llm_costs_30d(&self) -> worker::Result<Vec<LlmCostByModel>>;
+    async fn aggregate_llm_latency_by_model(&self) -> worker::Result<Vec<LlmLatencyByModel>>;
+    async fn aggregate_llm_invocation_types(&self) -> worker::Result<Vec<LlmInvocationCount>>;
+    async fn list_recent_llm_errors(&self, limit: i64) -> worker::Result<Vec<LlmErrorEntry>>;
+    async fn aggregate_quality_signals_30d(&self) -> worker::Result<Vec<QualitySignalCount>>;
 }

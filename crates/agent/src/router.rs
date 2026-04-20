@@ -44,7 +44,7 @@ pub async fn route_message<'a>(
         .iter()
         .map(|m| m.display_name.clone().unwrap_or_default())
         .collect();
-    let classified = gemini::classify_intent(env, text, &member_names).await?;
+    let classified = gemini::classify_intent_with_telemetry(env, db, "classify", Some(member_id), text, &member_names).await?;
 
     // 3. If high-confidence simple intent, dispatch CRUD directly.
     if !classified.is_complex() && classified.is_high_confidence() {

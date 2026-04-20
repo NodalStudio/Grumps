@@ -69,6 +69,62 @@ pub struct Usage {
     pub cache_creation_input_tokens: u32,
 }
 
+/// Call the Anthropic API with telemetry recording.
+/// Times the call, builds a LlmCallRecord and persists it to the DB.
+pub async fn call_with_telemetry(
+    env: &Env,
+    db: &dyn crate::db::AgentDb,
+    invocation_type: &str,
+    member_id: Option<&str>,
+    parent_call_id: Option<&str>,
+    req: &AnthropicRequest,
+) -> Result<AnthropicResponse> {
+    let t0 = worker::Date::now().as_millis();
+    let result = call(env, req).await;
+    let latency_ms = (worker::Date::now().as_millis().saturating_sub(t0)) as u32;
+
+    match result {
+        Ok(ref resp) => {
+            let record = crate::telemetry::LlmCallRecord::build(
+                invocation_type,
+                "anthropic",
+                &resp.model,
+                resp.usage.input_tokens,
+                resp.usage.output_tokens,
+                resp.usage.cache_read_input_tokens,
+                resp.usage.cache_creation_input_tokens,
+                latency_ms,
+                true,
+                None,
+                member_id.map(|s| s.to_string()),
+                parent_call_id.map(|s| s.to_string()),
+                vec![],
+            );
+            crate::telemetry::record_call(db, record).await;
+        }
+        Err(ref e) => {
+            let record = crate::telemetry::LlmCallRecord::build(
+                invocation_type,
+                "anthropic",
+                &req.model,
+                0,
+                0,
+                0,
+                0,
+                latency_ms,
+                false,
+                Some(e.to_string()),
+                member_id.map(|s| s.to_string()),
+                parent_call_id.map(|s| s.to_string()),
+                vec![],
+            );
+            crate::telemetry::record_call(db, record).await;
+        }
+    }
+
+    result
+}
+
 /// Call the Anthropic API. Reads ANTHROPIC_API_KEY secret.
 pub async fn call(env: &Env, req: &AnthropicRequest) -> Result<AnthropicResponse> {
     let api_key = env.secret("ANTHROPIC_API_KEY")?.to_string();

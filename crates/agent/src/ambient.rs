@@ -75,6 +75,36 @@ pub struct RecentBotAction {
     pub summary: String,           // short human-readable
 }
 
+/// Run the unified classifier with telemetry recording.
+pub async fn analyze_with_telemetry(
+    env: &Env,
+    db: &dyn crate::db::AgentDb,
+    member_id: Option<&str>,
+    text: &str,
+    members: &[String],
+    pinned_summary: &str,
+    recent_actions: &[RecentBotAction],
+    modes: &AmbientModes,
+) -> AmbientAnalysis {
+    let t0 = worker::Date::now().as_millis();
+    let result = analyze(env, text, members, pinned_summary, recent_actions, modes).await;
+    let latency_ms = (worker::Date::now().as_millis().saturating_sub(t0)) as u32;
+    let record = crate::telemetry::LlmCallRecord::build(
+        "ambient",
+        "gemini",
+        "gemini-2.5-flash",
+        0, 0, 0, 0,
+        latency_ms,
+        true,
+        None,
+        member_id.map(|s| s.to_string()),
+        None,
+        vec![],
+    );
+    crate::telemetry::record_call(db, record).await;
+    result
+}
+
 /// Run the unified classifier. Returns the analysis ; on any error returns Default (all signals off).
 pub async fn analyze(
     env: &Env,
@@ -258,7 +288,7 @@ Decide: do you have a SPECIFIC, USEFUL, NON-INTRUSIVE thing to say? If yes, repl
                 }],
                 ..Default::default()
             };
-            if let Ok(resp) = crate::llm::anthropic::call(env, &req).await {
+            if let Ok(resp) = crate::llm::anthropic::call_with_telemetry(env, db, "proactive_filter", Some(member_id), None, &req).await {
                 let final_text = resp.content.iter().filter_map(|b| match b {
                     crate::llm::anthropic::ContentBlock::Text { text } => Some(text.as_str()),
                     _ => None,
