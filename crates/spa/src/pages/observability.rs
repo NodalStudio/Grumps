@@ -46,7 +46,7 @@ fn StatCard(label: &'static str, value: String) -> impl IntoView {
         <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
              style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
             <div class="font-display text-[2.6rem] font-extrabold leading-none">{value}</div>
-            <div class="text-[11px] uppercase tracking-widest font-bold mt-1" style="color: var(--ink-40);">{label}</div>
+            <div class="text-meta mt-1" style="color: var(--ink-40);">{label}</div>
         </div>
     }
 }
@@ -78,9 +78,9 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Cost"</th>
+                        <th class="text-left text-meta py-1 pr-4">"Model"</th>
+                        <th class="text-right text-meta py-1 px-2">"Calls"</th>
+                        <th class="text-right text-meta py-1 pl-2">"Cost"</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -120,11 +120,11 @@ fn LatencyTable(rows: Vec<LlmLatencyByModel>) -> impl IntoView {
         <table class="w-full text-sm border-collapse">
             <thead>
                 <tr class="border-b-2 border-ink">
-                    <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P50"</th>
-                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P95"</th>
-                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"P99"</th>
-                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Count"</th>
+                    <th class="text-left text-meta py-1 pr-4">"Model"</th>
+                    <th class="text-right text-meta py-1 px-2">"P50"</th>
+                    <th class="text-right text-meta py-1 px-2">"P95"</th>
+                    <th class="text-right text-meta py-1 pl-2">"P99"</th>
+                    <th class="text-right text-meta py-1 pl-2">"Count"</th>
                 </tr>
             </thead>
             <tbody>
@@ -225,7 +225,7 @@ fn CascadeDonut(classifier: i64, sonnet: i64, saved_usd: f64) -> impl IntoView {
                     <span class="text-sm" style="color:var(--ink-40);">" calls ("{sonnet_pct}"% of total)"</span>
                 </div>
                 <div class="border-t-2 border-ink pt-3">
-                    <div class="text-[11px] uppercase tracking-widest font-bold mb-1" style="color:var(--ink-40);">"Estimated savings"</div>
+                    <div class="text-meta mb-1" style="color:var(--ink-40);">"Estimated savings"</div>
                     <div class="font-display text-2xl font-extrabold">{fmt_usd(saved_usd)}</div>
                     <div class="text-xs mt-0.5" style="color:var(--ink-40);">"vs. routing all calls through Sonnet"</div>
                 </div>
@@ -342,7 +342,7 @@ pub fn ObservabilityPage() -> impl IntoView {
                                         {slug_label}
                                         <span class="text-brick">"."</span>
                                     </h1>
-                                    <p class="text-[11px] uppercase tracking-[2px] font-bold mt-1" style="color: var(--brick);">
+                                    <p class="text-meta mt-1" style="color: var(--brick);">
                                         "Vue super admin"
                                     </p>
                                     <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">

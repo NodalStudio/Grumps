@@ -43,10 +43,10 @@ pub fn NotesPage() -> impl IntoView {
                                         <a href=href class="block p-5 border-2 rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5"
                                             style:border-color=move || if pinned { "var(--ochre)" } else { "var(--ink)" }
                                             style="background: var(--cream-light);">
-                                            {if pinned { Some(view! { <div class="text-[11px] font-bold uppercase tracking-wider mb-2" style="color: var(--ochre);">"Pinned"</div> }) } else { None }}
+                                            {if pinned { Some(view! { <div class="text-meta mb-2" style="color: var(--ochre);">"Pinned"</div> }) } else { None }}
                                             <h3 class="font-display text-base font-bold mb-2">{note.title.clone().unwrap_or("(untitled)".into())}</h3>
-                                            <p class="text-[13px] line-clamp-3" style="color: var(--ink-70);">{note.content.clone().unwrap_or_default()}</p>
-                                            <div class="flex items-center justify-between mt-3 pt-3 text-[11px] border-t" style="color: var(--ink-40); border-color: var(--ink-15);">
+                                            <p class="text-body-sm line-clamp-3" style="color: var(--ink-70);">{note.content.clone().unwrap_or_default()}</p>
+                                            <div class="flex items-center justify-between mt-3 pt-3 text-body-sm border-t" style="color: var(--ink-40); border-color: var(--ink-15);">
                                                 <span>{note.created_at.clone()}</span>
                                                 <span class="font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm" style="border-color: var(--ink-15);">{note.source.clone()}</span>
                                             </div>

@@ -49,7 +49,7 @@ pub fn MonthView(
             // Day headers
             <div class="grid grid-cols-7 border-b-2 border-ink">
                 {days_names.into_iter().map(|d| view! {
-                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{d}</div>
+                    <div class="py-2 text-center text-meta" style="color: var(--ink-40);">{d}</div>
                 }).collect_view()}
             </div>
 

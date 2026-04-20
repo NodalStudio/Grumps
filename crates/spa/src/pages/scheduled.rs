@@ -134,7 +134,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             // Filters
             <div class="flex gap-4 items-center mb-5 flex-wrap">
                 <div class="flex gap-2 flex-wrap">
-                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">"Type:"</span>
+                    <span class="text-eyebrow self-center" style="color: var(--ink-40);">"Type:"</span>
                     {type_opts.into_iter().map(|k| {
                         let k = k.to_string();
                         let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
@@ -150,7 +150,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     }).collect_view()}
                 </div>
                 <div class="flex gap-2 flex-wrap">
-                    <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">"Status:"</span>
+                    <span class="text-eyebrow self-center" style="color: var(--ink-40);">"Status:"</span>
                     {status_opts.into_iter().map(|k| {
                         let k = k.to_string();
                         let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
@@ -221,7 +221,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         <h2 class="font-display text-xl font-bold">{if is_edit { "Edit Action" } else { "New Scheduled Action" }}</h2>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Title"</label>
+                            <label class="text-meta" style="color: var(--ink-40);">"Title"</label>
                             <input type="text" placeholder="e.g. Weekly recap"
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                 on:input=move |ev| set_form_title.set(event_target_value(&ev))
@@ -231,7 +231,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Type"</label>
+                                <label class="text-meta" style="color: var(--ink-40);">"Type"</label>
                                 <select
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:change=move |ev| set_form_type.set(event_target_value(&ev))
@@ -245,7 +245,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Trigger at"</label>
+                                <label class="text-meta" style="color: var(--ink-40);">"Trigger at"</label>
                                 <input type="datetime-local"
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:input=move |ev| set_form_trigger.set(event_target_value(&ev))
@@ -255,7 +255,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Recurrence (RRULE)"</label>
+                            <label class="text-meta" style="color: var(--ink-40);">"Recurrence (RRULE)"</label>
                             <input type="text" placeholder="e.g. FREQ=WEEKLY;BYDAY=MO"
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none font-mono"
                                 on:input=move |ev| set_form_recurrence.set(event_target_value(&ev))
@@ -264,7 +264,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Payload (JSON)"</label>
+                            <label class="text-meta" style="color: var(--ink-40);">"Payload (JSON)"</label>
                             <textarea rows="3" placeholder="{}"
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none resize-none font-mono"
                                 on:input=move |ev| set_form_payload.set(event_target_value(&ev))

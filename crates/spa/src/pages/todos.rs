@@ -104,7 +104,7 @@ pub fn TodosPage() -> impl IntoView {
                                                     {todo.title.clone()}
                                                 </div>
                                                 <div class="flex items-center gap-2.5 mt-1 text-xs" style="color: var(--ink-40);">
-                                                    <span class="font-display text-[11px] font-bold">{format!("#{}", todo.seq_num)}</span>
+                                                    <span class="text-body-sm font-bold">{format!("#{}", todo.seq_num)}</span>
                                                     {todo.assigned_name.clone().map(|a| view! { <span class="font-semibold" style="color: var(--ink-70);">{format!("-> @{}", a)}</span> })}
                                                 </div>
                                             </div>

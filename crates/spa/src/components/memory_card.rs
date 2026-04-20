@@ -37,7 +37,7 @@ pub fn MemoryCard(
             <div class="flex items-start gap-2">
                 // Kind badge
                 <span
-                    class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm flex-shrink-0 mt-0.5"
+                    class="px-2 py-0.5 text-eyebrow rounded-sm flex-shrink-0 mt-0.5"
                     style:background=move || kind_color(&kind)
                     style="color: white;"
                 >{kind2.clone()}</span>
@@ -49,7 +49,7 @@ pub fn MemoryCard(
             </div>
 
             // Meta row
-            <div class="flex items-center gap-2 text-[11px]" style="color: var(--ink-40);">
+            <div class="flex items-center gap-2 text-body-sm" style="color: var(--ink-40);">
                 {item.key.clone().map(|k| view! {
                     <span class="font-mono font-semibold" style="color: var(--ink-70);">{k}</span>
                     <span>"·"</span>
@@ -64,7 +64,7 @@ pub fn MemoryCard(
                 {if is_auto {
                     view! {
                         <span
-                            class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-sm"
+                            class="px-1.5 py-0.5 text-eyebrow rounded-sm"
                             style="background: var(--ink-08); color: var(--ink-70);"
                         >"AUTO"</span>
                     }.into_any()
@@ -76,13 +76,13 @@ pub fn MemoryCard(
             // Action row
             <div class="flex items-center gap-2 pt-1 border-t" style="border-color: var(--ink-08);">
                 <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
+                    class="text-body-sm font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
                     style="color: var(--ink); background: transparent;"
                     on:click=move |_| on_edit.run(item_clone_edit.clone())
                 >"Edit"</button>
 
                 <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
+                    class="text-body-sm font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
                     on:click=move |_| on_toggle_pin.run(item_id_pin.clone())
                     style:background=move || if pinned { "var(--teal)" } else { "transparent" }
                     style:color=move || if pinned { "white" } else { "var(--ink)" }
@@ -95,7 +95,7 @@ pub fn MemoryCard(
                 </button>
 
                 <button
-                    class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
+                    class="ml-auto text-body-sm font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
                     style="border-color: var(--brick); color: var(--brick); background: transparent;"
                     on:click=move |_| on_delete.run(item_id_delete.clone())
                 >"Delete"</button>

@@ -86,7 +86,7 @@ pub fn CalendarPage() -> impl IntoView {
                 <h2 class="font-display text-2xl font-extrabold tracking-tight">
                     {move || format!("{} {}", month_name(month.get()), year.get())}
                 </h2>
-                <p class="text-[13px] mt-0.5" style="color: var(--ink-40);">"Calendar"</p>
+                <p class="text-body-sm mt-0.5" style="color: var(--ink-40);">"Calendar"</p>
             </div>
             // Navigation + view tabs
             <div class="flex items-center gap-2">

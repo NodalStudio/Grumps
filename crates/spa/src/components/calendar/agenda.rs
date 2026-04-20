@@ -39,7 +39,7 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                             view! {
                                 <div>
                                     <div
-                                        class="text-[11px] font-bold uppercase tracking-wider pb-2 mb-2 border-b-2 border-ink"
+                                        class="text-meta pb-2 mb-2 border-b-2 border-ink"
                                         style="color: var(--ink-70);"
                                     >{date}</div>
                                     <div class="flex flex-col gap-2">

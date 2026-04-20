@@ -128,12 +128,12 @@ pub fn OverviewPage() -> impl IntoView {
                                         view! {
                                             <div class="flex flex-col items-center gap-1">
                                                 <div
-                                                    class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
+                                                    class="w-6 h-6 rounded-full flex items-center justify-center text-body-sm font-bold"
                                                     style:background=if is_today { "var(--brick)" } else { "transparent" }
                                                     style:color=if is_today { "white" } else { "var(--ink-40)" }
                                                 >{day_names[col as usize]}</div>
                                                 <div
-                                                    class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold"
+                                                    class="w-6 h-6 rounded-full flex items-center justify-center text-body-sm font-semibold"
                                                     style:color=if is_today { "var(--brick)" } else { "var(--ink-70)" }
                                                 >{cell_d}</div>
                                                 // Color dots for items
@@ -177,7 +177,7 @@ pub fn OverviewPage() -> impl IntoView {
                                     {items.into_iter().map(|item| view! {
                                         <div class="flex items-start gap-2 text-sm">
                                             <span
-                                                class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-sm flex-shrink-0"
+                                                class="px-1.5 py-0.5 text-eyebrow rounded-sm flex-shrink-0"
                                                 style="background: var(--brick); color: white;"
                                             >{item.kind.clone()}</span>
                                             <span style="color: var(--ink);">{item.value.clone()}</span>
@@ -198,7 +198,7 @@ fn StatBlock(number: i64, label: &'static str, color: &'static str) -> impl Into
     view! {
         <div class="flex-1 p-4 border-r-2 border-ink last:border-r-0">
             <div class="font-display text-3xl font-extrabold" style:color=color>{number}</div>
-            <div class="text-[11px] uppercase tracking-wider font-semibold mt-1" style="color: var(--ink-40);">{label}</div>
+            <div class="text-meta mt-1" style="color: var(--ink-40);">{label}</div>
         </div>
     }
 }

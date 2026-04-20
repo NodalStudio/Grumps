@@ -33,7 +33,7 @@ pub fn WeekView(
             <div class="grid border-b-2 border-ink" style="grid-template-columns: 40px repeat(7, 1fr);">
                 <div></div>
                 {day_names.iter().map(|d| view! {
-                    <div class="py-2 text-center text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{*d}</div>
+                    <div class="py-2 text-center text-meta" style="color: var(--ink-40);">{*d}</div>
                 }).collect_view()}
             </div>
 
@@ -42,7 +42,7 @@ pub fn WeekView(
                 {(0..24u32).map(|hour| {
                     view! {
                         <div class="grid border-b border-ink/10" style="grid-template-columns: 40px repeat(7, 1fr); min-height: 48px;">
-                            <div class="text-[10px] font-mono pt-1 px-1" style="color: var(--ink-30);">
+                            <div class="text-eyebrow font-mono pt-1 px-1" style="color: var(--ink-30);">
                                 {format!("{:02}:00", hour)}
                             </div>
                             {(0..7u32).map(|_col| {

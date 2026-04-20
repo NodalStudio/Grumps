@@ -20,7 +20,7 @@ pub fn DashboardPage() -> impl IntoView {
                             view! {
                                 <a href=href class="block p-6 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5" style="background: var(--cream-light);">
                                     <h3 class="font-display text-lg font-bold">{ws.name.clone().unwrap_or(ws.slug.clone())}</h3>
-                                    <p class="text-[11px] font-semibold uppercase tracking-wider mt-1" style="color: var(--ink-40);">"WhatsApp"</p>
+                                    <p class="text-meta mt-1" style="color: var(--ink-40);">"WhatsApp"</p>
                                 </a>
                             }
                         }
@@ -28,7 +28,7 @@ pub fn DashboardPage() -> impl IntoView {
                     // Add group placeholder
                     <div class="p-6 border-2 border-dashed rounded-sm opacity-50 text-center" style="border-color: var(--ink-15);">
                         <h3 class="font-display text-lg font-bold" style="color: var(--ink-40);">"Add a group"</h3>
-                        <p class="text-[11px] uppercase tracking-wider mt-1" style="color: var(--ink-40);">"Add @grumps to a WhatsApp group"</p>
+                        <p class="text-meta mt-1" style="color: var(--ink-40);">"Add @grumps to a WhatsApp group"</p>
                         <div class="text-3xl mt-4" style="color: var(--ink-15);">"+"</div>
                     </div>
                 </div>

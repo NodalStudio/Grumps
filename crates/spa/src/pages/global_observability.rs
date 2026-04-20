@@ -41,7 +41,7 @@ fn StatCard(label: &'static str, value: String) -> impl IntoView {
         <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
              style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
             <div class="font-display text-[2.6rem] font-extrabold leading-none">{value}</div>
-            <div class="text-[11px] uppercase tracking-widest font-bold mt-1" style="color: var(--ink-40);">{label}</div>
+            <div class="text-meta mt-1" style="color: var(--ink-40);">{label}</div>
         </div>
     }
 }
@@ -83,9 +83,9 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Cost"</th>
+                        <th class="text-left text-meta py-1 pr-4">"Model"</th>
+                        <th class="text-right text-meta py-1 px-2">"Calls"</th>
+                        <th class="text-right text-meta py-1 pl-2">"Cost"</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -124,13 +124,13 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Slug"</th>
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Name"</th>
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Plan"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Cost (30j)"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Quality"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Detail"</th>
+                        <th class="text-left text-meta py-1 pr-4">"Slug"</th>
+                        <th class="text-left text-meta py-1 pr-4">"Name"</th>
+                        <th class="text-left text-meta py-1 pr-4">"Plan"</th>
+                        <th class="text-right text-meta py-1 px-2">"Calls"</th>
+                        <th class="text-right text-meta py-1 px-2">"Cost (30j)"</th>
+                        <th class="text-right text-meta py-1 px-2">"Quality"</th>
+                        <th class="text-right text-meta py-1 pl-2">"Detail"</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -156,7 +156,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                                 <td class="py-1.5 pr-4 font-mono text-xs font-bold">{slug}</td>
                                 <td class="py-1.5 pr-4 text-sm">{name}</td>
                                 <td class="py-1.5 pr-4">
-                                    <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 border border-ink"
+                                    <span class="text-eyebrow px-1.5 py-0.5 border border-ink"
                                           style="background: var(--cream-light);">{plan}</span>
                                 </td>
                                 <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
@@ -267,12 +267,12 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     <h1 class="font-display text-xl font-extrabold uppercase tracking-tight">
                         "GRUMPS"<span class="text-brick">"."</span>
                     </h1>
-                    <p class="text-[10px] uppercase tracking-wider mt-0.5 font-medium" style="color: var(--ink-40);">
+                    <p class="text-eyebrow mt-0.5" style="color: var(--ink-40);">
                         "Super Admin"
                     </p>
                 </div>
                 <nav class="py-3 flex-1">
-                    <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Admin"</div>
+                    <div class="px-5 pt-4 pb-1.5 text-eyebrow" style="color: var(--ink-40);">"Admin"</div>
                     <A href="/admin/observability"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-brick"
                        attr:style="color: var(--ink);">
@@ -282,7 +282,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     <A href="/dashboard"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover:bg-black/[0.04]"
                        attr:style="color: var(--ink-70);">
-                        <span class="w-[18px] text-center text-[15px]">"⊞"</span>
+                        <span class="w-[18px] text-center text-body">"⊞"</span>
                         "My Workspaces"
                     </A>
                 </nav>

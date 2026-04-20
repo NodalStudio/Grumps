@@ -167,7 +167,7 @@ pub fn SettingsPage() -> impl IntoView {
                     <QuotaRow label="Web searches" used=8 limit=50 />
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
                         <div class="font-medium text-sm">"Storage"</div>
-                        <div class="font-semibold text-[13px]" style="color: var(--ink-70);">"12 MB / 100 MB"</div>
+                        <div class="text-body-sm font-semibold" style="color: var(--ink-70);">"12 MB / 100 MB"</div>
                     </div>
                 </SettingsSection>
 
@@ -195,7 +195,7 @@ fn SettingRow(label: &'static str, value: &'static str) -> impl IntoView {
     view! {
         <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
             <div class="font-medium text-sm">{label}</div>
-            <div class="font-semibold text-[13px]" style="color: var(--ink-70);">{value}</div>
+            <div class="text-body-sm font-semibold" style="color: var(--ink-70);">{value}</div>
         </div>
     }
 }
@@ -237,7 +237,7 @@ fn QuotaRow(label: &'static str, used: i64, limit: i64) -> impl IntoView {
         <div class="py-3 flex flex-col gap-1" style="border-bottom: 1px solid var(--ink-08);">
             <div class="flex items-center justify-between">
                 <div class="font-medium text-sm">{label}</div>
-                <div class="font-semibold text-[13px]" style="color: var(--ink-70);">{format!("{} / {}", used, limit)}</div>
+                <div class="text-body-sm font-semibold" style="color: var(--ink-70);">{format!("{} / {}", used, limit)}</div>
             </div>
             <div class="w-full h-2 rounded-full" style="background: var(--ink-08);">
                 <div

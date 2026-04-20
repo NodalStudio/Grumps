@@ -45,16 +45,16 @@ pub fn HistoryPage() -> impl IntoView {
                                     view! {
                                         <div class="flex gap-3.5 py-3.5 items-start" style="border-bottom: 1px solid var(--ink-08);">
                                             <div class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style:background=dot_color></div>
-                                            <div class="flex-1 text-[13px]">
+                                            <div class="flex-1 text-body-sm">
                                                 <strong>{activity.actor.clone().unwrap_or("Someone".into())}</strong>
                                                 " "
                                                 {activity.action.clone()}
                                                 {activity.target_id.clone().map(|id| view! { <span class="font-display font-semibold">{format!(" {}", id)}</span> })}
-                                                <span class="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm" style="color: var(--ink-40); border-color: var(--ink-15);">
+                                                <span class="ml-2 text-eyebrow px-1.5 py-0.5 border rounded-sm" style="color: var(--ink-40); border-color: var(--ink-15);">
                                                     {activity.source.clone()}
                                                 </span>
                                             </div>
-                                            <div class="text-[11px] flex-shrink-0" style="color: var(--ink-40);">{activity.created_at.clone()}</div>
+                                            <div class="text-body-sm flex-shrink-0" style="color: var(--ink-40);">{activity.created_at.clone()}</div>
                                         </div>
                                     }
                                 }

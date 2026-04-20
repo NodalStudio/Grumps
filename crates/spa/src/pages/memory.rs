@@ -208,7 +208,7 @@ pub fn MemoryPage() -> impl IntoView {
                         <h2 class="font-display text-xl font-bold">{if is_edit { "Edit Memory" } else { "Add Memory" }}</h2>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Key (optional)"</label>
+                            <label class="text-meta" style="color: var(--ink-40);">"Key (optional)"</label>
                             <input
                                 type="text" placeholder="e.g. preferred_language"
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
@@ -218,7 +218,7 @@ pub fn MemoryPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Value *"</label>
+                            <label class="text-meta" style="color: var(--ink-40);">"Value *"</label>
                             <textarea
                                 rows="3"
                                 placeholder="What to remember..."
@@ -230,7 +230,7 @@ pub fn MemoryPage() -> impl IntoView {
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Kind"</label>
+                                <label class="text-meta" style="color: var(--ink-40);">"Kind"</label>
                                 <select
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:change=move |ev| set_form_kind.set(event_target_value(&ev))
@@ -244,7 +244,7 @@ pub fn MemoryPage() -> impl IntoView {
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Related member"</label>
+                                <label class="text-meta" style="color: var(--ink-40);">"Related member"</label>
                                 <input
                                     type="text" placeholder="@username"
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
@@ -256,7 +256,7 @@ pub fn MemoryPage() -> impl IntoView {
 
                         <div class="flex gap-3 items-center">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Expires at"</label>
+                                <label class="text-meta" style="color: var(--ink-40);">"Expires at"</label>
                                 <input
                                     type="date"
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
