@@ -11,8 +11,8 @@ use crate::router::MessagingSink;
 /// Errors are logged but never propagated to the caller (chat flow must not break).
 pub async fn maybe_intervene<'a>(
     env: &'a Env,
-    db: &'a (dyn AgentDb + 'static),
-    sink: &'a (dyn MessagingSink + 'static),
+    db: &'a dyn AgentDb,
+    sink: &'a dyn MessagingSink,
     workspace_slug: &str,
     member_id: &str,
     text: &str,
