@@ -8,6 +8,8 @@ pub mod kanban;
 pub mod note_card;
 pub mod file_card;
 pub mod toast;
+pub mod theme_toggle;
+pub use theme_toggle::ThemeToggle;
 pub mod empty_state;
 pub mod memory_card;
 pub mod scheduled_card;

@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
 use crate::components::Icon;
+use crate::components::ThemeToggle;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
@@ -77,6 +78,12 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                     "My Workspaces"
                 </A>
             </nav>
+
+            // Theme toggle
+            <div class="px-5 py-3 border-t border-subtle flex items-center justify-between gap-2">
+                <span class="text-eyebrow text-muted">"Theme"</span>
+                <ThemeToggle />
+            </div>
 
             // User footer
             <div class="px-5 py-4 flex items-center gap-2.5 border-t border-subtle">
