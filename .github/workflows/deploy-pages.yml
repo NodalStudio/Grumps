@@ -25,11 +25,17 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # rust-toolchain.toml pins stable-x86_64-pc-windows-msvc for the
+    # author's local machine; RUSTUP_TOOLCHAIN overrides it on Linux CI.
+    env:
+      RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Rust (wasm32 target)
         run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
           rustup target add wasm32-unknown-unknown
           rustc --version
 
