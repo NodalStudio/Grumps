@@ -1237,6 +1237,146 @@ impl<'a> WorkspaceDb<'a> {
         ).await?;
         Ok(())
     }
+
+    // =============================================
+    // LLM call telemetry
+    // =============================================
+
+    pub async fn log_llm_call(&self, record: &grumps_agent::telemetry::LlmCallRecord) -> Result<()> {
+        let tool_calls_json = serde_json::to_string(&record.tool_calls).unwrap_or_else(|_| "[]".into());
+        self.q(
+            "INSERT INTO llm_calls \
+             (id, member_id, invocation_type, parent_call_id, provider, model, \
+              input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, \
+              cost_usd, latency_ms, tool_calls, success, error, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, datetime('now'))",
+            vec![
+                record.id.clone().into(),
+                record.member_id.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                record.invocation_type.clone().into(),
+                record.parent_call_id.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+                record.provider.clone().into(),
+                record.model.clone().into(),
+                (record.input_tokens as i64).into(),
+                (record.output_tokens as i64).into(),
+                (record.cache_read_tokens as i64).into(),
+                (record.cache_write_tokens as i64).into(),
+                record.cost_usd.into(),
+                (record.latency_ms as i64).into(),
+                tool_calls_json.into(),
+                if record.success { 1i64 } else { 0i64 }.into(),
+                record.error.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
+            ],
+        ).await?;
+        Ok(())
+    }
+
+    pub async fn aggregate_llm_costs_30d(&self) -> Result<Vec<grumps_agent::db::LlmCostByModel>> {
+        #[derive(serde::Deserialize)]
+        struct Row { provider: String, model: String, cost_usd: f64, call_count: i64 }
+        let resp = self.q(
+            "SELECT provider, model, SUM(cost_usd) as cost_usd, COUNT(*) as call_count \
+             FROM llm_calls WHERE created_at > date('now', '-30 days') \
+             GROUP BY provider, model ORDER BY cost_usd DESC",
+            vec![],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmCostByModel {
+            provider: r.provider,
+            model: r.model,
+            cost_usd: r.cost_usd,
+            call_count: r.call_count,
+        }).collect())
+    }
+
+    pub async fn aggregate_llm_latency_by_model(&self) -> Result<Vec<grumps_agent::db::LlmLatencyByModel>> {
+        // Fetch latency rows sorted per (provider, model) and compute percentiles in Rust
+        // because SQLite has no PERCENTILE_CONT.
+        #[derive(serde::Deserialize)]
+        struct Row { provider: String, model: String, latency_ms: i64 }
+        let resp = self.q(
+            "SELECT provider, model, latency_ms FROM llm_calls \
+             WHERE created_at > date('now', '-7 days') AND latency_ms IS NOT NULL \
+             ORDER BY provider, model, latency_ms ASC",
+            vec![],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+
+        // Group by (provider, model)
+        use std::collections::BTreeMap;
+        let mut groups: BTreeMap<(String, String), Vec<i64>> = BTreeMap::new();
+        for r in rows {
+            groups.entry((r.provider, r.model)).or_default().push(r.latency_ms);
+        }
+
+        let percentile = |sorted: &[i64], pct: f64| -> i64 {
+            if sorted.is_empty() { return 0; }
+            let idx = ((sorted.len() as f64 * pct / 100.0).ceil() as usize).saturating_sub(1).min(sorted.len() - 1);
+            sorted[idx]
+        };
+
+        Ok(groups.into_iter().map(|((provider, model), vals)| {
+            grumps_agent::db::LlmLatencyByModel {
+                count: vals.len() as i64,
+                p50_ms: percentile(&vals, 50.0),
+                p95_ms: percentile(&vals, 95.0),
+                p99_ms: percentile(&vals, 99.0),
+                provider,
+                model,
+            }
+        }).collect())
+    }
+
+    pub async fn aggregate_llm_invocation_types(&self) -> Result<Vec<grumps_agent::db::LlmInvocationCount>> {
+        #[derive(serde::Deserialize)]
+        struct Row { invocation_type: String, count: i64 }
+        let resp = self.q(
+            "SELECT invocation_type, COUNT(*) as count FROM llm_calls \
+             WHERE created_at > date('now', '-30 days') \
+             GROUP BY invocation_type ORDER BY count DESC",
+            vec![],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmInvocationCount {
+            invocation_type: r.invocation_type,
+            count: r.count,
+        }).collect())
+    }
+
+    pub async fn list_recent_llm_errors(&self, limit: i64) -> Result<Vec<grumps_agent::db::LlmErrorEntry>> {
+        #[derive(serde::Deserialize)]
+        struct Row { created_at: String, provider: String, model: String, error: String, invocation_type: String }
+        let resp = self.q(
+            "SELECT created_at, provider, model, error, invocation_type \
+             FROM llm_calls WHERE success = 0 AND error IS NOT NULL \
+             ORDER BY created_at DESC LIMIT ?1",
+            vec![limit.into()],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmErrorEntry {
+            created_at: r.created_at,
+            provider: r.provider,
+            model: r.model,
+            error: r.error,
+            invocation_type: r.invocation_type,
+        }).collect())
+    }
+
+    pub async fn aggregate_quality_signals_30d(&self) -> Result<Vec<grumps_agent::db::QualitySignalCount>> {
+        #[derive(serde::Deserialize)]
+        struct Row { signal_type: String, count: i64 }
+        let resp = self.q(
+            "SELECT signal_type, COUNT(*) as count FROM quality_signals \
+             WHERE created_at > date('now', '-30 days') \
+             GROUP BY signal_type ORDER BY count DESC",
+            vec![],
+        ).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| grumps_agent::db::QualitySignalCount {
+            signal_type: r.signal_type,
+            count: r.count,
+        }).collect())
+    }
 }
 
 fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {

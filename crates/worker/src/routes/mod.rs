@@ -13,3 +13,4 @@ pub mod memory;
 pub mod events;
 pub mod scheduled;
 pub mod calendar;
+pub mod observability;

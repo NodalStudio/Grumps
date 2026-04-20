@@ -112,7 +112,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                 let pinned = ws_db.list_pinned_memory().await.unwrap_or_default();
                 let pinned_summary: String = pinned.iter().take(10).map(|m| format!("- {}", m.value)).collect::<Vec<_>>().join("\n");
                 let recent = ws_db.list_recent_bot_actions(1800, 10).await.unwrap_or_default();
-                let analysis = grumps_agent::ambient::analyze(&ctx.env, text, &member_names, &pinned_summary, &recent, &modes).await;
+                let analysis = grumps_agent::ambient::analyze_with_telemetry(&ctx.env, &ws_db, Some(&member_id), text, &member_names, &pinned_summary, &recent, &modes).await;
                 let sink = crate::agent_sink::WorkerMessagingSink {
                     env: &ctx.env,
                     ws_slug: workspace.slug.clone(),

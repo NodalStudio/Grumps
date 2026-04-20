@@ -1,7 +1,7 @@
 //! impl AgentDb for WorkspaceDb.
 //! Bridges the agent's database trait to worker's existing WorkspaceDb methods.
 
-use grumps_agent::db::{AgentDb, MemberShort};
+use grumps_agent::db::{AgentDb, MemberShort, LlmCostByModel, LlmLatencyByModel, LlmInvocationCount, LlmErrorEntry, QualitySignalCount};
 use grumps_memory::{MemoryEntry, NewMemoryEntry};
 use grumps_calendar::{Event, NewEvent};
 use grumps_scheduler::{NewScheduledAction, ScheduledAction, AgentSession, SessionMessage};
@@ -168,5 +168,29 @@ impl AgentDb for WorkspaceDb<'_> {
 
     async fn increment_int_setting(&self, key: &str, delta: i64) -> Result<()> {
         self.increment_setting_atomic(key, delta).await.map(|_| ())
+    }
+
+    async fn log_llm_call(&self, record: &grumps_agent::telemetry::LlmCallRecord) -> Result<()> {
+        self.log_llm_call(record).await
+    }
+
+    async fn aggregate_llm_costs_30d(&self) -> Result<Vec<LlmCostByModel>> {
+        self.aggregate_llm_costs_30d().await
+    }
+
+    async fn aggregate_llm_latency_by_model(&self) -> Result<Vec<LlmLatencyByModel>> {
+        self.aggregate_llm_latency_by_model().await
+    }
+
+    async fn aggregate_llm_invocation_types(&self) -> Result<Vec<LlmInvocationCount>> {
+        self.aggregate_llm_invocation_types().await
+    }
+
+    async fn list_recent_llm_errors(&self, limit: i64) -> Result<Vec<LlmErrorEntry>> {
+        self.list_recent_llm_errors(limit).await
+    }
+
+    async fn aggregate_quality_signals_30d(&self) -> Result<Vec<QualitySignalCount>> {
+        self.aggregate_quality_signals_30d().await
     }
 }

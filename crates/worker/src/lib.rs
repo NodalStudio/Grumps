@@ -87,6 +87,8 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         // Export
         .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
         .get_async("/api/w/:slug/export/notes", routes::export::export_notes)
+        // Observability
+        .get_async("/api/w/:slug/admin/observability", routes::observability::aggregated)
         // Stripe webhook
         .post_async("/webhook/stripe", routes::stripe_webhook::handle_stripe_webhook)
         .run(req, env)
