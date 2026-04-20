@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
+use crate::components::Icon;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {
@@ -15,23 +16,23 @@ pub fn Sidebar(slug: String) -> impl IntoView {
     });
 
     view! {
-        <aside class="w-64 min-w-[260px] flex flex-col overflow-y-auto border-r-2 border-ink" style="background: var(--cream-light);">
+        <aside class="w-64 min-w-[260px] flex flex-col overflow-y-auto border-r-2 border-strong bg-surface-raised">
             // Brand
-            <div class="px-5 pt-6 pb-5 border-b-2 border-ink">
+            <div class="px-5 pt-6 pb-5 border-b-2 border-strong">
                 <h1 class="font-display text-xl font-extrabold uppercase tracking-tight">
-                    "GRUMPS"<span class="text-brick">"."</span>
+                    "GRUMPS"<span class="text-accent">"."</span>
                 </h1>
-                <p class="text-[11px] uppercase tracking-wider mt-0.5 font-medium" style="color: var(--ink-40);">
+                <p class="text-meta mt-0.5 text-muted">
                     "Gets it done. No small talk."
                 </p>
             </div>
 
             // Workspace selector
-            <div class="px-5 py-4 border-b" style="border-color: var(--ink-15);">
+            <div class="px-5 py-4 border-b border-subtle">
                 <div class="flex items-center gap-2 font-display font-bold text-sm cursor-pointer">
                     <span class="w-2 h-2 rounded-full bg-teal flex-shrink-0"></span>
                     {slug}
-                    <span class="ml-auto text-[10px]" style="color: var(--ink-40);">{"\u{25BC}"}</span>
+                    <Icon name="chevron-down" class="size-3 text-muted ml-auto"/>
                 </div>
             </div>
 
@@ -46,11 +47,10 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                     if is_super {
                         view! {
                             <div>
-                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
+                                <div class="px-5 pt-3 pb-1.5 text-eyebrow text-accent">"Super Admin"</div>
                                 <A href="/admin/observability"
-                                   attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
-                                   attr:style="color: var(--ink);">
-                                    <span class="w-[18px] text-center text-[15px]">"🌐"</span>
+                                   attr:class="flex items-center gap-2.5 px-5 py-2 text-body-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-hover-tint text-secondary">
+                                    <Icon name="globe" class="size-4 flex-shrink-0"/>
                                     "Observabilité globale"
                                 </A>
                             </div>
@@ -59,32 +59,33 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                         view! { <span></span> }.into_any()
                     }
                 }}
-                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Workspace"</div>
-                <NavItem href=base.clone() label="Overview" icon="\u{25EB}" />
-                <NavItem href=format!("{}/todos", base) label="Todos" icon="\u{2610}" />
-                <NavItem href=format!("{}/notes", base) label="Notes" icon="\u{00B6}" />
-                <NavItem href=format!("{}/files", base) label="Files" icon="\u{25F0}" />
-                <NavItem href=format!("{}/history", base) label="History" icon="\u{21BB}" />
-                <NavItem href=format!("{}/calendar", base) label="Calendar" icon="\u{1F4C5}" />
-                <NavItem href=format!("{}/memory", base) label="Memory" icon="\u{1F9E0}" />
-                <NavItem href=format!("{}/scheduled", base) label="Scheduled" icon="\u{23F0}" />
+                <div class="px-5 pt-4 pb-1.5 text-eyebrow text-muted">"Workspace"</div>
+                <NavItem href=base.clone() label="Overview" icon="overview" />
+                <NavItem href=format!("{}/todos", base) label="Todos" icon="todos" />
+                <NavItem href=format!("{}/notes", base) label="Notes" icon="notes" />
+                <NavItem href=format!("{}/files", base) label="Files" icon="files" />
+                <NavItem href=format!("{}/history", base) label="History" icon="history" />
+                <NavItem href=format!("{}/calendar", base) label="Calendar" icon="calendar" />
+                <NavItem href=format!("{}/memory", base) label="Memory" icon="memory" />
+                <NavItem href=format!("{}/scheduled", base) label="Scheduled" icon="scheduled" />
 
-                <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Manage"</div>
-                <NavItem href=format!("{}/settings", base) label="Settings" icon="\u{2699}" />
-                <A href="/dashboard" attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
-                    <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
+                <div class="px-5 pt-4 pb-1.5 text-eyebrow text-muted">"Manage"</div>
+                <NavItem href=format!("{}/settings", base) label="Settings" icon="settings" />
+                <A href="/dashboard"
+                   attr:class="flex items-center gap-2.5 px-5 py-2 text-body-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-hover-tint text-secondary">
+                    <Icon name="workspaces" class="size-4 flex-shrink-0"/>
                     "My Workspaces"
                 </A>
             </nav>
 
             // User footer
-            <div class="px-5 py-4 flex items-center gap-2.5 border-t" style="border-color: var(--ink-15);">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold" style="background: var(--ink); color: var(--cream);">
+            <div class="px-5 py-4 flex items-center gap-2.5 border-t border-subtle">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold bg-primary text-surface">
                     "A"
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-semibold truncate">"User"</div>
-                    <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">"Member"</div>
+                    <div class="text-body-sm font-semibold truncate">"User"</div>
+                    <div class="text-meta text-muted">"Member"</div>
                 </div>
             </div>
         </aside>
@@ -94,8 +95,9 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 #[component]
 fn NavItem(href: String, label: &'static str, icon: &'static str) -> impl IntoView {
     view! {
-        <A href=href attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
-            <span class="w-[18px] text-center text-[15px]">{icon}</span>
+        <A href=href
+           attr:class="flex items-center gap-2.5 px-5 py-2 text-body-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-hover-tint text-secondary">
+            <Icon name=icon class="size-4 flex-shrink-0"/>
             {label}
         </A>
     }
