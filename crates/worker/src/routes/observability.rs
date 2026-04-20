@@ -58,16 +58,15 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
     let ws = resolve_workspace(&ctx).await?;
     access(&claims, &ws.slug)?;
 
-    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
-
-    // Enforce admin-only access (super admin overrides workspace role check)
-    let role = ws_db.get_member_role(&claims.sub).await?.unwrap_or_default();
-    if !middleware::is_super_admin(&ctx.env, &claims) && role != "admin" {
-        let mut resp = Response::error("admin only", 403)?;
+    // Super admin only
+    if !middleware::is_super_admin(&ctx.env, &claims) {
+        let mut resp = Response::error("super admin only", 403)?;
         resp.headers_mut().set("Access-Control-Allow-Origin", "*")?;
         return Ok(resp);
     }
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
     // Run all aggregation queries concurrently (not true parallelism on WASM but at least sequential)
     let cost_by_model = ws_db.aggregate_llm_costs_30d().await.unwrap_or_default();

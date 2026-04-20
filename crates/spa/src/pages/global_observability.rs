@@ -129,7 +129,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                         <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
                         <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Cost (30j)"</th>
                         <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Quality"</th>
-                        <th class="text-center font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Detail"</th>
+                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Detail"</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -142,7 +142,16 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                         let quality = format!("{:.0}%", r.quality_score * 100.0);
                         let detail_href = format!("/w/{}/admin/observability", r.slug);
                         view! {
-                            <tr class="border-b" style="border-color: var(--ink-15);">
+                            <tr class="border-b transition-colors hover:bg-black/[0.035]"
+                                style="border-color: var(--ink-15); cursor: pointer;"
+                                on:click={
+                                    let href = detail_href.clone();
+                                    move |_| {
+                                        if let Some(win) = web_sys::window() {
+                                            let _ = win.location().set_href(&href);
+                                        }
+                                    }
+                                }>
                                 <td class="py-1.5 pr-4 font-mono text-xs font-bold">{slug}</td>
                                 <td class="py-1.5 pr-4 text-sm">{name}</td>
                                 <td class="py-1.5 pr-4">
@@ -152,10 +161,10 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                                 <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
                                 <td class="py-1.5 px-2 text-right font-mono font-bold">{cost}</td>
                                 <td class="py-1.5 px-2 text-right font-mono">{quality}</td>
-                                <td class="py-1.5 pl-2 text-center">
-                                    <A href=detail_href
-                                       attr:class="text-xs font-bold underline"
-                                       attr:style="color: var(--teal);">"→ détail"</A>
+                                <td class="py-1.5 pl-2 text-right">
+                                    <A href=detail_href.clone()
+                                       attr:class="text-xs font-bold"
+                                       attr:style="color: var(--teal);">"→"</A>
                                 </td>
                             </tr>
                         }

@@ -3,6 +3,7 @@
 
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
+use leptos_router::components::A;
 use crate::auth::use_auth;
 use crate::api::{ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
 
@@ -282,6 +283,13 @@ pub fn ObservabilityPage() -> impl IntoView {
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
+    // Super admin gate: fetch /api/admin/me and redirect if not super admin
+    let api_gate = auth.api.clone();
+    let gate = LocalResource::new(move || {
+        let api = api_gate.clone();
+        async move { api.get_admin_me().await.ok() }
+    });
+
     let api = auth.api.clone();
     let data = LocalResource::new(move || {
         let api = api.clone();
@@ -292,6 +300,19 @@ pub fn ObservabilityPage() -> impl IntoView {
     view! {
         <div class="flex-1 overflow-y-auto p-6 md:p-8" style="background: var(--cream-light);">
             {move || {
+                // Check super admin gate first (once loaded)
+                if let Some(me) = gate.get().map(|m| (*m).clone()) {
+                    let is_super = me.map(|m| m.is_super_admin).unwrap_or(false);
+                    if !is_super {
+                        if let Some(win) = web_sys::window() {
+                            let _ = win.location().set_href("/dashboard");
+                        }
+                        return view! {
+                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Redirecting…"</div>
+                        }.into_any();
+                    }
+                }
+
                 let maybe = data.get().map(|w| (*w).clone());
                 match maybe {
                     None => view! {
@@ -299,20 +320,31 @@ pub fn ObservabilityPage() -> impl IntoView {
                     }.into_any(),
                     Some(None) => view! {
                         <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                            <div class="font-display text-xl font-extrabold text-brick">"Error loading observability data."</div>
-                            <p class="text-sm mt-2" style="color:var(--ink-70);">"Check that the workspace has been migrated to schema 0008."</p>
+                            <div class="font-display text-xl font-extrabold text-brick">"Accès refusé ou erreur."</div>
+                            <p class="text-sm mt-2" style="color:var(--ink-70);">"Cette page est réservée aux super admins."</p>
                         </div>
                     }.into_any(),
                     Some(Some(d)) => {
                         let d: ObservabilityData = d;
+                        let slug_label = slug();
                         view! {
                             <div>
+                                // Back link
+                                <div class="mb-4">
+                                    <A href="/admin/observability"
+                                       attr:class="text-sm font-medium"
+                                       attr:style="color: var(--teal);">"← Retour à la vue globale"</A>
+                                </div>
                                 // Header
                                 <div class="mb-8">
                                     <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
-                                        "Observabilité"
+                                        "Observabilité — "
+                                        {slug_label}
                                         <span class="text-brick">"."</span>
                                     </h1>
+                                    <p class="text-[11px] uppercase tracking-[2px] font-bold mt-1" style="color: var(--brick);">
+                                        "Vue super admin"
+                                    </p>
                                     <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
                                         {d.month.clone()}
                                     </p>
