@@ -1,5 +1,7 @@
 pub mod sidebar;
 pub mod header;
+pub mod icon;
+pub use icon::Icon;
 pub mod todo_card;
 pub mod todo_filters;
 pub mod kanban;
