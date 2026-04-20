@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use crate::auth::use_auth;
 use crate::components::header::PageHeader;
+use crate::i18n::tr;
 
 #[component]
 pub fn SettingsPage() -> impl IntoView {
@@ -74,106 +75,106 @@ pub fn SettingsPage() -> impl IntoView {
     };
 
     view! {
-        <PageHeader title="Settings".into() subtitle="Workspace configuration".to_string() />
+        <PageHeader title=tr("page.settings.title") subtitle=tr("page.settings.subtitle") />
         <div class="flex-1 overflow-y-auto p-8">
             <div class="max-w-xl">
                 // General
-                <SettingsSection title="General">
-                    <SettingRow label="Language" value="English" />
-                    <SettingRow label="Timezone" value="Europe/Paris" />
+                <SettingsSection title_key="settings.section.general">
+                    <SettingRow label_key="settings.row.language" value="English".to_string() />
+                    <SettingRow label_key="settings.row.timezone" value="Europe/Paris".to_string() />
                 </SettingsSection>
 
                 // Bot Behavior
-                <SettingsSection title="Bot Behavior">
-                    <Toggle label="Quiet mode" description="Minimal confirmations in chat" value=quiet_mode on_toggle=move || set_quiet.update(|v| *v = !*v) />
-                    <Toggle label="Auto recap" description="Weekly summary sent to the group" value=recap on_toggle=move || set_recap.update(|v| *v = !*v) />
+                <SettingsSection title_key="settings.section.bot_behavior">
+                    <Toggle label_key="settings.toggle.quiet_mode" desc_key="settings.toggle.quiet_mode.desc" value=quiet_mode on_toggle=move || set_quiet.update(|v| *v = !*v) />
+                    <Toggle label_key="settings.toggle.auto_recap" desc_key="settings.toggle.auto_recap.desc" value=recap on_toggle=move || set_recap.update(|v| *v = !*v) />
                 </SettingsSection>
 
-                // Agent IA
-                <SettingsSection title="Agent IA">
+                // AI agent
+                <SettingsSection title_key="settings.section.agent">
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
                         <div>
-                            <div class="font-medium text-sm">"Persona"</div>
-                            <div class="text-xs" style="color: var(--ink-40);">"Agent personality"</div>
+                            <div class="font-medium text-sm">{move || tr("settings.row.persona")}</div>
+                            <div class="text-xs" style="color: var(--ink-40);">{move || tr("settings.row.persona.desc")}</div>
                         </div>
                         <select
                             class="border-2 border-ink rounded-sm px-3 py-1.5 text-sm bg-transparent outline-none"
                             on:change=move |ev| set_persona.set(event_target_value(&ev))
                             prop:value=persona
                         >
-                            <option value="grumps">"Grumps (default)"</option>
-                            <option value="assistant">"Neutral assistant"</option>
-                            <option value="coach">"Coach"</option>
+                            <option value="grumps">{move || tr("settings.persona.grumps")}</option>
+                            <option value="assistant">{move || tr("settings.persona.assistant")}</option>
+                            <option value="coach">{move || tr("settings.persona.coach")}</option>
                         </select>
                     </div>
                     <Toggle
-                        label="Proactive mode"
-                        description="Agent can send messages without being asked (Pro+)"
+                        label_key="settings.toggle.proactive"
+                        desc_key="settings.toggle.proactive.desc"
                         value=proactive
                         on_toggle=move || set_proactive.update(|v| *v = !*v)
                     />
                     <Toggle
-                        label="Auto memory"
-                        description="Agent learns from conversations automatically"
+                        label_key="settings.toggle.auto_memory"
+                        desc_key="settings.toggle.auto_memory.desc"
                         value=auto_memory
                         on_toggle=move || set_auto_memory.update(|v| *v = !*v)
                     />
                     <div class="py-3" style="border-bottom: 1px solid var(--ink-08);">
-                        <a href="#" class="text-sm font-semibold" style="color: var(--teal);">"Voir consentement"</a>
+                        <a href="#" class="text-sm font-semibold" style="color: var(--teal);">{move || tr("settings.consent_link")}</a>
                     </div>
                     <div class="pt-3 pb-1">
                         <button
                             class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
                             style="background: var(--ink); color: var(--cream);"
                             on:click=save_agent
-                        >"Save Agent Settings"</button>
+                        >{move || tr("settings.save_agent")}</button>
                     </div>
                 </SettingsSection>
 
                 // Calendar
-                <SettingsSection title="Calendrier">
+                <SettingsSection title_key="settings.section.calendar">
                     <div class="py-3 flex flex-col gap-2" style="border-bottom: 1px solid var(--ink-08);">
-                        <div class="font-medium text-sm">"iCal subscription URL"</div>
-                        <div class="text-xs mb-2" style="color: var(--ink-40);">"Subscribe in any calendar app (Apple, Google, Outlook...)"</div>
+                        <div class="font-medium text-sm">{move || tr("settings.ical.label")}</div>
+                        <div class="text-xs mb-2" style="color: var(--ink-40);">{move || tr("settings.ical.desc")}</div>
                         <div class="flex items-center gap-2">
                             <input
                                 type="text" readonly
                                 class="flex-1 border-2 border-ink rounded-sm px-3 py-1.5 text-xs bg-transparent outline-none font-mono"
-                                placeholder="Generate a token below"
+                                placeholder=tr("settings.ical.placeholder")
                                 prop:value=ical_url
                             />
                             <button
                                 class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-sm cursor-pointer flex-shrink-0"
                                 on:click=copy_ical
-                            >"Copy"</button>
+                            >{move || tr("settings.ical.copy")}</button>
                         </div>
                         <div class="flex gap-2 mt-1">
                             <button
                                 class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-sm cursor-pointer"
                                 on:click=regen_ical
-                            >"Regenerate"</button>
+                            >{move || tr("settings.ical.regenerate")}</button>
                             <button
                                 class="px-3 py-1.5 text-xs font-semibold border rounded-sm cursor-pointer"
                                 style="border-color: var(--brick); color: var(--brick);"
                                 on:click=move |_| set_ical_url.set(String::new())
-                            >"Revoke"</button>
+                            >{move || tr("settings.ical.revoke")}</button>
                         </div>
                     </div>
                 </SettingsSection>
 
                 // Quotas
-                <SettingsSection title="Quotas ce mois">
-                    <QuotaRow label="Agent calls" used=42 limit=200 />
-                    <QuotaRow label="Web searches" used=8 limit=50 />
+                <SettingsSection title_key="settings.section.quotas">
+                    <QuotaRow label_key="settings.quota.agent_calls" used=42 limit=200 />
+                    <QuotaRow label_key="settings.quota.web_searches" used=8 limit=50 />
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
-                        <div class="font-medium text-sm">"Storage"</div>
+                        <div class="font-medium text-sm">{move || tr("settings.quota.storage")}</div>
                         <div class="font-semibold text-[13px]" style="color: var(--ink-70);">"12 MB / 100 MB"</div>
                     </div>
                 </SettingsSection>
 
                 // Plan
-                <SettingsSection title="Plan & Usage">
-                    <SettingRow label="Current plan" value="Free" />
+                <SettingsSection title_key="settings.section.plan">
+                    <SettingRow label_key="settings.row.current_plan" value=tr("settings.plan.free") />
                 </SettingsSection>
             </div>
         </div>
@@ -181,20 +182,20 @@ pub fn SettingsPage() -> impl IntoView {
 }
 
 #[component]
-fn SettingsSection(title: &'static str, children: Children) -> impl IntoView {
+fn SettingsSection(title_key: &'static str, children: Children) -> impl IntoView {
     view! {
         <div class="mb-8">
-            <h3 class="font-display text-base font-bold mb-4 pb-2 border-b-2 border-ink">{title}</h3>
+            <h3 class="font-display text-base font-bold mb-4 pb-2 border-b-2 border-ink">{move || tr(title_key)}</h3>
             {children()}
         </div>
     }
 }
 
 #[component]
-fn SettingRow(label: &'static str, value: &'static str) -> impl IntoView {
+fn SettingRow(label_key: &'static str, value: String) -> impl IntoView {
     view! {
         <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
-            <div class="font-medium text-sm">{label}</div>
+            <div class="font-medium text-sm">{move || tr(label_key)}</div>
             <div class="font-semibold text-[13px]" style="color: var(--ink-70);">{value}</div>
         </div>
     }
@@ -202,16 +203,16 @@ fn SettingRow(label: &'static str, value: &'static str) -> impl IntoView {
 
 #[component]
 fn Toggle(
-    label: &'static str,
-    description: &'static str,
+    label_key: &'static str,
+    desc_key: &'static str,
     value: ReadSignal<bool>,
     on_toggle: impl Fn() + 'static,
 ) -> impl IntoView {
     view! {
         <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
             <div>
-                <div class="font-medium text-sm">{label}</div>
-                <div class="text-xs" style="color: var(--ink-40);">{description}</div>
+                <div class="font-medium text-sm">{move || tr(label_key)}</div>
+                <div class="text-xs" style="color: var(--ink-40);">{move || tr(desc_key)}</div>
             </div>
             <div
                 class="w-10 h-6 border-2 border-ink rounded-full relative cursor-pointer transition-colors flex-shrink-0"
@@ -229,14 +230,14 @@ fn Toggle(
 }
 
 #[component]
-fn QuotaRow(label: &'static str, used: i64, limit: i64) -> impl IntoView {
+fn QuotaRow(label_key: &'static str, used: i64, limit: i64) -> impl IntoView {
     let pct = ((used as f64 / limit as f64) * 100.0) as u32;
     let bar_color = if pct > 80 { "var(--brick)" } else if pct > 60 { "var(--teal)" } else { "var(--ink-40)" };
 
     view! {
         <div class="py-3 flex flex-col gap-1" style="border-bottom: 1px solid var(--ink-08);">
             <div class="flex items-center justify-between">
-                <div class="font-medium text-sm">{label}</div>
+                <div class="font-medium text-sm">{move || tr(label_key)}</div>
                 <div class="font-semibold text-[13px]" style="color: var(--ink-70);">{format!("{} / {}", used, limit)}</div>
             </div>
             <div class="w-full h-2 rounded-full" style="background: var(--ink-08);">

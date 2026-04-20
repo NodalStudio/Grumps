@@ -54,12 +54,13 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                     if is_super {
                         view! {
                             <div>
-                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">{move || tr("sidebar.section.super_admin")}</div>
+                                // Super admin surfaces are English-only (sole user is the platform owner).
+                                <div class="px-5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--brick);">"Super Admin"</div>
                                 <A href=format!("{}/admin/observability", crate::demo::router_base())
                                    attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]"
                                    attr:style="color: var(--ink);">
                                     <span class="w-[18px] text-center text-[15px]">{"\u{2295}"}</span>
-                                    {move || tr("sidebar.global_observability")}
+                                    "Global observability"
                                 </A>
                             </div>
                         }.into_any()

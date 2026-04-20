@@ -221,11 +221,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                         on:click=|e| e.stop_propagation()
                     >
-                        <h2 class="font-display text-xl font-bold">{if is_edit { "Edit Action" } else { "New Scheduled Action" }}</h2>
+                        <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "schedule.modal.edit" } else { "schedule.modal.add" })}</h2>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Title"</label>
-                            <input type="text" placeholder="e.g. Weekly recap"
+                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.title")}</label>
+                            <input type="text" placeholder=tr("schedule.field.title.placeholder")
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                 on:input=move |ev| set_form_title.set(event_target_value(&ev))
                                 prop:value=form_title
@@ -234,21 +234,21 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Type"</label>
+                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.type")}</label>
                                 <select
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:change=move |ev| set_form_type.set(event_target_value(&ev))
                                     prop:value=form_type
                                 >
-                                    <option value="message">"message"</option>
-                                    <option value="reminder">"reminder"</option>
-                                    <option value="recap">"recap"</option>
-                                    <option value="task">"task"</option>
-                                    <option value="webhook">"webhook"</option>
+                                    <option value="message">{move || tr("schedule.type.message")}</option>
+                                    <option value="reminder">{move || tr("schedule.type.reminder")}</option>
+                                    <option value="recap">{move || tr("schedule.type.recap")}</option>
+                                    <option value="task">{move || tr("schedule.type.task")}</option>
+                                    <option value="webhook">{move || tr("schedule.type.webhook")}</option>
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Trigger at"</label>
+                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.trigger_at")}</label>
                                 <input type="datetime-local"
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:input=move |ev| set_form_trigger.set(event_target_value(&ev))
@@ -258,8 +258,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Recurrence (RRULE)"</label>
-                            <input type="text" placeholder="e.g. FREQ=WEEKLY;BYDAY=MO"
+                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.recurrence")}</label>
+                            <input type="text" placeholder=tr("schedule.field.recurrence.placeholder")
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none font-mono"
                                 on:input=move |ev| set_form_recurrence.set(event_target_value(&ev))
                                 prop:value=form_recurrence
@@ -267,7 +267,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Payload (JSON)"</label>
+                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.payload")}</label>
                             <textarea rows="3" placeholder="{}"
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none resize-none font-mono"
                                 on:input=move |ev| set_form_payload.set(event_target_value(&ev))
@@ -280,11 +280,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                 class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
                                 style="background: var(--ink); color: var(--cream);"
                                 on:click=save.clone()
-                            >"Save"</button>
+                            >{move || tr("common.save")}</button>
                             <button
                                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                                 on:click=move |_| set_show_modal.set(false)
-                            >"Cancel"</button>
+                            >{move || tr("common.cancel")}</button>
                         </div>
                     </div>
                 </div>
@@ -303,18 +303,18 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                     on:click=|e| e.stop_propagation()
                 >
-                    <h2 class="font-display text-lg font-bold">"Delete scheduled action?"</h2>
-                    <p class="text-sm" style="color: var(--ink-70);">"This cannot be undone."</p>
+                    <h2 class="font-display text-lg font-bold">{move || tr("schedule.delete.title")}</h2>
+                    <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <button
                             class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-sm cursor-pointer"
                             style="background: var(--brick); border-color: var(--brick); color: white;"
                             on:click=confirm_del.clone()
-                        >"Delete"</button>
+                        >{move || tr("common.delete")}</button>
                         <button
                             class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                             on:click=move |_| set_confirm_delete.set(None)
-                        >"Cancel"</button>
+                        >{move || tr("common.cancel")}</button>
                     </div>
                 </div>
             </div>

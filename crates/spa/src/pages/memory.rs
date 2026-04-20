@@ -207,12 +207,12 @@ pub fn MemoryPage() -> impl IntoView {
                         style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                         on:click=|e| e.stop_propagation()
                     >
-                        <h2 class="font-display text-xl font-bold">{if is_edit { "Edit Memory" } else { "Add Memory" }}</h2>
+                        <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "memory.modal.edit" } else { "memory.modal.add" })}</h2>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Key (optional)"</label>
+                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.key")}</label>
                             <input
-                                type="text" placeholder="e.g. preferred_language"
+                                type="text" placeholder=tr("memory.field.key.placeholder")
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                 on:input=move |ev| set_form_key.set(event_target_value(&ev))
                                 prop:value=form_key
@@ -220,10 +220,10 @@ pub fn MemoryPage() -> impl IntoView {
                         </div>
 
                         <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Value *"</label>
+                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.value")}</label>
                             <textarea
                                 rows="3"
-                                placeholder="What to remember..."
+                                placeholder=tr("memory.field.value.placeholder")
                                 class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none resize-none"
                                 on:input=move |ev| set_form_value.set(event_target_value(&ev))
                                 prop:value=form_value
@@ -232,23 +232,23 @@ pub fn MemoryPage() -> impl IntoView {
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Kind"</label>
+                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.kind")}</label>
                                 <select
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:change=move |ev| set_form_kind.set(event_target_value(&ev))
                                     prop:value=form_kind
                                 >
-                                    <option value="fact">"fact"</option>
-                                    <option value="preference">"preference"</option>
-                                    <option value="skill">"skill"</option>
-                                    <option value="event">"event"</option>
-                                    <option value="reminder">"reminder"</option>
+                                    <option value="fact">{move || tr("memory.kind.fact")}</option>
+                                    <option value="preference">{move || tr("memory.kind.preference")}</option>
+                                    <option value="skill">{move || tr("memory.kind.skill")}</option>
+                                    <option value="event">{move || tr("memory.kind.event")}</option>
+                                    <option value="reminder">{move || tr("memory.kind.reminder")}</option>
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Related member"</label>
+                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.related")}</label>
                                 <input
-                                    type="text" placeholder="@username"
+                                    type="text" placeholder=tr("memory.field.member.placeholder")
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
                                     on:input=move |ev| set_form_related.set(event_target_value(&ev))
                                     prop:value=form_related
@@ -258,7 +258,7 @@ pub fn MemoryPage() -> impl IntoView {
 
                         <div class="flex gap-3 items-center">
                             <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">"Expires at"</label>
+                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.expires")}</label>
                                 <input
                                     type="date"
                                     class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
@@ -277,7 +277,7 @@ pub fn MemoryPage() -> impl IntoView {
                                     }
                                     prop:checked=form_pinned
                                 />
-                                <label for="mem-pinned" class="text-sm font-medium cursor-pointer">"Pinned"</label>
+                                <label for="mem-pinned" class="text-sm font-medium cursor-pointer">{move || tr("memory.field.pinned")}</label>
                             </div>
                         </div>
 
@@ -286,12 +286,12 @@ pub fn MemoryPage() -> impl IntoView {
                                 class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
                                 style="background: var(--ink); color: var(--cream);"
                                 on:click=save.clone()
-                            >"Save"</button>
+                            >{move || tr("common.save")}</button>
                             <button
                                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                                 style="background: transparent; color: var(--ink);"
                                 on:click=move |_| set_show_modal.set(false)
-                            >"Cancel"</button>
+                            >{move || tr("common.cancel")}</button>
                         </div>
                     </div>
                 </div>
@@ -310,18 +310,18 @@ pub fn MemoryPage() -> impl IntoView {
                     style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                     on:click=|e| e.stop_propagation()
                 >
-                    <h2 class="font-display text-lg font-bold">"Delete memory?"</h2>
-                    <p class="text-sm" style="color: var(--ink-70);">"This cannot be undone."</p>
+                    <h2 class="font-display text-lg font-bold">{move || tr("memory.delete.title")}</h2>
+                    <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <button
                             class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-sm cursor-pointer"
                             style="background: var(--brick); border-color: var(--brick); color: white;"
                             on:click=confirm_del.clone()
-                        >"Delete"</button>
+                        >{move || tr("common.delete")}</button>
                         <button
                             class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                             on:click=move |_| set_confirm_delete.set(None)
-                        >"Cancel"</button>
+                        >{move || tr("common.cancel")}</button>
                     </div>
                 </div>
             </div>

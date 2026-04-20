@@ -127,7 +127,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                         <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Name"</th>
                         <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Plan"</th>
                         <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Cost (30j)"</th>
+                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Cost (30d)"</th>
                         <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Quality"</th>
                         <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Detail"</th>
                     </tr>
@@ -209,7 +209,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
 #[component]
 fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
     if errors.is_empty() {
-        return view! { <div class="text-sm font-medium" style="color: var(--teal);">"Aucune erreur. Parfait."</div> }.into_any();
+        return view! { <div class="text-sm font-medium" style="color: var(--teal);">"No errors. Clean."</div> }.into_any();
     }
     view! {
         <div class="overflow-x-auto">
@@ -220,7 +220,7 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Timestamp"</th>
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
                         <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Model"</th>
-                        <th class="text-left font-bold py-1 uppercase tracking-wider">"Erreur"</th>
+                        <th class="text-left font-bold py-1 uppercase tracking-wider">"Error"</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -297,8 +297,8 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                         }.into_any(),
                         Some(None) => view! {
                             <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                                <div class="font-display text-xl font-extrabold text-brick">"Accès refusé ou erreur."</div>
-                                <p class="text-sm mt-2" style="color:var(--ink-70);">"Cette page est réservée aux super admins."</p>
+                                <div class="font-display text-xl font-extrabold text-brick">"Access denied or error."</div>
+                                <p class="text-sm mt-2" style="color:var(--ink-70);">"This page is restricted to super admins."</p>
                             </div>
                         }.into_any(),
                         Some(Some(d)) => {
@@ -313,7 +313,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                                     // Header
                                     <div class="mb-8">
                                         <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
-                                            "Observabilité globale"
+                                            "Global observability"
                                             <span class="text-brick">"."</span>
                                         </h1>
                                         <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
@@ -324,28 +324,28 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                                     // Hero stats
                                     <div class="flex flex-wrap gap-4 mb-8">
                                         <StatCard label="Workspaces" value=d.workspaces_count.to_string() />
-                                        <StatCard label="Coût total (30j)" value=fmt_usd(d.total_cost_usd) />
-                                        <StatCard label="Total appels" value=d.total_calls.to_string() />
-                                        <StatCard label="Score qualité moy." value=format!("{:.0}%", avg_quality * 100.0) />
+                                        <StatCard label="Total cost (30d)" value=fmt_usd(d.total_cost_usd) />
+                                        <StatCard label="Total calls" value=d.total_calls.to_string() />
+                                        <StatCard label="Avg quality score" value=format!("{:.0}%", avg_quality * 100.0) />
                                     </div>
 
                                     // Cost by model
-                                    <Section title="Coût agrégé par modèle (30j)">
+                                    <Section title="Cost by model (30d)">
                                         <ModelCostBar rows=d.cost_by_model.clone() total=d.total_cost_usd />
                                     </Section>
 
                                     // Top workspaces by cost
-                                    <Section title="Top workspaces par coût">
+                                    <Section title="Top workspaces by cost">
                                         <WorkspacesTable rows=d.by_workspace.clone() />
                                     </Section>
 
                                     // Quality signals
-                                    <Section title="Signaux qualité agrégés (30j)">
+                                    <Section title="Quality signals (30d)">
                                         <QualitySignals signals=d.quality_signals.clone() />
                                     </Section>
 
                                     // Recent errors
-                                    <Section title="Erreurs récentes (toutes workspaces)">
+                                    <Section title="Recent errors (all workspaces)">
                                         <RecentErrors errors=d.recent_errors.clone() />
                                     </Section>
                                 </div>
