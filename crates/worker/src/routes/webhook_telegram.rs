@@ -88,7 +88,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     // Auto-extract (opt-in)
     let auto_memory_on = ws_db.get_setting("auto_memory").await.ok().flatten().as_deref() == Some("true");
     if auto_memory_on {
-        let _ = grumps_agent::auto_extract::process_message(&ctx.env, &ws_db, text, &member_id).await;
+        let _ = grumps_agent::auto_extract::process_message(&ctx.env, &ws_db, &workspace.slug, text, &member_id).await;
     }
 
     // Proactive mode (opt-in) — only if NOT already going to be handled by @mention

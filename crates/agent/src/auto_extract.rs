@@ -45,7 +45,8 @@ pub struct AutoExtractResult {
 /// Returns Ok(Some(memory_id)) if something was saved, Ok(None) otherwise.
 pub async fn process_message(
     env: &Env,
-    db: &(dyn AgentDb + 'static),
+    db: &dyn AgentDb,
+    workspace_slug: &str,
     text: &str,
     sender_member_id: &str,
 ) -> Result<Option<String>> {
@@ -54,7 +55,6 @@ pub async fn process_message(
 
     // Daily cap : 1000 classifications/workspace/day (KV-backed)
     let kv = match env.kv("KV") { Ok(k) => k, Err(_) => return Ok(None) };
-    let workspace_slug = "default";   // we don't have it directly here; caller can pass it if needed
     let day = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let cap_key = format!("ax:{workspace_slug}:{day}");
     let used: u32 = kv.get(&cap_key).text().await.ok().flatten()
