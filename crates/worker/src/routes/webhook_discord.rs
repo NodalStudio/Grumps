@@ -33,7 +33,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         Some(ws) => ws,
         None => {
             let (slug, db_id) = provisioning::provision_workspace(&d1_client, &index_db, "discord", &inbound.channel_id).await?;
-            db::WorkspaceMetaRow { slug, d1_database_id: db_id, name: None, plan: "free".into() }
+            db::WorkspaceMetaRow { slug, d1_database_id: db_id, name: None, plan: "free".into(), locale: "en".into() }
         }
     };
 

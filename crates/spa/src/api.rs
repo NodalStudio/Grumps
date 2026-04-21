@@ -445,6 +445,11 @@ impl ApiClient {
         self.put(&format!("/api/w/{}/settings", slug), body).await
     }
 
+    pub async fn update_workspace_locale(&self, slug: &str, locale: &str) -> Result<(), String> {
+        if crate::demo::is_demo() { return Ok(()); }
+        self.patch(&format!("/api/w/{}/settings/locale", slug), &serde_json::json!({"locale": locale})).await
+    }
+
     pub async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String> {
         self.post(&format!("/api/w/{}/calendar/ical-token", slug), &serde_json::json!({})).await
     }

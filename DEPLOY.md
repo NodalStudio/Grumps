@@ -57,6 +57,16 @@ database_id = "PASTE_HERE"
 wrangler d1 execute grumps-index --file=migrations/index/0001_init.sql
 ```
 
+### 1.4.1 Index DB migrations (apply before deploy of new features)
+
+Apply any pending index migrations before deploying feature changes that depend on schema updates:
+
+```bash
+wrangler d1 execute grumps-index --file=migrations/index/0002_workspace_locale.sql
+```
+
+Replace `grumps-index` with the actual D1 database name used for `INDEX_DB` (check `wrangler.toml`).
+
 ### 1.5 Create KV Namespace
 
 ```bash
@@ -322,6 +332,20 @@ wrangler deploy --route api.grumps.io/*
 ---
 
 ## Step 10: Telegram Setup (Optional)
+
+### 10.0 Privacy mode check (one-time per bot)
+
+In a DM with [@BotFather](https://t.me/BotFather), send `/setprivacy`,
+pick `@grumps_bot`, and verify the current state is **Enabled**.
+Privacy mode is ON by default on new bots; this is just a verification.
+
+Grumps relies on the group-admin-promotes-the-bot workflow to unlock
+non-mention message reception. Disabling privacy mode globally would
+work but removes the per-group opt-in — do not do this.
+
+If you toggle privacy mode after the bot is already in a group,
+Telegram does not apply the change retroactively. Remove the bot
+from the group and re-add it.
 
 ### 10.1 Create a Bot
 

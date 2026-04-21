@@ -39,16 +39,37 @@ pub struct WorkspaceMetaRow {
     pub d1_database_id: String,
     pub name: Option<String>,
     pub plan: String,
+    pub locale: String,
 }
 
 pub async fn lookup_workspace_by_slug(index_db: &D1Database, slug: &str) -> Result<Option<WorkspaceMetaRow>> {
-    index_db.prepare("SELECT slug, d1_database_id, name, plan FROM workspaces_meta WHERE slug = ?1")
+    index_db.prepare("SELECT slug, d1_database_id, name, plan, locale FROM workspaces_meta WHERE slug = ?1")
         .bind(&[slug.into()])?.first::<WorkspaceMetaRow>(None).await
 }
 
 pub async fn lookup_workspace(index_db: &D1Database, platform: &str, channel_id: &str) -> Result<Option<WorkspaceMetaRow>> {
-    index_db.prepare("SELECT slug, d1_database_id, name, plan FROM workspaces_meta WHERE platform = ?1 AND platform_channel_id = ?2")
+    index_db.prepare("SELECT slug, d1_database_id, name, plan, locale FROM workspaces_meta WHERE platform = ?1 AND platform_channel_id = ?2")
         .bind(&[platform.into(), channel_id.into()])?.first::<WorkspaceMetaRow>(None).await
+}
+
+/// Update the locale column on workspaces_meta for the given slug.
+/// Caller is responsible for validating that `locale` is a supported code.
+pub async fn update_workspace_locale(index_db: &D1Database, slug: &str, locale: &str) -> Result<()> {
+    index_db.prepare("UPDATE workspaces_meta SET locale = ?1 WHERE slug = ?2")
+        .bind(&[locale.into(), slug.into()])?
+        .run().await?;
+    Ok(())
+}
+
+/// Returns `(platform, platform_channel_id)` for the workspace, or `None`
+/// if the slug doesn't exist. Used by cross-cutting actions that need to
+/// call the right platform adapter (e.g. re-applying setChatDescription).
+pub async fn lookup_platform_channel(index_db: &D1Database, slug: &str) -> Result<Option<(String, String)>> {
+    #[derive(Deserialize)]
+    struct Row { platform: String, platform_channel_id: String }
+    let row = index_db.prepare("SELECT platform, platform_channel_id FROM workspaces_meta WHERE slug = ?1")
+        .bind(&[slug.into()])?.first::<Row>(None).await?;
+    Ok(row.map(|r| (r.platform, r.platform_channel_id)))
 }
 
 /// Upsert a user in the Index DB and link them to a workspace.

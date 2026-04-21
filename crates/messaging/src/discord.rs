@@ -1,4 +1,10 @@
 // crates/messaging/src/discord.rs
+// TODO(onboarding-parity): localised welcome flow with workspace locale
+// resolution and channel-topic update equivalent to Telegram's
+// setChatDescription. Mirror the Telegram implementation when the Discord
+// adapter graduates beyond MVP signature verification.
+// Reference spec: docs/superpowers/specs/2026-04-21-telegram-onboarding-ux-design.md
+
 use crate::adapter::*;
 use serde::Deserialize;
 use std::collections::HashMap;

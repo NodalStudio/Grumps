@@ -245,5 +245,11 @@
   "seed.sch.gas_remind.title": "提醒 Bob 燃气检查",
   "seed.sch.rent.title": "提醒大家交房租",
   "seed.sch.plants.title": "浇花",
-  "seed.file.electricity_bill": "三月电费单.pdf"
+  "seed.file.electricity_bill": "三月电费单.pdf",
+  "settings.locale.updated": "已保存。",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps。你的工作区：grumps.io/w/{slug}\n\nTODO: <内容> — 添加任务\nNOTE: <文本> — 钉住信息\n@{bot} help — 其他一切\n\n把事做完。不废话。",
+  "telegram.onboarding.welcome.added_as_member": "Grumps。你的工作区：grumps.io/w/{slug}\n\nTODO: <内容> — 添加任务\nNOTE: <文本> — 钉住信息\n@{bot} help — 其他一切\n\n把我设为管理员 — 工作区链接会加入群组描述，ambient 功能也会启用。群组 → 管理员 → @{bot}。\n\n把事做完。不废话。",
+  "telegram.onboarding.promoted.with_description": "管理员。描述已更新。",
+  "telegram.onboarding.promoted.without_description": "管理员。",
+  "telegram.onboarding.description": "Grumps 工作区：grumps.io/w/{slug}\n把事做完。不废话。"
 }

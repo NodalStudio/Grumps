@@ -245,5 +245,11 @@
   "seed.sch.gas_remind.title": "Recordar a Bob la inspección del gas",
   "seed.sch.rent.title": "Recordar a todos el alquiler",
   "seed.sch.plants.title": "Regar las plantas",
-  "seed.file.electricity_bill": "factura-luz-marzo.pdf"
+  "seed.file.electricity_bill": "factura-luz-marzo.pdf",
+  "settings.locale.updated": "Guardado.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. Tu espacio: grumps.io/w/{slug}\n\nTODO: <ítem> — añade una tarea\nNOTE: <texto> — fija una nota\n@{bot} help — todo lo demás\n\nHecho. Sin cháchara.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. Tu espacio: grumps.io/w/{slug}\n\nTODO: <ítem> — añade una tarea\nNOTE: <texto> — fija una nota\n@{bot} help — todo lo demás\n\nHazme admin para poner el enlace del workspace en la descripción y activar las funciones ambient. Grupo → Administradores → @{bot}.\n\nHecho. Sin cháchara.",
+  "telegram.onboarding.promoted.with_description": "Admin. Descripción actualizada.",
+  "telegram.onboarding.promoted.without_description": "Admin.",
+  "telegram.onboarding.description": "Espacio Grumps: grumps.io/w/{slug}\nHecho. Sin cháchara."
 }

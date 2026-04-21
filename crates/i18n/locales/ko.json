@@ -245,5 +245,11 @@
   "seed.sch.gas_remind.title": "Bob에게 가스 점검 알림",
   "seed.sch.rent.title": "전원에게 월세 알림",
   "seed.sch.plants.title": "식물에 물 주기",
-  "seed.file.electricity_bill": "전기요금-3월.pdf"
+  "seed.file.electricity_bill": "전기요금-3월.pdf",
+  "settings.locale.updated": "저장됨.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. 워크스페이스: grumps.io/w/{slug}\n\nTODO: <항목> — 작업 추가\nNOTE: <내용> — 정보 고정\n@{bot} help — 그 외 전부\n\n해냅니다. 잡담 없음.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. 워크스페이스: grumps.io/w/{slug}\n\nTODO: <항목> — 작업 추가\nNOTE: <내용> — 정보 고정\n@{bot} help — 그 외 전부\n\n관리자로 승격해 주세요. 워크스페이스 링크가 그룹 설명에 추가되고 ambient 기능이 켜집니다. 그룹 → 관리자 → @{bot}.\n\n해냅니다. 잡담 없음.",
+  "telegram.onboarding.promoted.with_description": "관리자. 설명이 업데이트되었습니다.",
+  "telegram.onboarding.promoted.without_description": "관리자.",
+  "telegram.onboarding.description": "Grumps 워크스페이스: grumps.io/w/{slug}\n해냅니다. 잡담 없음."
 }

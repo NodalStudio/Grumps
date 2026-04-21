@@ -1,3 +1,9 @@
+// TODO(onboarding-parity): localised welcome flow with admin-promotion
+// detection, workspace locale resolution, and setChatDescription-equivalent
+// group metadata update. Mirror the Telegram implementation once WhatsApp
+// Business API surfaces group admin events reliably.
+// Reference spec: docs/superpowers/specs/2026-04-21-telegram-onboarding-ux-design.md
+
 use crate::adapter::*;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;

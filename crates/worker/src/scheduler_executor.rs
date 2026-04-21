@@ -66,12 +66,14 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
+            let language = db.get_setting("default_locale").await.ok().flatten().unwrap_or_else(|| "en".to_string());
             let ctx = grumps_agent::tools::ToolContext {
                 env,
                 workspace_slug: ws_slug,
                 member_id: "system",
                 sink: &sink,
                 db: &db,
+                language,
             };
 
             match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {

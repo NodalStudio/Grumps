@@ -134,6 +134,7 @@ pub struct TgUpdate {
 pub struct TgChatMemberUpdated {
     pub chat: TgChat,
     pub from: TgUser,
+    pub old_chat_member: TgChatMember,
     pub new_chat_member: TgChatMember,
 }
 
@@ -160,6 +161,7 @@ pub struct TgUser {
     pub last_name: Option<String>,
     pub username: Option<String>,
     pub is_bot: Option<bool>,
+    pub language_code: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,6 +278,10 @@ mod tests {
             "my_chat_member": {
                 "chat": {"id": -100999, "type": "group", "title": "Test Group"},
                 "from": {"id": 123, "first_name": "Alice", "is_bot": false},
+                "old_chat_member": {
+                    "status": "left",
+                    "user": {"id": 888, "first_name": "Grumps", "is_bot": true}
+                },
                 "new_chat_member": {
                     "status": "member",
                     "user": {"id": 888, "first_name": "Grumps", "is_bot": true}
@@ -287,6 +293,7 @@ mod tests {
         assert!(update.message.is_none());
         let member = update.my_chat_member.unwrap();
         assert_eq!(member.new_chat_member.status, "member");
+        assert_eq!(member.old_chat_member.status, "left");
         assert_eq!(member.chat.id, -100999);
         assert_eq!(member.chat.title, Some("Test Group".into()));
     }
@@ -305,5 +312,46 @@ mod tests {
         let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(body.contains("reply_to_message_id"));
         assert!(body.contains("42"));
+    }
+
+    #[test]
+    fn parse_user_with_language_code() {
+        let payload = serde_json::json!({
+            "update_id": 1,
+            "message": {
+                "message_id": 42,
+                "from": {"id": 123, "first_name": "Alice", "is_bot": false, "language_code": "fr"},
+                "chat": {"id": -100123, "type": "group", "title": "Roommates"},
+                "date": 1713000000,
+                "text": "hello"
+            }
+        });
+        let update: TgUpdate = serde_json::from_value(payload).unwrap();
+        let user = update.message.unwrap().from.unwrap();
+        assert_eq!(user.language_code.as_deref(), Some("fr"));
+    }
+
+    #[test]
+    fn parse_my_chat_member_with_transition() {
+        let payload = serde_json::json!({
+            "update_id": 11,
+            "my_chat_member": {
+                "chat": {"id": -100999, "type": "group", "title": "Test"},
+                "from": {"id": 123, "first_name": "Alice", "is_bot": false, "language_code": "de"},
+                "old_chat_member": {
+                    "status": "member",
+                    "user": {"id": 888, "first_name": "Grumps", "is_bot": true}
+                },
+                "new_chat_member": {
+                    "status": "administrator",
+                    "user": {"id": 888, "first_name": "Grumps", "is_bot": true}
+                }
+            }
+        });
+        let update: TgUpdate = serde_json::from_value(payload).unwrap();
+        let mcm = update.my_chat_member.unwrap();
+        assert_eq!(mcm.old_chat_member.status, "member");
+        assert_eq!(mcm.new_chat_member.status, "administrator");
+        assert_eq!(mcm.from.language_code.as_deref(), Some("de"));
     }
 }

@@ -270,7 +270,7 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
         platform: "telegram".to_string(),                      // Plan C : look up from index DB
         member_count: members.len(),
         persona: "default".to_string(),                        // Plan C : read from settings
-        language: "fr".to_string(),                            // Plan C : read from settings
+        language: ctx.language.clone(),
         pinned_memories: pinned,
         members,
         now_local: now,

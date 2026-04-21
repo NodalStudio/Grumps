@@ -1,9 +1,33 @@
 use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
-use grumps_messaging::telegram::TelegramAdapter;
+use grumps_messaging::telegram::{TelegramAdapter, TgUpdate, TgChatMemberUpdated};
 use grumps_nlu::parser;
 use grumps_agent::db::AgentDb as _;
+use grumps_i18n::{t, Locale};
 use crate::{db, d1_rest::D1RestClient, provisioning, handler};
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Transition {
+    FirstAddAsMember,
+    FirstAddAsAdmin,
+    Promotion,
+    Ignore,
+}
+
+/// Classify a bot `my_chat_member` status transition. Pure: no I/O, easy to test.
+/// Unknown `old` statuses (empty, "left", "kicked", anything not admin) are
+/// treated as "bot wasn't in the group before", so a `new == member` or
+/// `new == administrator` counts as a first-add.
+pub(crate) fn route_chat_member(old: &str, new: &str) -> Transition {
+    let was_in_group_as_non_admin = matches!(old, "member" | "restricted");
+    let was_admin = old == "administrator";
+    match (was_admin, was_in_group_as_non_admin, new) {
+        (_, true, "administrator") => Transition::Promotion,
+        (false, false, "administrator") => Transition::FirstAddAsAdmin,
+        (false, false, "member") => Transition::FirstAddAsMember,
+        _ => Transition::Ignore,
+    }
+}
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let tg = build_adapter(&ctx)?;
@@ -16,20 +40,19 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     }
 
-    // Check for bot-added-to-group event
-    let raw: serde_json::Value = serde_json::from_slice(&body)
-        .map_err(|e| Error::RustError(e.to_string()))?;
-
-    if let Some(member_update) = raw.get("my_chat_member") {
-        let new_status = member_update.pointer("/new_chat_member/status")
-            .and_then(|v| v.as_str()).unwrap_or("");
-        let chat_id = member_update.pointer("/chat/id")
-            .and_then(|v| v.as_i64()).map(|id| id.to_string()).unwrap_or_default();
-        let chat_title = member_update.pointer("/chat/title")
-            .and_then(|v| v.as_str()).unwrap_or("Group");
-
-        if new_status == "member" || new_status == "administrator" {
-            return handle_bot_added(&ctx, &tg, &chat_id, chat_title).await;
+    // Typed parse of my_chat_member — routes based on status transition.
+    if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
+        if let Some(mcm) = update.my_chat_member {
+            let transition = route_chat_member(
+                &mcm.old_chat_member.status,
+                &mcm.new_chat_member.status,
+            );
+            return match transition {
+                Transition::FirstAddAsMember => handle_first_add(&ctx, &tg, &mcm, false).await,
+                Transition::FirstAddAsAdmin => handle_first_add(&ctx, &tg, &mcm, true).await,
+                Transition::Promotion => handle_promotion(&ctx, &tg, &mcm).await,
+                Transition::Ignore => Response::ok("ok"),
+            };
         }
     }
 
@@ -51,7 +74,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         Some(ws) => ws,
         None => {
             let (slug, db_id) = provisioning::provision_workspace(&d1_client, &index_db, "telegram", &inbound.channel_id).await?;
-            db::WorkspaceMetaRow { slug, d1_database_id: db_id, name: None, plan: "free".into() }
+            db::WorkspaceMetaRow { slug, d1_database_id: db_id, name: None, plan: "free".into(), locale: "en".into() }
         }
     };
 
@@ -150,58 +173,85 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     Response::ok("ok")
 }
 
-async fn handle_bot_added(
+async fn handle_first_add(
     ctx: &RouteContext<()>,
     tg: &TelegramAdapter,
-    chat_id: &str,
-    chat_title: &str,
+    mcm: &TgChatMemberUpdated,
+    added_as_admin: bool,
 ) -> Result<Response> {
     let index_db = db::get_index_db(&ctx.env)?;
     let d1_client = D1RestClient::from_env(&ctx.env)?;
 
-    // Provision workspace
-    let (slug, _db_id) = provisioning::provision_workspace(
-        &d1_client, &index_db, "telegram", chat_id,
-    ).await?;
+    let chat_id = mcm.chat.id.to_string();
+    let locale = Locale::from_code(
+        mcm.from.language_code.as_deref().unwrap_or("en")
+    );
 
-    // Set group description (may fail if bot isn't admin — that's ok)
-    let description = format!("Grumps workspace: grumps.io/w/{}\nGets it done. No small talk.", slug);
-    let (desc_url, desc_body) = tg.build_set_description_request(chat_id, &description)
-        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-    {
-        let mut headers = Headers::new();
-        headers.set("Content-Type", "application/json")?;
-        let mut init = RequestInit::new();
-        init.with_method(Method::Post).with_headers(headers).with_body(Some(desc_body.into()));
-        let req = Request::new_with_init(&desc_url, &init)?;
-        let _ = Fetch::Request(req).send().await;
+    // Provision workspace (idempotent: lookup first, then insert).
+    let slug = match db::lookup_workspace(&index_db, "telegram", &chat_id).await? {
+        Some(ws) => ws.slug,
+        None => {
+            let (slug, _db_id) = provisioning::provision_workspace(
+                &d1_client, &index_db, "telegram", &chat_id,
+            ).await?;
+            slug
+        }
+    };
+
+    // Persist the resolved locale on the workspace row.
+    let _ = db::update_workspace_locale(&index_db, &slug, locale.code()).await;
+
+    // If added as admin, set description in the resolved locale.
+    if added_as_admin {
+        let description = t(locale, "telegram.onboarding.description", &[("slug", &slug)]);
+        let _ = call_set_description(tg, &chat_id, &description).await;
     }
 
-    // Send welcome message
-    let welcome = format!(
-        "📋 *Grumps* is here.\n\n\
-        Your workspace: grumps.io/w/{}\n\n\
-        Quick start:\n\
-        • `TODO:` + list to add tasks\n\
-        • `DONE:` + list to complete them\n\
-        • `NOTE:` to pin info\n\
-        • `@{} help` for all commands\n\n\
-        Gets it done. No small talk.",
-        slug, tg.bot_username
-    );
-    let _ = chat_title; // available if needed for future use
+    // Pick welcome variant based on admin status.
+    let welcome_key = if added_as_admin {
+        "telegram.onboarding.welcome.added_as_admin"
+    } else {
+        "telegram.onboarding.welcome.added_as_member"
+    };
+    let welcome = t(locale, welcome_key, &[("slug", &slug), ("bot", &tg.bot_username)]);
 
     let msg = grumps_messaging::adapter::OutboundMessage { text: welcome, reply_to: None };
-    let (url, body) = tg.build_send_request(chat_id, &msg)
-        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-    {
-        let mut headers = Headers::new();
-        headers.set("Content-Type", "application/json")?;
-        let mut init = RequestInit::new();
-        init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
-        let req = Request::new_with_init(&url, &init)?;
-        let _ = Fetch::Request(req).send().await;
-    }
+    let _ = send_message(tg, &chat_id, &msg).await;
+
+    Response::ok("ok")
+}
+
+async fn handle_promotion(
+    ctx: &RouteContext<()>,
+    tg: &TelegramAdapter,
+    mcm: &TgChatMemberUpdated,
+) -> Result<Response> {
+    let index_db = db::get_index_db(&ctx.env)?;
+    let chat_id = mcm.chat.id.to_string();
+
+    // Workspace must exist (bot was already in the group before promotion).
+    // If not, fall through silently (unusual edge case, shouldn't happen).
+    let ws = match db::lookup_workspace(&index_db, "telegram", &chat_id).await? {
+        Some(ws) => ws,
+        None => return Response::ok("ok"),
+    };
+    let locale = Locale::from_code(&ws.locale);
+
+    // Re-apply setChatDescription in the workspace locale.
+    let description = t(locale, "telegram.onboarding.description", &[("slug", &ws.slug)]);
+    let description_ok = call_set_description(tg, &chat_id, &description).await
+        .unwrap_or(false);
+
+    // V3 picks variant based on whether setChatDescription actually succeeded.
+    let key = if description_ok {
+        "telegram.onboarding.promoted.with_description"
+    } else {
+        "telegram.onboarding.promoted.without_description"
+    };
+    let text = t(locale, key, &[]);
+
+    let msg = grumps_messaging::adapter::OutboundMessage { text, reply_to: None };
+    let _ = send_message(tg, &chat_id, &msg).await;
 
     Response::ok("ok")
 }
@@ -212,4 +262,99 @@ fn build_adapter(ctx: &RouteContext<()>) -> Result<TelegramAdapter> {
         ctx.env.var("TG_BOT_USERNAME")?.to_string(),
         ctx.env.secret("TG_WEBHOOK_SECRET")?.to_string(),
     ))
+}
+
+/// Call setChatDescription, parse `{ ok: bool }` from the response.
+/// Returns `Ok(true)` if Telegram returned `ok: true`, `Ok(false)` on any
+/// other response or error. Never fails except on local request-build error.
+pub(crate) async fn call_set_description(
+    tg: &TelegramAdapter,
+    chat_id: &str,
+    description: &str,
+) -> Result<bool> {
+    let (url, body) = tg.build_set_description_request(chat_id, description)
+        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+    let mut headers = Headers::new();
+    headers.set("Content-Type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
+    let req = Request::new_with_init(&url, &init)?;
+    let mut resp = match Fetch::Request(req).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            worker::console_log!("setChatDescription network error: {}", e);
+            return Ok(false);
+        }
+    };
+    match resp.json::<serde_json::Value>().await {
+        Ok(v) => {
+            let ok = v.get("ok").and_then(|b| b.as_bool()).unwrap_or(false);
+            if !ok {
+                worker::console_log!("setChatDescription failed: {}", v);
+            }
+            Ok(ok)
+        }
+        Err(e) => {
+            worker::console_log!("setChatDescription: non-JSON response: {}", e);
+            Ok(false)
+        }
+    }
+}
+
+/// Send a text message to Telegram. Logs on failure but never propagates
+/// — the webhook must return 200 OK to prevent Telegram retry storms.
+async fn send_message(
+    tg: &TelegramAdapter,
+    chat_id: &str,
+    msg: &grumps_messaging::adapter::OutboundMessage,
+) -> Result<()> {
+    let (url, body) = tg.build_send_request(chat_id, msg)
+        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+    let mut headers = Headers::new();
+    headers.set("Content-Type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
+    let req = Request::new_with_init(&url, &init)?;
+    if let Err(e) = Fetch::Request(req).send().await {
+        worker::console_log!("sendMessage failed: {}", e);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn routes_first_add_as_member() {
+        assert_eq!(route_chat_member("left", "member"), Transition::FirstAddAsMember);
+        assert_eq!(route_chat_member("kicked", "member"), Transition::FirstAddAsMember);
+    }
+
+    #[test]
+    fn routes_first_add_as_admin() {
+        assert_eq!(route_chat_member("left", "administrator"), Transition::FirstAddAsAdmin);
+        assert_eq!(route_chat_member("kicked", "administrator"), Transition::FirstAddAsAdmin);
+    }
+
+    #[test]
+    fn routes_promotion() {
+        assert_eq!(route_chat_member("member", "administrator"), Transition::Promotion);
+        assert_eq!(route_chat_member("restricted", "administrator"), Transition::Promotion);
+    }
+
+    #[test]
+    fn ignores_demotion() {
+        assert_eq!(route_chat_member("administrator", "member"), Transition::Ignore);
+        assert_eq!(route_chat_member("administrator", "left"), Transition::Ignore);
+        assert_eq!(route_chat_member("administrator", "kicked"), Transition::Ignore);
+    }
+
+    #[test]
+    fn ignores_noop_and_unknown() {
+        assert_eq!(route_chat_member("member", "member"), Transition::Ignore);
+        assert_eq!(route_chat_member("administrator", "administrator"), Transition::Ignore);
+        assert_eq!(route_chat_member("garbage", "member"), Transition::FirstAddAsMember);
+        assert_eq!(route_chat_member("", "administrator"), Transition::FirstAddAsAdmin);
+    }
 }

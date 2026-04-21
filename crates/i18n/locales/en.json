@@ -245,5 +245,12 @@
   "seed.sch.gas_remind.title": "Remind Bob about the gas inspection",
   "seed.sch.rent.title": "Remind everyone about rent",
   "seed.sch.plants.title": "Water the plants",
-  "seed.file.electricity_bill": "electricity-bill-march.pdf"
+  "seed.file.electricity_bill": "electricity-bill-march.pdf",
+  "_TRANSLATOR_NOTES": "Do not translate: 'TODO:' and 'NOTE:' (literal command tokens). '@{bot}' is the invariant bot username. '{slug}' and '{bot}' are runtime placeholders.",
+  "settings.locale.updated": "Saved.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. Your workspace: grumps.io/w/{slug}\n\nTODO: <item> — adds a task\nNOTE: <text> — pins info\n@{bot} help — everything else\n\nGets it done. No small talk.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. Your workspace: grumps.io/w/{slug}\n\nTODO: <item> — adds a task\nNOTE: <text> — pins info\n@{bot} help — everything else\n\nPromote me to admin for the workspace link in the description and ambient features. Group → Administrators → @{bot}.\n\nGets it done. No small talk.",
+  "telegram.onboarding.promoted.with_description": "Admin. Description updated.",
+  "telegram.onboarding.promoted.without_description": "Admin.",
+  "telegram.onboarding.description": "Grumps workspace: grumps.io/w/{slug}\nGets it done. No small talk."
 }

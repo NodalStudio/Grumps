@@ -84,6 +84,16 @@ pub fn is_super_admin(env: &worker::Env, claims: &Claims) -> bool {
         .any(|p| p == claims.phone)
 }
 
+/// Check if a user has the `admin` role in a workspace, querying the index DB.
+/// Cheaper than `is_workspace_admin` (no per-workspace DB connection needed).
+pub async fn is_workspace_admin_by_slug(index_db: &worker::D1Database, user_id: &str, slug: &str) -> worker::Result<bool> {
+    #[derive(serde::Deserialize)]
+    struct Row { role: String }
+    let row = index_db.prepare("SELECT role FROM user_workspaces WHERE user_id = ?1 AND workspace_slug = ?2")
+        .bind(&[user_id.into(), slug.into()])?.first::<Row>(None).await?;
+    Ok(row.map(|r| r.role == "admin").unwrap_or(false))
+}
+
 /// Check if the current user has admin role in the given workspace.
 /// Returns true if super_admin (overrides), or if their member.role == 'admin'.
 pub async fn is_workspace_admin(env: &worker::Env, ws_db: &crate::db::WorkspaceDb<'_>, claims: &Claims) -> worker::Result<bool> {

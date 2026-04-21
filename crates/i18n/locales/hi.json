@@ -245,5 +245,11 @@
   "seed.sch.gas_remind.title": "Bob को गैस निरीक्षण की याद दिलाएँ",
   "seed.sch.rent.title": "सबको किराए की याद दिलाएँ",
   "seed.sch.plants.title": "पौधों को पानी दें",
-  "seed.file.electricity_bill": "बिजली-बिल-मार्च.pdf"
+  "seed.file.electricity_bill": "बिजली-बिल-मार्च.pdf",
+  "settings.locale.updated": "सहेजा गया।",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps। आपका वर्कस्पेस: grumps.io/w/{slug}\n\nTODO: <आइटम> — कार्य जोड़ता है\nNOTE: <टेक्स्ट> — जानकारी पिन करता है\n@{bot} help — बाकी सब\n\nकाम करता है। बकवास नहीं।",
+  "telegram.onboarding.welcome.added_as_member": "Grumps। आपका वर्कस्पेस: grumps.io/w/{slug}\n\nTODO: <आइटम> — कार्य जोड़ता है\nNOTE: <टेक्स्ट> — जानकारी पिन करता है\n@{bot} help — बाकी सब\n\nमुझे एडमिन बनाएँ ताकि वर्कस्पेस लिंक डिस्क्रिप्शन में जुड़े और ambient फ़ीचर चालू हो जाएँ। ग्रुप → एडमिन → @{bot}।\n\nकाम करता है। बकवास नहीं।",
+  "telegram.onboarding.promoted.with_description": "एडमिन। डिस्क्रिप्शन अपडेट हो गया।",
+  "telegram.onboarding.promoted.without_description": "एडमिन।",
+  "telegram.onboarding.description": "Grumps वर्कस्पेस: grumps.io/w/{slug}\nकाम करता है। बकवास नहीं।"
 }

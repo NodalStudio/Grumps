@@ -21,6 +21,8 @@ pub struct ToolContext<'a> {
     pub member_id: &'a str,
     pub sink: &'a dyn MessagingSink,
     pub db: &'a dyn AgentDb,
+    /// Resolved locale for the current interaction (member > workspace > "en").
+    pub language: String,
 }
 
 /// Dispatch a tool call to its handler.

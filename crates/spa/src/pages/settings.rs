@@ -16,6 +16,7 @@ pub fn SettingsPage() -> impl IntoView {
     let (proactive, set_proactive) = signal(false);
     let (persona, set_persona) = signal("grumps".to_string());
     let (ical_url, set_ical_url) = signal(String::new());
+    let (workspace_locale, set_workspace_locale) = signal("en".to_string());
     let (refresh, set_refresh) = signal(0u32);
 
     let api = auth.api.clone();
@@ -30,6 +31,7 @@ pub fn SettingsPage() -> impl IntoView {
                 set_auto_memory.set(settings.auto_memory.unwrap_or(true));
                 set_proactive.set(settings.proactive_mode.unwrap_or(false));
                 set_persona.set(settings.persona.unwrap_or("grumps".to_string()));
+                set_workspace_locale.set(settings.language.unwrap_or("en".to_string()));
                 if let Some(token) = settings.ical_token {
                     set_ical_url.set(format!("https://grumps.app/api/w/{}/calendar/ical/{}", s, token));
                 }
@@ -53,6 +55,7 @@ pub fn SettingsPage() -> impl IntoView {
         });
     };
 
+    let api_locale = auth.api.clone();
     let api_regen = auth.api.clone();
     let regen_ical = move |_| {
         let api = api_regen.clone();
@@ -80,7 +83,31 @@ pub fn SettingsPage() -> impl IntoView {
             <div class="max-w-xl">
                 // General
                 <SettingsSection title_key="settings.section.general">
-                    <SettingRow label_key="settings.row.language" value="English".to_string() />
+                    <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
+                        <div class="font-medium text-sm">{move || tr("settings.row.language")}</div>
+                        <select
+                            class="border-2 border-ink rounded-sm px-3 py-1.5 text-sm bg-transparent outline-none"
+                            on:change=move |ev| {
+                                let new_locale = event_target_value(&ev);
+                                let slug_str = slug();
+                                let api = api_locale.clone();
+                                leptos::task::spawn_local(async move {
+                                    if api.update_workspace_locale(&slug_str, &new_locale).await.is_ok() {
+                                        set_workspace_locale.set(new_locale);
+                                    }
+                                });
+                            }
+                            prop:value=workspace_locale
+                        >
+                            {grumps_i18n::Locale::ALL.iter().map(|loc| {
+                                let code = loc.code();
+                                let native = loc.native_name();
+                                view! {
+                                    <option value=code>{native}</option>
+                                }
+                            }).collect_view()}
+                        </select>
+                    </div>
                     <SettingRow label_key="settings.row.timezone" value="Europe/Paris".to_string() />
                 </SettingsSection>
 
