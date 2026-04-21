@@ -80,7 +80,15 @@ function applyAttrI18n(html, strings, missing) {
   );
 }
 
+// Strip any hreflang links already embedded in the source (e.g. left over
+// from a prior build that was committed) so the per-locale injected ones
+// take effect.
+function stripStaleHreflangs(html) {
+  return html.replace(/<link rel="alternate" hreflang="[^"]*" href="[^"]*">\s*/g, '');
+}
+
 function injectHead(html, locale, hreflangLinks) {
+  html = stripStaleHreflangs(html);
   const fontTag = locale.font
     ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS[locale.font]}&display=optional" rel="stylesheet">`
     : (locale.code === 'ar' ? `<link href="https://fonts.googleapis.com/css2?${NOTO_FONTS.Arabic}&display=optional" rel="stylesheet">` : '');
@@ -104,12 +112,23 @@ function buildHreflangs(canonicalBase) {
   return lines.join('\n');
 }
 
-function setCurrentLang(html, code, name) {
-  html = html.replace(/(<a href="\/[^"]+\/")([^>]*)\sclass="current"/g, '$1$2');
-  const slug = code === 'en' ? '/en/' : `/${code}/`;
+// Rewrite the static lang switcher: prefix every `/code/` link with the
+// site's sub-path (so links work on github.io/Grumps/, github.io/Grumps/fr/,
+// etc.) and mark the current locale's link with class="current".
+function applyLangSwitcher(html, code, name, sitePath) {
+  const validCodes = new Set(LOCALES.map(l => l.code));
+  // Strip any pre-existing class="current" on lang links.
   html = html.replace(
-    new RegExp(`(<a href="${slug.replace(/\//g, '\\/')}")([^>]*?)>`),
-    '$1$2 class="current">'
+    /(<a href="(?:[^"]+)?\/[a-zA-Z-]+\/"[^>]*?)\sclass="current"/g,
+    '$1'
+  );
+  html = html.replace(
+    /<a href="(?:[^"]+)?\/([a-zA-Z-]+)\/"([^>]*)>/g,
+    (full, slug, rest) => {
+      if (!validCodes.has(slug)) return full;
+      const cls = slug === code ? ' class="current"' : '';
+      return `<a href="${sitePath}/${slug}/"${cls}${rest}>`;
+    }
   );
   html = html.replace(/(<span id="current-lang">)[^<]*(<\/span>)/, `$1${escHtml(name)}$2`);
   return html;
@@ -159,7 +178,7 @@ async function main() {
     }
 
     html = injectHead(html, locale, hreflangLinks);
-    html = setCurrentLang(html, locale.code, locale.name);
+    html = applyLangSwitcher(html, locale.code, locale.name, sitePath);
 
     // Iframe → live SPA in seed mode (when SPA dist is present). Always pass
     // ?lang= so the iframe locale matches the surrounding landing rather than
