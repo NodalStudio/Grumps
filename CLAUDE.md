@@ -156,6 +156,35 @@ PATH="/c/Users/mayer/.cargo/bin:$PATH" ~/.cargo/bin/cargo.exe test \
   --target x86_64-pc-windows-msvc
 ```
 
+## D1 migrations
+
+Two separate migration directories, applied to different databases.
+
+- `migrations/index/` — applied to the global index DB (tables:
+  `users`, `workspaces_meta`, `user_workspaces`). **No runtime
+  mechanism.** Apply manually: `wrangler d1 execute <index-db>
+  --file=migrations/index/<file>.sql`.
+- `migrations/workspace/` — applied to every new per-workspace D1 at
+  provisioning time via `crates/worker/src/provisioning.rs`. Existing
+  workspace DBs must be migrated out-of-band (same wrangler command,
+  looped over every workspace).
+
+### Conventions
+
+- File name: `NNNN_snake_case.sql` — 4 digits, strictly sequential,
+  never reuse or renumber. One logical change per file. Leading
+  comment explains the "why".
+- `ALTER TABLE … ADD COLUMN` prefers `NOT NULL DEFAULT '<x>'` so
+  existing rows populate automatically. Only fall back to NULL if
+  there's no sensible default.
+- **Workspace migrations only**: after creating the `.sql` file, also
+  add the `include_str!` constant AND the matching `exec_statements`
+  call in `provisioning.rs`. Forgetting either breaks new-workspace
+  provisioning silently.
+- Before deployment: apply to the production index DB and, for
+  workspace migrations, loop over every existing workspace DB. Never
+  rely on next-write-fixes-it.
+
 ## Admin model
 
 Two tiers:
