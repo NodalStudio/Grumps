@@ -139,11 +139,26 @@ emojis in UI chrome. Reference: `index.html` and `crates/spa/`.
 
 ## Git workflow
 
-Linear history only. Always rebase, never merge. PRs land via
-"Rebase and merge" on GitHub. Commit messages MUST NOT include
-`Co-Authored-By:` trailers and MUST NOT reference internal plan
-identifiers (e.g. "Plan A", "Plan B"); use generic descriptive
-language instead.
+Linear history. Feature branches use **gitmoji** format for atomic
+commits (one emoji + one-line capitalised subject, e.g.
+`✨ Add PATCH workspace locale endpoint`). Feature-branch commits
+bypass the commitizen hook with:
+
+```bash
+SKIP=commitizen git commit --no-verify -m "✨ <Subject>"
+```
+
+Squash-merge to main produces **one commit per feature** in
+conventional-commits format (`type(scope): subject` — e.g.
+`feat(telegram): add localised onboarding UX`). The commitizen
+hook accepts this without `--no-verify`.
+
+Commit messages MUST NOT include `Co-Authored-By:` trailers and
+MUST NOT reference internal plan identifiers (e.g. "Plan A",
+"Plan B"); use generic descriptive language instead.
+
+Reference: `.claude/commands/gitmoji.md`,
+`.claude/commands/conventional.md`.
 
 ## Rust toolchain
 
