@@ -67,14 +67,13 @@ impl D1RestClient {
     }
 
     pub async fn exec_statements(&self, database_id: &str, sql: &str) -> Result<()> {
-        worker::console_log!("MARKER_V2: exec_statements entering, sql_len={}", sql.len());
-        for (i, stmt) in split_sql_statements(sql).into_iter().enumerate() {
+        // Normalize CRLF to LF. SQLite on D1 rejects `END;` preceded by \r\n
+        // inside a CREATE TRIGGER body with "incomplete input". Migration
+        // files saved on Windows carry CRLF through include_str!.
+        let sql = sql.replace("\r\n", "\n");
+        for stmt in split_sql_statements(&sql) {
             let with_semi = format!("{};", stmt);
-            worker::console_log!("MARKER_V2 stmt #{}: ends_with_semi={} last20={:?}", i, with_semi.ends_with(';'), with_semi.chars().rev().take(20).collect::<String>().chars().rev().collect::<String>());
-            if let Err(e) = self.query(database_id, &with_semi, vec![]).await {
-                worker::console_log!("MARKER_V2 FAILED stmt #{}: err={} | sent_body={:?}", i, e, &with_semi);
-                return Err(e);
-            }
+            self.query(database_id, &with_semi, vec![]).await?;
         }
         Ok(())
     }
