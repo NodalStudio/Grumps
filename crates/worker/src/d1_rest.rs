@@ -67,14 +67,10 @@ impl D1RestClient {
     }
 
     pub async fn exec_statements(&self, database_id: &str, sql: &str) -> Result<()> {
-        let stmts = split_sql_statements(sql);
-        worker::console_log!("exec_statements: {} stmts from {} bytes", stmts.len(), sql.len());
-        for (i, stmt) in stmts.iter().enumerate() {
-            if let Err(e) = self.query(database_id, stmt, vec![]).await {
-                worker::console_log!("exec_statements FAILED stmt #{}: {} | first 200 chars: {}", i, e, stmt.chars().take(200).collect::<String>());
-                return Err(e);
-            }
-        }
+        // D1's /query endpoint accepts multi-statement SQL (semicolon-separated)
+        // natively — no client-side splitting needed. This handles triggers with
+        // BEGIN/END blocks correctly because D1 runs it through SQLite directly.
+        self.query(database_id, sql, vec![]).await?;
         Ok(())
     }
 
@@ -113,100 +109,3 @@ pub fn extract_first<T: serde::de::DeserializeOwned>(response: &D1Response) -> R
     Ok(rows.into_iter().next())
 }
 
-/// Split multi-statement SQL on top-level `;` while keeping trigger bodies
-/// (`BEGIN ... END;`) intact. The D1 REST `/query` endpoint accepts only a
-/// single statement at a time, so migrations with triggers need aware splitting.
-fn split_sql_statements(sql: &str) -> Vec<String> {
-    let mut out: Vec<String> = Vec::new();
-    let mut current = String::new();
-    let mut depth: usize = 0;
-    let bytes = sql.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if starts_with_word_ci(bytes, i, b"BEGIN") {
-            depth += 1;
-            current.push_str("BEGIN");
-            i += 5;
-            continue;
-        }
-        if depth > 0 && starts_with_word_ci(bytes, i, b"END") {
-            depth -= 1;
-            current.push_str("END");
-            i += 3;
-            continue;
-        }
-        let c = bytes[i];
-        if c == b';' && depth == 0 {
-            let trimmed = current.trim().to_string();
-            if !trimmed.is_empty() {
-                out.push(trimmed);
-            }
-            current.clear();
-            i += 1;
-            continue;
-        }
-        current.push(c as char);
-        i += 1;
-    }
-    let trimmed = current.trim().to_string();
-    if !trimmed.is_empty() {
-        out.push(trimmed);
-    }
-    out
-}
-
-fn starts_with_word_ci(bytes: &[u8], i: usize, word: &[u8]) -> bool {
-    if i > 0 {
-        let prev = bytes[i - 1];
-        if prev.is_ascii_alphanumeric() || prev == b'_' {
-            return false;
-        }
-    }
-    if i + word.len() > bytes.len() {
-        return false;
-    }
-    for (j, wb) in word.iter().enumerate() {
-        if bytes[i + j].to_ascii_uppercase() != *wb {
-            return false;
-        }
-    }
-    let next_i = i + word.len();
-    if next_i < bytes.len() {
-        let next = bytes[next_i];
-        if next.is_ascii_alphanumeric() || next == b'_' {
-            return false;
-        }
-    }
-    true
-}
-
-#[cfg(test)]
-mod tests {
-    use super::split_sql_statements;
-
-    #[test]
-    fn splits_simple_statements() {
-        let sql = "CREATE TABLE a (id INT);\nCREATE TABLE b (id INT);";
-        let out = split_sql_statements(sql);
-        assert_eq!(out.len(), 2);
-        assert!(out[0].starts_with("CREATE TABLE a"));
-        assert!(out[1].starts_with("CREATE TABLE b"));
-    }
-
-    #[test]
-    fn keeps_trigger_body_intact() {
-        let sql = "CREATE TRIGGER t AFTER INSERT ON a BEGIN\n    INSERT INTO b VALUES (1);\n    INSERT INTO c VALUES (2);\nEND;\nCREATE INDEX i ON a(id);";
-        let out = split_sql_statements(sql);
-        assert_eq!(out.len(), 2, "should get 2 statements, got: {:#?}", out);
-        assert!(out[0].contains("BEGIN"));
-        assert!(out[0].contains("END"));
-        assert!(out[1].starts_with("CREATE INDEX"));
-    }
-
-    #[test]
-    fn ignores_empty_fragments() {
-        let sql = ";;SELECT 1;;;SELECT 2;;";
-        let out = split_sql_statements(sql);
-        assert_eq!(out, vec!["SELECT 1", "SELECT 2"]);
-    }
-}
