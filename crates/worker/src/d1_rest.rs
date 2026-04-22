@@ -67,8 +67,13 @@ impl D1RestClient {
     }
 
     pub async fn exec_statements(&self, database_id: &str, sql: &str) -> Result<()> {
-        for stmt in split_sql_statements(sql) {
-            self.query(database_id, &stmt, vec![]).await?;
+        let stmts = split_sql_statements(sql);
+        worker::console_log!("exec_statements: {} stmts from {} bytes", stmts.len(), sql.len());
+        for (i, stmt) in stmts.iter().enumerate() {
+            if let Err(e) = self.query(database_id, stmt, vec![]).await {
+                worker::console_log!("exec_statements FAILED stmt #{}: {} | first 200 chars: {}", i, e, stmt.chars().take(200).collect::<String>());
+                return Err(e);
+            }
         }
         Ok(())
     }
