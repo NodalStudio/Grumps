@@ -67,13 +67,14 @@ impl D1RestClient {
     }
 
     pub async fn exec_statements(&self, database_id: &str, sql: &str) -> Result<()> {
-        // D1's /query endpoint accepts one statement per call. Trigger bodies
-        // (BEGIN..END) must stay intact, and the trailing ';' matters for the
-        // SQLite parser to recognise them as complete. Send each split statement
-        // suffixed with ';'.
-        for stmt in split_sql_statements(sql) {
+        worker::console_log!("MARKER_V2: exec_statements entering, sql_len={}", sql.len());
+        for (i, stmt) in split_sql_statements(sql).into_iter().enumerate() {
             let with_semi = format!("{};", stmt);
-            self.query(database_id, &with_semi, vec![]).await?;
+            worker::console_log!("MARKER_V2 stmt #{}: ends_with_semi={} last20={:?}", i, with_semi.ends_with(';'), with_semi.chars().rev().take(20).collect::<String>().chars().rev().collect::<String>());
+            if let Err(e) = self.query(database_id, &with_semi, vec![]).await {
+                worker::console_log!("MARKER_V2 FAILED stmt #{}: err={} | sent_body={:?}", i, e, &with_semi);
+                return Err(e);
+            }
         }
         Ok(())
     }
