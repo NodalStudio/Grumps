@@ -9,6 +9,7 @@ command = "cargo install -q worker-build && cd crates/worker && worker-build --r
 ENVIRONMENT = "development"
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WEB_SEARCH_PROVIDER = "brave"
+TG_BOT_USERNAME = "HeyGrumpsBot"
 # All other secrets and per-deployment config (SUPER_ADMIN_PHONES,
 # WA_VERIFY_TOKEN, ANTHROPIC_API_KEY, GEMINI_API_KEY, JWT_SECRET,
 # CF_API_TOKEN, CF_ACCOUNT_ID, TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN,
