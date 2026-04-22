@@ -67,14 +67,16 @@ impl D1RestClient {
     }
 
     pub async fn exec_statements(&self, database_id: &str, sql: &str) -> Result<()> {
-        // Normalize CRLF to LF. SQLite on D1 rejects `END;` preceded by \r\n
-        // inside a CREATE TRIGGER body with "incomplete input". Migration
-        // files saved on Windows carry CRLF through include_str!.
+        // Normalize CRLF to LF (SQLite on D1 rejects \r\n inside CREATE TRIGGER
+        // bodies with "incomplete input"; Windows-saved migration files carry
+        // CRLF through include_str!).
+        //
+        // Send the whole migration as a single /query call: D1 accepts
+        // semicolon-separated multi-statement SQL, and this keeps us well
+        // below the Worker subrequest limit (which an N-statement loop would
+        // explode past).
         let sql = sql.replace("\r\n", "\n");
-        for stmt in split_sql_statements(&sql) {
-            let with_semi = format!("{};", stmt);
-            self.query(database_id, &with_semi, vec![]).await?;
-        }
+        self.query(database_id, &sql, vec![]).await?;
         Ok(())
     }
 
