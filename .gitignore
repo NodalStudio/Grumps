@@ -14,6 +14,8 @@ crates/spa/dist/
 # Local dev artifacts
 .playwright-mcp/
 package-lock.json
+.dev.vars
+.dev.vars.local
 
 # Editor / tooling local config
 .claude/
