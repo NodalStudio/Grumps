@@ -27,6 +27,8 @@ The feature also fixes a gap: today, when a user is added to a Telegram group wi
 12. Empty dashboard for users with zero workspaces — CTA to DM the bot (solo) or add it to a group
 13. Active sessions table with device label, country hint, per-session revoke, and "log out everywhere else"
 14. All auth-related error responses include CORS headers — fixes the pre-existing 500-without-CORS bug on `/api/*` routes
+15. IP-level rate limit on `POST /auth/telegram/verify` to bound session-table growth under spam (10 requests per IP per minute, 429 on overflow)
+16. Observability logging on sensitive auth events (user creation, session creation, DM workspace provisioning) — visible in `wrangler tail` and Cloudflare Analytics
 
 ## Non-goals
 
@@ -36,6 +38,8 @@ The feature also fixes a gap: today, when a user is added to a Telegram group wi
 - No backfill of `workspaces_meta.name` for existing workspaces via the Telegram `getChat` API — admins rename manually in `/w/:slug/settings`
 - No syncing of `workspaces_meta.name` back to the Telegram `chat.title` when edited on the web (considered intrusive)
 - The Telegram Login Widget does not support local development — dev bypass is provided via a tightly-gated env var
+- No user-level quota on the number of workspaces a user can be admin of. Abuse surface is bounded by (a) the existing per-workspace Stripe-driven plan quotas on todos/notes/LLM calls, and (b) the friction of Telegram requiring real group admin rights to install the bot. A user-level cap would require a `users.plan` concept and per-user Stripe subscriptions — deferred to the billing rework in v2.
+- No anti-abuse heuristic based on country or account age. Telegram's own anti-spam measures are the first line of defense; we monitor via observability and react manually if a problem surfaces.
 
 ## User journeys
 
@@ -627,6 +631,7 @@ Applied to all `/api/*` and `/auth/*` handlers — roughly 20 routes.
 | 403 `auth.not_member` | workspace route | Toast "You're not a member of this workspace", navigate `/dashboard` |
 | 401 `auth.invalid_hash` | Widget flow | Toast "Invalid Telegram login, try again" |
 | 401 `auth.expired` | Widget flow | Toast "Login expired, try again" |
+| 429 `auth.rate_limited` | Widget flow | Toast "Too many login attempts, try again in a minute" |
 
 ## Dev bypass
 
@@ -655,6 +660,55 @@ fn dev_bypass_never_active_in_prod_env() {
 
 When `my_chat_member` fires with `new_chat_member.status ∈ {"left", "kicked", "banned"}`, the bot handler sets `workspaces_meta.archived_at = datetime('now')`. The workspace is still readable via the SPA but gets a visual badge "Archived — bot no longer in group". Data is preserved; the user can copy anything out before we offer explicit deletion (v2).
 
+## Rate limiting
+
+A single rate limit applies to `POST /auth/telegram/verify` to bound spam-driven growth of the `sessions` table. All other routes are not rate-limited in v1 — authenticated mutations are naturally bounded by the per-workspace billing quotas already enforced in `crates/worker/src/billing.rs`.
+
+Implementation uses KV as a fixed-window counter keyed on client IP:
+
+```rust
+pub async fn check_rate_limit(env: &Env, req: &Request, bucket: &str, limit: u32) -> Result<(), AuthError> {
+    let ip = req.headers().get("CF-Connecting-IP")?.unwrap_or_default();
+    if ip.is_empty() { return Ok(()); }                // behind local proxy, skip
+
+    let kv = env.kv("KV")?;
+    let window = chrono::Utc::now().timestamp() / 60;   // per-minute bucket
+    let key = format!("ratelimit:{}:{}:{}", bucket, ip, window);
+
+    let current: u32 = kv.get(&key).text().await?
+        .and_then(|v| v.parse().ok()).unwrap_or(0);
+
+    if current >= limit {
+        return Err(AuthError::RateLimited);
+    }
+
+    kv.put(&key, &(current + 1).to_string())?
+        .expiration_ttl(120)                            // TTL > window, cheap
+        .execute().await?;
+    Ok(())
+}
+```
+
+`handle_telegram_verify` calls `check_rate_limit(env, &req, "auth_verify", 10)` before HMAC verification. On 429, the response body is `{"error": "auth.rate_limited", "detail": "too many attempts, retry in a minute"}` with CORS headers. The SPA maps this to a toast: "Too many login attempts, try again in a minute."
+
+The KV counter is best-effort (KV is eventually consistent, a burst could slip a few extra through a racing edge). For v1 this is acceptable — the goal is to stop sustained spam, not to be a WAF. Post-MVP we can move to Cloudflare's native rate-limiting rules if abuse is observed.
+
+## Observability
+
+Auth-sensitive events are logged via `console_log!` so they surface in `wrangler tail` and Cloudflare Analytics. Log format is structured (JSON-ish single line) for easier grep / parsing:
+
+| Event | When | Fields logged |
+|---|---|---|
+| `auth.user_created` | First-ever Widget login for a TG id | `user_id`, `platform`, `platform_user_id`, `country_hint` |
+| `auth.session_created` | Any successful Widget verify or OTP verify | `user_id`, `sid`, `device_label`, `country_hint` |
+| `auth.session_revoked` | Logout or DELETE /auth/sessions/:id | `user_id`, `sid`, `reason` (`logout` / `revoke` / `revoke_all`) |
+| `auth.rate_limited` | 429 on `/auth/telegram/verify` | `ip`, `bucket`, `window` |
+| `auth.hmac_failed` | Invalid Widget payload | `ip`, `tg_id_claimed` (from payload before verify) |
+| `workspace.dm_provisioned` | First DM message from a user creates a workspace | `user_id`, `slug` |
+| `workspace.archived` | Bot kicked/left | `slug`, `reason` (`left` / `kicked` / `banned`) |
+
+No alerting in v1 — these logs are searchable manually. If a spike in `auth.hmac_failed` or `auth.user_created` appears, the operator investigates via `wrangler tail` or Cloudflare Analytics. Post-MVP we can wire these to Cloudflare Logpush → Grafana / alerts, but that's a separate observability chantier.
+
 ## Testing strategy
 
 ### Unit (Rust, `--target x86_64-pc-windows-msvc`)
@@ -665,6 +719,7 @@ When `my_chat_member` fires with `new_chat_member.status ∈ {"left", "kicked", 
 - `middleware/sessions_test.rs` — KV cache hit skips D1, invalidation on revoke
 - `auth/telegram_test.rs` — first login creates user, subsequent reuses, workspaces populated correctly, dev bypass gating
 - `db/upsert_identity_test.rs` — new user + identity + user_workspaces triple, idempotency on re-call
+- `ratelimit_test.rs` — 11th request within a 60s window rejected with `auth.rate_limited`; counter resets after TTL; missing `CF-Connecting-IP` header does not error (dev-local path)
 
 ### Integration (local Worker + local D1)
 
