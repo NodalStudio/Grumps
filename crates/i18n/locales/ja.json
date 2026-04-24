@@ -247,9 +247,9 @@
   "seed.sch.plants.title": "植物に水をやる",
   "seed.file.electricity_bill": "電気料金-3月.pdf",
   "settings.locale.updated": "保存しました。",
-  "telegram.onboarding.welcome.added_as_admin": "Grumps。ワークスペース: grumps.io/w/{slug}\n\nTODO: <項目> — タスクを追加\nNOTE: <テキスト> — 情報をピン留め\n@{bot} help — その他全部\n\nやり遂げる。雑談なし。",
-  "telegram.onboarding.welcome.added_as_member": "Grumps。ワークスペース: grumps.io/w/{slug}\n\nTODO: <項目> — タスクを追加\nNOTE: <テキスト> — 情報をピン留め\n@{bot} help — その他全部\n\n管理者に昇格してください — ワークスペースのリンクが説明に入り、ambient 機能が有効になります。グループ → 管理者 → @{bot}。\n\nやり遂げる。雑談なし。",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps。ワークスペース: grumps.app/w/{slug}\n\nTODO: <項目> — タスクを追加\nNOTE: <テキスト> — 情報をピン留め\n@{bot} help — その他全部\n\nやり遂げる。雑談なし。",
+  "telegram.onboarding.welcome.added_as_member": "Grumps。ワークスペース: grumps.app/w/{slug}\n\nTODO: <項目> — タスクを追加\nNOTE: <テキスト> — 情報をピン留め\n@{bot} help — その他全部\n\n管理者に昇格してください — ワークスペースのリンクが説明に入り、ambient 機能が有効になります。グループ → 管理者 → @{bot}。\n\nやり遂げる。雑談なし。",
   "telegram.onboarding.promoted.with_description": "管理者。説明を更新しました。",
   "telegram.onboarding.promoted.without_description": "管理者。",
-  "telegram.onboarding.description": "Grumps ワークスペース: grumps.io/w/{slug}\nやり遂げる。雑談なし。"
+  "telegram.onboarding.description": "Grumps ワークスペース: grumps.app/w/{slug}\nやり遂げる。雑談なし。"
 }

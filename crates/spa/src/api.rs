@@ -9,8 +9,8 @@ fn api_base() -> String {
             if origin.contains("localhost") || origin.contains("127.0.0.1") {
                 "http://localhost:8787".to_string()
             } else {
-                // Worker is served at api.grumps.io; SPA lives at grumps.io
-                origin.replace("grumps.io", "api.grumps.io")
+                // Worker is served at api.grumps.app; SPA lives at grumps.app
+                origin.replace("grumps.app", "api.grumps.app")
             }
         })
         .unwrap_or_else(|| "http://localhost:8787".to_string())

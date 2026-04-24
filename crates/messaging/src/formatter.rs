@@ -56,7 +56,7 @@ pub fn todos_added_summary(count: usize, workspace_slug: &str, lang: &str) -> St
         i18n::t("todos.added", lang)
     };
     format!(
-        "✅ {} {}\n🔗 grumps.io/w/{}",
+        "✅ {} {}\n🔗 grumps.app/w/{}",
         count,
         label,
         workspace_slug
@@ -138,7 +138,7 @@ pub fn status_summary(
         format!("📝 {} notes", notes),
         format!("📎 {} files", files),
         String::new(),
-        format!("🔗 grumps.io/w/{}", workspace_slug),
+        format!("🔗 grumps.app/w/{}", workspace_slug),
     ]
     .join("\n")
 }
@@ -176,7 +176,7 @@ pub fn recap_message(
     lines.push(format!("📝 New notes: {}", new_notes));
     lines.push(format!("⏰ Upcoming reminders: {}", reminders));
     lines.push(String::new());
-    lines.push(format!("🔗 grumps.io/w/{}", slug));
+    lines.push(format!("🔗 grumps.app/w/{}", slug));
 
     lines.join("\n")
 }
@@ -271,13 +271,13 @@ mod tests {
     #[test]
     fn test_todos_added_summary_singular() {
         let result = todos_added_summary(1, "my-workspace", "en");
-        assert_eq!(result, "✅ 1 todo added\n🔗 grumps.io/w/my-workspace");
+        assert_eq!(result, "✅ 1 todo added\n🔗 grumps.app/w/my-workspace");
     }
 
     #[test]
     fn test_todos_added_summary_plural() {
         let result = todos_added_summary(3, "team-alpha", "en");
-        assert_eq!(result, "✅ 3 todos added\n🔗 grumps.io/w/team-alpha");
+        assert_eq!(result, "✅ 3 todos added\n🔗 grumps.app/w/team-alpha");
     }
 
     // 5. todo_list empty (open) → personality message
@@ -354,7 +354,7 @@ mod tests {
         assert!(result.contains("✅ 3 done this week"));
         assert!(result.contains("📝 12 notes"));
         assert!(result.contains("📎 7 files"));
-        assert!(result.contains("🔗 grumps.io/w/my-team"));
+        assert!(result.contains("🔗 grumps.app/w/my-team"));
     }
 
     // 13. help_text contains key sections
@@ -388,7 +388,7 @@ mod tests {
         assert!(result.contains("✅ Completed this week: 5"));
         assert!(result.contains("📝 New notes: 2"));
         assert!(result.contains("⏰ Upcoming reminders: 1"));
-        assert!(result.contains("🔗 grumps.io/w/x7k9m2p4"));
+        assert!(result.contains("🔗 grumps.app/w/x7k9m2p4"));
     }
 
     // 15. recap_message with no high priority items
@@ -400,7 +400,7 @@ mod tests {
         assert!(result.contains("✅ Completed this week: 2"));
         assert!(result.contains("📝 New notes: 0"));
         assert!(result.contains("⏰ Upcoming reminders: 0"));
-        assert!(result.contains("🔗 grumps.io/w/abc123"));
+        assert!(result.contains("🔗 grumps.app/w/abc123"));
     }
 
     // 16. recap_message with all zeros
@@ -413,6 +413,6 @@ mod tests {
         assert!(result.contains("✅ Completed this week: 0"));
         assert!(result.contains("📝 New notes: 0"));
         assert!(result.contains("⏰ Upcoming reminders: 0"));
-        assert!(result.contains("🔗 grumps.io/w/empty-ws"));
+        assert!(result.contains("🔗 grumps.app/w/empty-ws"));
     }
 }

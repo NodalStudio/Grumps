@@ -64,30 +64,43 @@ jobs:
             | sudo tar -xz -C /usr/local/bin
           trunk --version
 
-      - name: Build SPA bundle
+      - name: Build demo SPA bundle
         working-directory: crates/spa
         run: |
           mkdir -p dist
           npx tailwindcss -i ./input.css -o ./dist/styles.css --minify
-          trunk build --release --public-url /Grumps/demo/
+          trunk build --release --public-url /demo/
 
-      - name: Build landing (14 locales) + copy SPA into /demo
+      - name: Build landing (14 locales) + copy demo SPA into /demo
         env:
-          # CANONICAL_BASE controls the hreflang URLs in the generated HTML.
-          # Override at deploy time when serving from a custom domain.
-          CANONICAL_BASE: https://nodalstudio.github.io/Grumps
-          # SITE_PATH prefixes every internal URL (iframe demo src, SPA
-          # shim redirects). Required when serving under a sub-path on
-          # GitHub Pages — drop when moving to a custom domain at root.
-          SITE_PATH: /Grumps
+          # Served from the custom domain apex (landing/CNAME binds it).
+          CANONICAL_BASE: https://grumps.app
+          # Empty — site lives at root on the custom domain.
+          SITE_PATH: ""
         run: node landing/build.mjs
 
-      - name: Patch _redirects for GitHub Pages SPA fallback
+      - name: Build real SPA bundle (served at root for /w/:slug routes)
+        working-directory: crates/spa
         run: |
-          # GitHub Pages doesn't honour Cloudflare-style _redirects, but it
-          # does serve a custom 404.html. Copy the SPA shell to /demo/404.html
-          # so any deep URL under /demo/ falls back to the SPA shell instead
-          # of a generic 404, mirroring CF Pages SPA-fallback behaviour.
+          # Rebuild with --public-url / so asset URLs are absolute from root.
+          # Overwrites crates/spa/dist/ but the demo bundle has already been
+          # copied into dist/demo/ by the landing build above.
+          rm -rf dist
+          mkdir -p dist
+          npx tailwindcss -i ./input.css -o ./dist/styles.css --minify
+          trunk build --release --public-url /
+
+      - name: Install real SPA at dist root with 404 fallback
+        run: |
+          # GH Pages serves dist/404.html for any unmatched path. Using the
+          # SPA shell as 404.html means /w/:slug, /login, /dashboard, etc.
+          # load the SPA; Leptos client-side routing picks the route.
+          # Landing's dist/index.html at root remains untouched.
+          mv crates/spa/dist/index.html dist/404.html
+          cp -r crates/spa/dist/. dist/
+
+      - name: Ensure demo SPA has its own 404 fallback
+        run: |
           if [ -f dist/demo/index.html ]; then
             cp dist/demo/index.html dist/demo/404.html
           fi

@@ -1,7 +1,7 @@
 use worker::*;
 use serde::{Serialize, Deserialize};
 
-const ALLOWED_ORIGINS: &[&str] = &["https://grumps.io", "https://www.grumps.io"];
+const ALLOWED_ORIGINS: &[&str] = &["https://grumps.app", "https://www.grumps.app"];
 
 /// Add CORS headers to a response.
 pub fn add_cors(resp: &mut Response, origin: Option<&str>) -> Result<()> {

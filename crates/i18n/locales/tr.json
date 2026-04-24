@@ -247,9 +247,9 @@
   "seed.sch.plants.title": "Bitkileri sula",
   "seed.file.electricity_bill": "elektrik-faturasi-mart.pdf",
   "settings.locale.updated": "Kaydedildi.",
-  "telegram.onboarding.welcome.added_as_admin": "Grumps. Çalışma alanınız: grumps.io/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@{bot} help — geri kalan her şey\n\nİşi bitirir. Laf yok.",
-  "telegram.onboarding.welcome.added_as_member": "Grumps. Çalışma alanınız: grumps.io/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@{bot} help — geri kalan her şey\n\nBeni admin yap — çalışma alanı linki açıklamaya eklensin ve ambient özellikler açılsın. Grup → Yöneticiler → @{bot}.\n\nİşi bitirir. Laf yok.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. Çalışma alanınız: grumps.app/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@{bot} help — geri kalan her şey\n\nİşi bitirir. Laf yok.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. Çalışma alanınız: grumps.app/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@{bot} help — geri kalan her şey\n\nBeni admin yap — çalışma alanı linki açıklamaya eklensin ve ambient özellikler açılsın. Grup → Yöneticiler → @{bot}.\n\nİşi bitirir. Laf yok.",
   "telegram.onboarding.promoted.with_description": "Yönetici. Açıklama güncellendi.",
   "telegram.onboarding.promoted.without_description": "Yönetici.",
-  "telegram.onboarding.description": "Grumps çalışma alanı: grumps.io/w/{slug}\nİşi bitirir. Laf yok."
+  "telegram.onboarding.description": "Grumps çalışma alanı: grumps.app/w/{slug}\nİşi bitirir. Laf yok."
 }

@@ -3,7 +3,7 @@
 > AI agent for messaging groups: todos, notes, files, reminders + collaborative web workspace.
 > Stack: Rust/WASM (Leptos CSR SPA) · Cloudflare Workers (API) · D1 (SQLite) · R2 · KV · Gemini 2.5 Flash
 > Architecture: 100% Cloudflare serverless, zero servers
-> Domain: grumps.io
+> Domain: grumps.app
 
 ---
 
@@ -438,10 +438,10 @@ spa/
 #### WhatsApp OTP Flow
 
 ```
-1. User opens grumps.io/w/x7k9m2p4
+1. User opens grumps.app/w/x7k9m2p4
 2. No JWT in memory → redirect to /login
 3. Login page: enter WhatsApp phone number
-4. SPA calls POST api.grumps.io/auth/otp { phone, workspace_slug }
+4. SPA calls POST api.grumps.app/auth/otp { phone, workspace_slug }
 5. Worker checks:
    a. Is this number known in the Index DB?
    b. Is this number a member of the requested workspace?
@@ -449,7 +449,7 @@ spa/
 6. Worker generates 6-digit OTP, stores in KV (TTL 5 min)
 7. Worker sends OTP via WhatsApp (Meta message template)
 8. User enters the code in the SPA
-9. SPA calls POST api.grumps.io/auth/verify { phone, code, workspace_slug }
+9. SPA calls POST api.grumps.app/auth/verify { phone, code, workspace_slug }
 10. Worker verifies code in KV, issues a signed JWT:
     {
       sub: user_id,
@@ -859,7 +859,7 @@ A Cloudflare Cron Trigger runs periodically (configurable). It iterates over wor
 📎 Files added: 3
 ⏰ Upcoming reminders: 1
 
-🔗 Workspace: grumps.io/w/x7k9m2p4
+🔗 Workspace: grumps.app/w/x7k9m2p4
 ```
 
 ### Default Schedule
@@ -876,7 +876,7 @@ A Cloudflare Cron Trigger runs periodically (configurable). It iterates over wor
 - **Membership check**: every API request verifies that the user is a member of the workspace
 - **R2 files**: never public, signed URLs with 1h expiration
 - **Rate limiting**: KV counters per IP and per workspace
-- **CORS**: Worker only accepts origins from `grumps.io`
+- **CORS**: Worker only accepts origins from `grumps.app`
 - **GDPR**: deletion on request, JSON export, no unnecessary data retention
 
 ---
@@ -1041,7 +1041,7 @@ Alice: TODO:
        • Buy toilet paper
        • Pay the electricity bill @Bob
 
-→ POST api.grumps.io/webhook/whatsapp (by Meta)
+→ POST api.grumps.app/webhook/whatsapp (by Meta)
 → Worker verifies signature, parses message
 → Regex detects "TODO:", extracts items
 → Resolves D1 for workspace "x7k9m2p4"
@@ -1052,13 +1052,13 @@ Alice: TODO:
 Grumps: ✅ 2 todos added:
         📋 #23 Buy toilet paper
         📋 #24 Pay the electricity bill → @Bob
-        🔗 grumps.io/w/x7k9m2p4
+        🔗 grumps.app/w/x7k9m2p4
 
 [Bob opens the link]
 → SPA loads, no JWT → /login
 → Enters his number → OTP received on WhatsApp
 → Verified → JWT issued
-→ SPA fetch GET api.grumps.io/api/w/x7k9m2p4/todos
+→ SPA fetch GET api.grumps.app/api/w/x7k9m2p4/todos
 → Worker verifies JWT + membership → queries D1 → JSON
 → Bob sees both todos in the list view
 ```
@@ -1109,4 +1109,4 @@ Grumps: ⏰ Reminder set for @Bob:
 
 ---
 
-*Grumps — grumps.io — "Gets it done. No small talk."*
+*Grumps — grumps.app — "Gets it done. No small talk."*

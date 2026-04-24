@@ -143,7 +143,7 @@ pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
     ws_db.set_setting(ICAL_SETTING_KEY, &token).await?;
 
     // Build the public iCal URL
-    let base = "https://grumps.io";
+    let base = "https://grumps.app";
     let ical_url = format!("{}/cal/{}.ics?t={}", base, ws.slug, token);
 
     #[derive(Serialize)]

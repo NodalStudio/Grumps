@@ -41,7 +41,7 @@ pub fn generate_ical(workspace_name: &str, items: &[CalendarItem]) -> String {
 
     for item in items {
         out.push_str("BEGIN:VEVENT\r\n");
-        push_prop(&mut out, format!("UID:{}@grumps.io", item.id));
+        push_prop(&mut out, format!("UID:{}@grumps.app", item.id));
         push_prop(&mut out, format!("DTSTAMP:{}", format_ical_dt(&chrono::Utc::now())));
         if item.all_day {
             push_prop(&mut out, format!("DTSTART;VALUE=DATE:{}", format_ical_date(&item.starts_at)));
@@ -111,7 +111,7 @@ mod tests {
             url: "/w/ws1/events/1".into(),
         };
         let s = generate_ical("Test", &[item]);
-        assert!(s.contains("UID:evt:1@grumps.io"));
+        assert!(s.contains("UID:evt:1@grumps.app"));
         assert!(s.contains("DTSTART:20260420T100000Z"));
         assert!(s.contains("SUMMARY:R\u{e9}union"));
         assert!(s.contains("LOCATION:R\u{e9}publique"));

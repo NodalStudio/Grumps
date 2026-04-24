@@ -20,7 +20,7 @@
 ## Infrastructure
 
 - [ ] Create a proper Cloudflare API token (not OAuth) for long-term CF_API_TOKEN
-- [ ] Setup a custom domain (grumps.io or similar)
+- [ ] Setup a custom domain (grumps.app or similar)
 - [ ] Deploy SPA to CF Pages (`trunk build --release` + `wrangler pages deploy`)
 - [ ] Configure SPA API_BASE to point to production Worker URL
 - [ ] Setup Stripe products (Pro €5/mo, Business €15/mo) + webhook

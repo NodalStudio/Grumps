@@ -2,6 +2,13 @@ name = "grumps-api"
 main = "crates/worker/build/worker/shim.mjs"
 compatibility_date = "2024-12-01"
 
+# Custom domain — requires the `grumps.app` zone to be attached to this
+# Cloudflare account. Applied on `wrangler deploy`. Until the zone exists
+# or propagates, comment the block out to deploy to `*.workers.dev` only.
+routes = [
+  { pattern = "api.grumps.app/*", zone_name = "grumps.app", custom_domain = true },
+]
+
 [build]
 command = "cargo install -q worker-build && cd crates/worker && worker-build --release"
 
@@ -10,12 +17,6 @@ ENVIRONMENT = "development"
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WEB_SEARCH_PROVIDER = "brave"
 TG_BOT_USERNAME = "HeyGrumpsBot"
-# All other secrets and per-deployment config (SUPER_ADMIN_PHONES,
-# WA_VERIFY_TOKEN, ANTHROPIC_API_KEY, GEMINI_API_KEY, JWT_SECRET,
-# CF_API_TOKEN, CF_ACCOUNT_ID, TELEGRAM_BOT_TOKEN, DISCORD_BOT_TOKEN,
-# STRIPE_SECRET, BRAVE_API_KEY, etc.) are set via `wrangler secret put`
-# — they MUST never live in this file because the repo is public.
-# See DEPLOY.md for the full list and `wrangler secret put` invocations.
 
 [[d1_databases]]
 binding = "INDEX_DB"

@@ -167,11 +167,11 @@ fn translate(key: &str, lang: Lang) -> Option<&'static str> {
         ("card.low_priority", Lang::Pt) => "Baixa prioridade",
 
         // === Quota ===
-        ("quota.todo_limit", Lang::En) => "Todo limit reached. Upgrade: grumps.io/billing",
-        ("quota.todo_limit", Lang::Fr) => "Limite de tâches atteinte. Upgrade : grumps.io/billing",
-        ("quota.todo_limit", Lang::Es) => "Límite de tareas alcanzado. Upgrade: grumps.io/billing",
-        ("quota.todo_limit", Lang::De) => "Aufgabenlimit erreicht. Upgrade: grumps.io/billing",
-        ("quota.todo_limit", Lang::Pt) => "Limite de tarefas atingido. Upgrade: grumps.io/billing",
+        ("quota.todo_limit", Lang::En) => "Todo limit reached. Upgrade: grumps.app/billing",
+        ("quota.todo_limit", Lang::Fr) => "Limite de tâches atteinte. Upgrade : grumps.app/billing",
+        ("quota.todo_limit", Lang::Es) => "Límite de tareas alcanzado. Upgrade: grumps.app/billing",
+        ("quota.todo_limit", Lang::De) => "Aufgabenlimit erreicht. Upgrade: grumps.app/billing",
+        ("quota.todo_limit", Lang::Pt) => "Limite de tarefas atingido. Upgrade: grumps.app/billing",
 
         // === Fallback ===
         _ => return None,

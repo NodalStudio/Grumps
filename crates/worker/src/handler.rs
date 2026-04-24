@@ -80,7 +80,7 @@ pub async fn handle_message(
         ParseResult::SearchNotes(query) => handle_search_notes(&query, ws_db).await,
         ParseResult::ListFiles => Ok(HandlerResult::one("File listing available on the web workspace.".into(), None)),
         ParseResult::Help => Ok(HandlerResult::one(formatter::help_text(), None)),
-        ParseResult::WorkspaceLink => Ok(HandlerResult::one(format!("grumps.io/w/{}", workspace_slug), None)),
+        ParseResult::WorkspaceLink => Ok(HandlerResult::one(format!("grumps.app/w/{}", workspace_slug), None)),
         ParseResult::Status => handle_status(ws_db, workspace_slug).await,
         ParseResult::QuotedTodo => handle_quoted_todo(inbound_quoted_message_text, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
         ParseResult::QuotedNote => handle_quoted_note(inbound_quoted_message_text, ws_db, member_id, &plan).await,

@@ -247,9 +247,9 @@
   "seed.sch.plants.title": "ري النباتات",
   "seed.file.electricity_bill": "فاتورة-كهرباء-مارس.pdf",
   "settings.locale.updated": "تم الحفظ.",
-  "telegram.onboarding.welcome.added_as_admin": "Grumps. مساحة عملك: grumps.io/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@{bot} help — كل شيء آخر\n\nينجز. بلا ثرثرة.",
-  "telegram.onboarding.welcome.added_as_member": "Grumps. مساحة عملك: grumps.io/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@{bot} help — كل شيء آخر\n\nعيّنني مشرفًا لإضافة رابط مساحة العمل إلى الوصف وتفعيل ميزات ambient. المجموعة ← المشرفون ← @{bot}.\n\nينجز. بلا ثرثرة.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. مساحة عملك: grumps.app/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@{bot} help — كل شيء آخر\n\nينجز. بلا ثرثرة.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. مساحة عملك: grumps.app/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@{bot} help — كل شيء آخر\n\nعيّنني مشرفًا لإضافة رابط مساحة العمل إلى الوصف وتفعيل ميزات ambient. المجموعة ← المشرفون ← @{bot}.\n\nينجز. بلا ثرثرة.",
   "telegram.onboarding.promoted.with_description": "مشرف. تحدّث الوصف.",
   "telegram.onboarding.promoted.without_description": "مشرف.",
-  "telegram.onboarding.description": "مساحة عمل Grumps: grumps.io/w/{slug}\nينجز. بلا ثرثرة."
+  "telegram.onboarding.description": "مساحة عمل Grumps: grumps.app/w/{slug}\nينجز. بلا ثرثرة."
 }

@@ -46,7 +46,7 @@ impl Plan {
 pub fn check_todo_quota(plan: &Plan, current_open: i64) -> Result<(), String> {
     if let Some(max) = plan.max_todos() {
         if current_open >= max {
-            return Err(format!("Todo limit reached ({}/{}). Upgrade to add more: grumps.io/billing", current_open, max));
+            return Err(format!("Todo limit reached ({}/{}). Upgrade to add more: grumps.app/billing", current_open, max));
         }
     }
     Ok(())
@@ -55,7 +55,7 @@ pub fn check_todo_quota(plan: &Plan, current_open: i64) -> Result<(), String> {
 pub fn check_note_quota(plan: &Plan, current_count: i64) -> Result<(), String> {
     if let Some(max) = plan.max_notes() {
         if current_count >= max {
-            return Err(format!("Note limit reached ({}/{}). Upgrade: grumps.io/billing", current_count, max));
+            return Err(format!("Note limit reached ({}/{}). Upgrade: grumps.app/billing", current_count, max));
         }
     }
     Ok(())
@@ -64,7 +64,7 @@ pub fn check_note_quota(plan: &Plan, current_count: i64) -> Result<(), String> {
 pub fn check_llm_quota(plan: &Plan, calls_this_month: i64) -> Result<(), String> {
     if let Some(max) = plan.max_llm_calls() {
         if calls_this_month >= max {
-            return Err(format!("AI message limit reached ({}/{}). Upgrade: grumps.io/billing", calls_this_month, max));
+            return Err(format!("AI message limit reached ({}/{}). Upgrade: grumps.app/billing", calls_this_month, max));
         }
     }
     Ok(())

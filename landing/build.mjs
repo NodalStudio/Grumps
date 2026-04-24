@@ -151,7 +151,12 @@ async function main() {
   const masterRaw = await fs.readFile(SRC_HTML, 'utf8');
   await fs.mkdir(OUT_DIR, { recursive: true });
 
-  const canonicalBase = process.env.CANONICAL_BASE || 'https://grumps.io';
+  // GitHub Pages reads `dist/CNAME` to bind the artifact to a custom domain.
+  const cnamePath = path.join(__dirname, 'CNAME');
+  const cnameExists = await fs.access(cnamePath).then(() => true).catch(() => false);
+  if (cnameExists) await fs.copyFile(cnamePath, path.join(OUT_DIR, 'CNAME'));
+
+  const canonicalBase = process.env.CANONICAL_BASE || 'https://grumps.app';
   const hreflangLinks = buildHreflangs(canonicalBase);
 
   // Sub-path the site is served under. Empty for a custom domain ("/"),

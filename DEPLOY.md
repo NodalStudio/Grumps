@@ -37,6 +37,7 @@ wrangler d1 create grumps-index
 ```
 
 Output will show something like:
+
 ```
 ✅ Successfully created DB 'grumps-index'
 database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -86,6 +87,7 @@ id = "PASTE_HERE"
 Go to: https://dash.cloudflare.com/profile/api-tokens
 
 Create a token with these permissions:
+
 - **Account > D1 > Edit** (to create/query workspace databases)
 - **Account > Workers KV Storage > Edit**
 
@@ -137,6 +139,7 @@ Note the Price IDs (e.g., `price_xxx`).
 ### 3.2 Get API Keys
 
 Dashboard → Developers → API Keys:
+
 - **Publishable key**: `pk_live_xxx` (for the SPA checkout)
 - **Secret key**: `sk_live_xxx` (for the Worker webhook)
 - **Webhook signing secret**: created in step 3.3
@@ -144,6 +147,7 @@ Dashboard → Developers → API Keys:
 ### 3.3 Configure Stripe Webhook
 
 Dashboard → Developers → Webhooks → Add Endpoint:
+
 - URL: `https://grumps-api.YOUR_SUBDOMAIN.workers.dev/webhook/stripe`
 - Events: `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.updated`
 
@@ -318,16 +322,11 @@ const API_BASE: &str = "https://grumps-api.YOUR_SUBDOMAIN.workers.dev";
 
 Then rebuild and redeploy.
 
-### 9.6 Custom Domain (optional)
+### 9.6 Custom Domain
 
-In Cloudflare Dashboard → Pages → grumps-web → Custom Domains:
-- Add `grumps.io` (or your domain)
-- Add `www.grumps.io`
+Landing + SPA are served on GitHub Pages at `grumps.app`. The CNAME file at `landing/CNAME` is copied to `dist/CNAME` by `landing/build.mjs`; configure in GitHub → Settings → Pages → Custom domain: `grumps.app`, then enable Enforce HTTPS once the DNS check passes.
 
-For the Worker API, add a custom route:
-```bash
-wrangler deploy --route api.grumps.io/*
-```
+The Worker API is served at `api.grumps.app`. The route is declared in `wrangler.toml` (`[[routes]]` section with `zone_name = "grumps.app"`) and applied on `wrangler deploy`. Requires the `grumps.app` zone to be attached to the Cloudflare account (Cloudflare dashboard → Add a site → `grumps.app` → set nameservers at registrar).
 
 ---
 
@@ -335,17 +334,11 @@ wrangler deploy --route api.grumps.io/*
 
 ### 10.0 Privacy mode check (one-time per bot)
 
-In a DM with [@BotFather](https://t.me/BotFather), send `/setprivacy`,
-pick `@grumps_bot`, and verify the current state is **Enabled**.
-Privacy mode is ON by default on new bots; this is just a verification.
+In a DM with [@BotFather](https://t.me/BotFather), send `/setprivacy`, pick `@grumps_bot`, and verify the current state is **Enabled**. Privacy mode is ON by default on new bots; this is just a verification.
 
-Grumps relies on the group-admin-promotes-the-bot workflow to unlock
-non-mention message reception. Disabling privacy mode globally would
-work but removes the per-group opt-in — do not do this.
+Grumps relies on the group-admin-promotes-the-bot workflow to unlock non-mention message reception. Disabling privacy mode globally would work but removes the per-group opt-in — do not do this.
 
-If you toggle privacy mode after the bot is already in a group,
-Telegram does not apply the change retroactively. Remove the bot
-from the group and re-add it.
+If you toggle privacy mode after the bot is already in a group, Telegram does not apply the change retroactively. Remove the bot from the group and re-add it.
 
 ### 10.1 Create a Bot
 
@@ -372,6 +365,7 @@ wrangler secret put TG_WEBHOOK_SECRET
 ```
 
 Update `wrangler.toml`:
+
 ```toml
 [vars]
 TG_BOT_USERNAME = "grumps_bot"
@@ -399,6 +393,7 @@ wrangler secret put DISCORD_PUBLIC_KEY
 ```
 
 Update `wrangler.toml`:
+
 ```toml
 [vars]
 DISCORD_APPLICATION_ID = "YOUR_APP_ID"
@@ -424,42 +419,45 @@ Or push to a GitHub repo and enable Pages on the `main` branch.
 
 ## Environment Summary
 
-| Secret | Source | Purpose |
-|---|---|---|
-| `WA_APP_SECRET` | Meta Developer Dashboard | HMAC webhook verification |
-| `WA_ACCESS_TOKEN` | Meta WhatsApp API Setup | Send messages |
-| `CF_API_TOKEN` | Cloudflare API Tokens | D1 REST API access |
-| `CF_ACCOUNT_ID` | Cloudflare Dashboard | D1 REST API URL |
-| `JWT_SECRET` | Self-generated | Sign/verify JWT tokens |
-| `GEMINI_API_KEY` | Google AI Studio | Primary NLU |
-| `ANTHROPIC_API_KEY` | Anthropic Console | Fallback NLU |
-| `TG_BOT_TOKEN` | Telegram BotFather | Telegram messaging |
-| `TG_WEBHOOK_SECRET` | Self-generated | Telegram webhook auth |
-| `DISCORD_BOT_TOKEN` | Discord Developer Portal | Discord messaging |
-| `DISCORD_PUBLIC_KEY` | Discord Developer Portal | Discord webhook auth |
+| Secret               | Source                   | Purpose                   |
+| -------------------- | ------------------------ | ------------------------- |
+| `WA_APP_SECRET`      | Meta Developer Dashboard | HMAC webhook verification |
+| `WA_ACCESS_TOKEN`    | Meta WhatsApp API Setup  | Send messages             |
+| `CF_API_TOKEN`       | Cloudflare API Tokens    | D1 REST API access        |
+| `CF_ACCOUNT_ID`      | Cloudflare Dashboard     | D1 REST API URL           |
+| `JWT_SECRET`         | Self-generated           | Sign/verify JWT tokens    |
+| `GEMINI_API_KEY`     | Google AI Studio         | Primary NLU               |
+| `ANTHROPIC_API_KEY`  | Anthropic Console        | Fallback NLU              |
+| `TG_BOT_TOKEN`       | Telegram BotFather       | Telegram messaging        |
+| `TG_WEBHOOK_SECRET`  | Self-generated           | Telegram webhook auth     |
+| `DISCORD_BOT_TOKEN`  | Discord Developer Portal | Discord messaging         |
+| `DISCORD_PUBLIC_KEY` | Discord Developer Portal | Discord webhook auth      |
 
-| Variable | Value | Purpose |
-|---|---|---|
-| `WA_PHONE_NUMBER_ID` | From Meta | WhatsApp sender ID |
-| `WA_VERIFY_TOKEN` | Self-generated | Meta webhook verification |
-| `TG_BOT_USERNAME` | From BotFather | Telegram mention detection |
-| `DISCORD_APPLICATION_ID` | From Discord | Discord mention detection |
+| Variable                 | Value          | Purpose                    |
+| ------------------------ | -------------- | -------------------------- |
+| `WA_PHONE_NUMBER_ID`     | From Meta      | WhatsApp sender ID         |
+| `WA_VERIFY_TOKEN`        | Self-generated | Meta webhook verification  |
+| `TG_BOT_USERNAME`        | From BotFather | Telegram mention detection |
+| `DISCORD_APPLICATION_ID` | From Discord   | Discord mention detection  |
 
 ---
 
 ## Monitoring
 
 ### Cloudflare Dashboard
+
 - Workers → grumps-api → Metrics (requests, errors, latency)
 - D1 → grumps-index → Metrics (rows read/written)
 - KV → Metrics (reads/writes)
 
 ### Logs
+
 ```bash
 wrangler tail
 ```
 
 This streams live logs from your Worker. Look for:
+
 - `Created D1 ...` — workspace provisioning
 - `Gemini low confidence ...` — LLM fallback
 - `Sent recap for ...` — recap delivery
@@ -467,6 +465,7 @@ This streams live logs from your Worker. Look for:
 - `Cron error: ...` — cron failures
 
 ### Cost Tracking
+
 - WhatsApp: ~$1.50/group/month (check Meta billing)
 - Gemini: track via KV (`llm_calls_YYYY_MM` in settings)
 - Cloudflare: free tier covers MVP easily
@@ -478,6 +477,7 @@ This streams live logs from your Worker. Look for:
 After the Plan A foundation merge, deploy with this sequence:
 
 ### One-shot infrastructure setup
+
 ```bash
 # 1. Create the Vectorize index (one-shot, idempotent if you ignore "already exists")
 wrangler vectorize create grumps-chat-rag --dimensions=1024 --metric=cosine
@@ -488,6 +488,7 @@ wrangler secret put BRAVE_API_KEY        # web search (optional)
 ```
 
 ### Per-deploy
+
 ```bash
 # 3. Deploy the worker (creates DO classes via wrangler.toml [[migrations]])
 wrangler deploy
@@ -501,12 +502,14 @@ wrangler pages deploy ../../dist/
 ```
 
 ### Post-deploy (one-shot, optional)
+
 ```bash
 # Backfill RAG vectors for past chat messages — improves "what did we say about X" queries
 GRUMPS_ADMIN_TOKEN="..." ./scripts/rag_backfill.sh
 ```
 
 ### Rollback
+
 - Worker : `git revert` the offending commit, redeploy
 - D1 : new tables stay in place but unused, no data loss
 - DOs : alarms persist. Old code may not handle them — only revert if alarm handlers crash on the old version.
@@ -514,32 +517,36 @@ GRUMPS_ADMIN_TOKEN="..." ./scripts/rag_backfill.sh
 ## Operating notes
 
 ### Quotas to monitor
+
 - `agent_quota_used_month` per workspace : Sonnet calls
 - `web_search_quota_used_month` per workspace : Brave calls
 - Reset on the 1st of each month via a system scheduled_action
 
 ### Cost ceiling
+
 Hard caps per plan (Free/Pro/Business). When exceeded, agent returns honest message with upgrade link.
 
 ### Logs
+
 - All errors logged via `console_log!` (visible in `wrangler tail`)
 - Auto-extract failures, classifier errors, DO RPC errors, web search timeouts — all logged but never propagate to user
 
 ### Telegram bot setup
+
 The bot welcome flow already exists (commit 03363f2). Auto-provision creates the workspace + applies all 4 migrations.
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---|---|
-| Webhook returns 403 | Check `WA_APP_SECRET` matches Meta dashboard |
-| Bot doesn't respond | Check `wrangler tail` for errors, verify webhook URL in Meta |
-| Workspace not created | Check `CF_API_TOKEN` has D1 permissions |
-| OTP not received | Check `WA_ACCESS_TOKEN` is valid, phone number is correct |
-| SPA shows blank page | Check `API_BASE` in api.rs matches Worker URL |
-| CORS errors in browser | Check origin matches `ALLOWED_ORIGINS` in middleware.rs |
-| JWT expired | Token lasts 7 days, user needs to re-login |
-| LLM not working | Check `GEMINI_API_KEY`, look for "Gemini error" in logs |
-| Cron not firing | Verify `[triggers]` in wrangler.toml, check Workers dashboard |
+| Problem                | Solution                                                      |
+| ---------------------- | ------------------------------------------------------------- |
+| Webhook returns 403    | Check `WA_APP_SECRET` matches Meta dashboard                  |
+| Bot doesn't respond    | Check `wrangler tail` for errors, verify webhook URL in Meta  |
+| Workspace not created  | Check `CF_API_TOKEN` has D1 permissions                       |
+| OTP not received       | Check `WA_ACCESS_TOKEN` is valid, phone number is correct     |
+| SPA shows blank page   | Check `API_BASE` in api.rs matches Worker URL                 |
+| CORS errors in browser | Check origin matches `ALLOWED_ORIGINS` in middleware.rs       |
+| JWT expired            | Token lasts 7 days, user needs to re-login                    |
+| LLM not working        | Check `GEMINI_API_KEY`, look for "Gemini error" in logs       |
+| Cron not firing        | Verify `[triggers]` in wrangler.toml, check Workers dashboard |

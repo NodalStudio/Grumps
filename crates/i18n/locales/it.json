@@ -247,9 +247,9 @@
   "seed.sch.plants.title": "Annaffiare le piante",
   "seed.file.electricity_bill": "bolletta-luce-marzo.pdf",
   "settings.locale.updated": "Salvato.",
-  "telegram.onboarding.welcome.added_as_admin": "Grumps. Il tuo workspace: grumps.io/w/{slug}\n\nTODO: <voce> — aggiunge un'attività\nNOTE: <testo> — fissa un'info\n@{bot} help — tutto il resto\n\nSi fa. Niente chiacchiere.",
-  "telegram.onboarding.welcome.added_as_member": "Grumps. Il tuo workspace: grumps.io/w/{slug}\n\nTODO: <voce> — aggiunge un'attività\nNOTE: <testo> — fissa un'info\n@{bot} help — tutto il resto\n\nRendimi admin per mettere il link del workspace nella descrizione e attivare le funzioni ambient. Gruppo → Amministratori → @{bot}.\n\nSi fa. Niente chiacchiere.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. Il tuo workspace: grumps.app/w/{slug}\n\nTODO: <voce> — aggiunge un'attività\nNOTE: <testo> — fissa un'info\n@{bot} help — tutto il resto\n\nSi fa. Niente chiacchiere.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. Il tuo workspace: grumps.app/w/{slug}\n\nTODO: <voce> — aggiunge un'attività\nNOTE: <testo> — fissa un'info\n@{bot} help — tutto il resto\n\nRendimi admin per mettere il link del workspace nella descrizione e attivare le funzioni ambient. Gruppo → Amministratori → @{bot}.\n\nSi fa. Niente chiacchiere.",
   "telegram.onboarding.promoted.with_description": "Admin. Descrizione aggiornata.",
   "telegram.onboarding.promoted.without_description": "Admin.",
-  "telegram.onboarding.description": "Workspace Grumps: grumps.io/w/{slug}\nSi fa. Niente chiacchiere."
+  "telegram.onboarding.description": "Workspace Grumps: grumps.app/w/{slug}\nSi fa. Niente chiacchiere."
 }

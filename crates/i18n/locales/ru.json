@@ -247,9 +247,9 @@
   "seed.sch.plants.title": "Полить растения",
   "seed.file.electricity_bill": "счёт-электричество-март.pdf",
   "settings.locale.updated": "Сохранено.",
-  "telegram.onboarding.welcome.added_as_admin": "Grumps. Ваше пространство: grumps.io/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@{bot} help — всё остальное\n\nДелает. Без болтовни.",
-  "telegram.onboarding.welcome.added_as_member": "Grumps. Ваше пространство: grumps.io/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@{bot} help — всё остальное\n\nНазначьте меня администратором, чтобы ссылка на пространство появилась в описании группы и заработали ambient-функции. Группа → Администраторы → @{bot}.\n\nДелает. Без болтовни.",
+  "telegram.onboarding.welcome.added_as_admin": "Grumps. Ваше пространство: grumps.app/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@{bot} help — всё остальное\n\nДелает. Без болтовни.",
+  "telegram.onboarding.welcome.added_as_member": "Grumps. Ваше пространство: grumps.app/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@{bot} help — всё остальное\n\nНазначьте меня администратором, чтобы ссылка на пространство появилась в описании группы и заработали ambient-функции. Группа → Администраторы → @{bot}.\n\nДелает. Без болтовни.",
   "telegram.onboarding.promoted.with_description": "Админ. Описание обновлено.",
   "telegram.onboarding.promoted.without_description": "Админ.",
-  "telegram.onboarding.description": "Пространство Grumps: grumps.io/w/{slug}\nДелает. Без болтовни."
+  "telegram.onboarding.description": "Пространство Grumps: grumps.app/w/{slug}\nДелает. Без болтовни."
 }
