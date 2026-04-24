@@ -6,7 +6,7 @@ compatibility_date = "2024-12-01"
 # Cloudflare account. Applied on `wrangler deploy`. Until the zone exists
 # or propagates, comment the block out to deploy to `*.workers.dev` only.
 routes = [
-  { pattern = "api.grumps.app/*", zone_name = "grumps.app", custom_domain = true },
+  { pattern = "api.grumps.app", zone_name = "grumps.app", custom_domain = true },
 ]
 
 [build]
