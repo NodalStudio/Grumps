@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
+use wasm_bindgen::JsCast;
 use crate::auth::use_auth;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
@@ -48,11 +49,22 @@ pub fn TodosPage() -> impl IntoView {
         ("done", "todo.filter.done"), ("mine", "todo.filter.mine"),
     ];
 
+    let focus_new_todo = move |_| {
+        let Some(doc) = web_sys::window().and_then(|w| w.document()) else { return };
+        if let Some(el) = doc.get_element_by_id("new-todo-input") {
+            if let Ok(input) = el.dyn_into::<web_sys::HtmlInputElement>() {
+                input.scroll_into_view();
+                let _ = input.focus();
+            }
+        }
+    };
+
     view! {
         <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
             <button
                 class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
+                on:click=focus_new_todo
             >"+ "{move || tr("todo.action.add")}</button>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
@@ -163,6 +175,7 @@ pub fn TodosPage() -> impl IntoView {
             <div class="flex items-center gap-3 px-4 py-2.5 mt-3 border-2 border-dashed rounded-sm" style="border-color: var(--ink-15);">
                 <span class="text-lg" style="color: var(--ink-40);">"+"</span>
                 <input
+                    id="new-todo-input"
                     type="text"
                     class="flex-1 border-none bg-transparent text-sm outline-none"
                     style="font-family: var(--font-body); color: var(--ink);"
