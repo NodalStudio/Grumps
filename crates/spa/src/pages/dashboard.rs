@@ -38,11 +38,12 @@ fn EmptyState() -> impl IntoView {
                 </div>
                 <div class="p-6 border-2 border-ink rounded-sm" style="background: var(--cream-light);">
                     <h3 class="font-display text-sm font-bold uppercase tracking-wider mb-3">{move || tr("dashboard.empty.group_heading")}</h3>
-                    <ol class="text-sm text-left list-decimal list-inside space-y-1" style="color: var(--ink-70);">
-                        <li>{move || tr("dashboard.empty.group_step1")}</li>
-                        <li>{move || tr("dashboard.empty.group_step2")}</li>
-                        <li>{move || tr("dashboard.empty.group_step3")}</li>
-                    </ol>
+                    <a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank"
+                       class="inline-block px-4 py-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm cursor-pointer mb-3"
+                       style="background: var(--ink); color: var(--cream); font-family: var(--font-body);">
+                        {move || tr("dashboard.empty.group_step2")}
+                    </a>
+                    <p class="text-xs" style="color: var(--ink-40);">{move || tr("dashboard.empty.group_step3")}</p>
                 </div>
             </div>
         </div>
@@ -66,7 +67,9 @@ fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
                     </a>
                 }
             }).collect_view()}
-            <a href="/dashboard" class="block p-6 border-2 border-dashed rounded-sm text-center" style="border-color: var(--ink-15);">
+            <a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank"
+               class="block p-6 border-2 border-dashed rounded-sm text-center cursor-pointer transition-colors hover:border-ink"
+               style="border-color: var(--ink-15);">
                 <h3 class="font-display text-sm font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("dashboard.add_another")}</h3>
             </a>
         </div>

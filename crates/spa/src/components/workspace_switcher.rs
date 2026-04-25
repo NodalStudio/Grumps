@@ -22,7 +22,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
                 <ul class="absolute top-full left-0 right-0 mt-1 border-2 border-ink rounded-sm z-10" style="background: var(--cream-light);">
                     {workspaces.iter().cloned().map(|ws| view_row(ws, &cur_for_render)).collect_view()}
                     <li class="border-t-2 border-ink"></li>
-                    <li><a href="/dashboard" class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline">"+ Add Grumps to a group"</a></li>
+                    <li><a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank" class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline">"+ Add Grumps to a group"</a></li>
                 </ul>
             </Show>
         </div>
