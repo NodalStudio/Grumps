@@ -77,6 +77,10 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
                 <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">{move || tr("sidebar.section.manage")}</div>
                 <NavItem href=format!("{}/settings", base) i18n_key="sidebar.nav.settings" icon="\u{2699}" />
+                <A href=format!("{}/settings", crate::demo::router_base()) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
+                    <span class="w-[18px] text-center text-[15px]">{"\u{25CB}"}</span>
+                    {move || tr("settings.account")}
+                </A>
                 <A href=format!("{}/dashboard", crate::demo::router_base()) attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium cursor-pointer transition-all border-l-[3px] border-transparent hover:bg-black/[0.04]" attr:style="color: var(--ink-70);">
                     <span class="w-[18px] text-center text-[15px]">{"\u{229E}"}</span>
                     {move || tr("sidebar.my_workspaces")}
