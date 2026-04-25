@@ -59,11 +59,12 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
     let cache_key = "obs:global:agg";
     if let Some(ref kv) = kv {
         if let Ok(Some(cached)) = kv.get(cache_key).text().await {
-            let mut headers = Headers::new();
-            headers.set("content-type", "application/json")?;
-            headers.set("x-cache", "hit")?;
-            headers.set("Access-Control-Allow-Origin", "*")?;
-            return Ok(Response::ok(cached)?.with_headers(headers));
+            let mut resp = Response::ok(cached)?;
+            resp.headers_mut().set("content-type", "application/json")?;
+            resp.headers_mut().set("x-cache", "hit")?;
+            let origin = req.headers().get("Origin")?.unwrap_or_default();
+            middleware::add_cors(&mut resp, Some(&origin))?;
+            return Ok(resp);
         }
     }
 
@@ -166,11 +167,12 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
         let _ = kv.put(cache_key, &json).map(|p| p.expiration_ttl(300).execute());
     }
 
-    let mut headers = Headers::new();
-    headers.set("content-type", "application/json")?;
-    headers.set("x-cache", "miss")?;
-    headers.set("Access-Control-Allow-Origin", "*")?;
-    Ok(Response::ok(json)?.with_headers(headers))
+    let mut resp = Response::ok(json)?;
+    resp.headers_mut().set("content-type", "application/json")?;
+    resp.headers_mut().set("x-cache", "miss")?;
+    let origin = req.headers().get("Origin")?.unwrap_or_default();
+    middleware::add_cors(&mut resp, Some(&origin))?;
+    Ok(resp)
 }
 
 /// GET /api/admin/me — returns whether the caller is super admin
@@ -185,6 +187,7 @@ pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
         "phone": claims.phone,
     });
     let mut resp = Response::from_json(&payload)?;
-    resp.headers_mut().set("Access-Control-Allow-Origin", "*")?;
+    let origin = req.headers().get("Origin")?.unwrap_or_default();
+    middleware::add_cors(&mut resp, Some(&origin))?;
     Ok(resp)
 }

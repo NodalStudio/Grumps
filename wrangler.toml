@@ -13,7 +13,10 @@ routes = [
 command = "cargo install -q worker-build && cd crates/worker && worker-build --release"
 
 [vars]
-ENVIRONMENT = "development"
+# This config IS the production deploy. The dev_bypass auth shortcut is
+# gated by `ENVIRONMENT != "production"`, so this MUST stay "production"
+# in the committed file. Local `wrangler dev` overrides via .dev.vars.
+ENVIRONMENT = "production"
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WEB_SEARCH_PROVIDER = "brave"
 TG_BOT_USERNAME = "HeyGrumpsBot"

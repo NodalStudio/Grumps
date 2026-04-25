@@ -11,6 +11,10 @@ pub fn TodosPage() -> impl IntoView {
     let slug = Memo::new(move |_| params.read().get("slug").unwrap_or_default());
     let (filter, set_filter) = signal("open".to_string());
     let (refresh_counter, set_refresh) = signal(0u32);
+    // Optimistic-toggle set: while the API call is in flight + fade-out runs,
+    // these ids render in the "next" status so the user sees the transition
+    // even if the request takes longer than the animation.
+    let (toggling, set_toggling) = signal::<Vec<String>>(Vec::new());
 
     let api = auth.api.clone();
     let api2 = auth.api.clone();
@@ -90,38 +94,55 @@ pub fn TodosPage() -> impl IntoView {
                                 each=move || items.clone()
                                 key=|t| t.seq_num
                                 children=move |todo| {
-                                    let is_done = todo.status == "done";
+                                    let was_done = todo.status == "done";
                                     let is_high = todo.priority == 1;
                                     let id = todo.id.clone();
                                     let api_for_click = api_for_children.clone();
                                     let slug_for_click = slug.get();
+                                    // Reactive: looks up whether this row is currently mid-toggle.
+                                    let id_for_check = id.clone();
+                                    let is_toggling = Signal::derive(move || toggling.with(|v| v.iter().any(|x| x == &id_for_check)));
+                                    // Effective "done" state for visuals = original XOR toggling.
+                                    let effective_done = Signal::derive(move || was_done ^ is_toggling.get());
+
                                     view! {
                                         <div
-                                            class="flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:translate-x-0.5"
+                                            class="todo-row flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-sm cursor-pointer"
                                             class:border-l-4=is_high
+                                            class:todo-row-fading=move || is_toggling.get()
                                             style:border-left-color=move || if is_high { "var(--brick)" } else { "" }
-                                            style="background: var(--cream-light);"
+                                            style="background: var(--cream-light); transition: opacity 280ms ease-out, transform 280ms ease-out, max-height 280ms ease-out, padding 280ms ease-out, margin 280ms ease-out, border-width 280ms ease-out;"
                                         >
                                             <div
-                                                class="w-5 h-5 border-2 border-ink rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
-                                                style:background=move || if is_done { "var(--teal)" } else { "var(--cream-light)" }
-                                                style:border-color=move || if is_done { "var(--teal)" } else { "var(--ink)" }
+                                                class="todo-checkbox w-5 h-5 border-2 border-ink rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
+                                                style:background=move || if effective_done.get() { "var(--teal)" } else { "var(--cream-light)" }
+                                                style:border-color=move || if effective_done.get() { "var(--teal)" } else { "var(--ink)" }
+                                                style="transition: background 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out;"
                                                 on:click=move |ev| {
                                                     ev.stop_propagation();
+                                                    if is_toggling.get() { return; } // de-bounce double-clicks
                                                     let api = api_for_click.clone();
                                                     let s = slug_for_click.clone();
                                                     let id_c = id.clone();
-                                                    let next_status = if is_done { "open" } else { "done" };
+                                                    let next_status = if was_done { "open" } else { "done" };
+                                                    set_toggling.update(|v| v.push(id_c.clone()));
                                                     leptos::task::spawn_local(async move {
-                                                        let _ = api.update_todo(&s, &id_c, &serde_json::json!({ "status": next_status })).await;
+                                                        let body = serde_json::json!({ "status": next_status });
+                                                        let api_call = api.update_todo(&s, &id_c, &body);
+                                                        let timer = gloo_timers::future::TimeoutFuture::new(280);
+                                                        let (_, _) = futures::join!(api_call, timer);
                                                         set_refresh.update(|n| *n += 1);
+                                                        set_toggling.update(|v| v.retain(|x| x != &id_c));
                                                     });
                                                 }
                                             >
-                                                {if is_done { "✓" } else { "" }}
+                                                <span style="transition: opacity 140ms ease-out;" style:opacity=move || if effective_done.get() { "1" } else { "0" }>"✓"</span>
                                             </div>
                                             <div class="flex-1 min-w-0">
-                                                <div class="font-semibold text-sm" class:line-through=is_done style:color=move || if is_done { "var(--ink-40)" } else { "var(--ink)" }>
+                                                <div class="font-semibold text-sm"
+                                                     class:line-through=move || effective_done.get()
+                                                     style="transition: color 180ms ease-out, text-decoration-color 180ms ease-out;"
+                                                     style:color=move || if effective_done.get() { "var(--ink-40)" } else { "var(--ink)" }>
                                                     {let t = todo.title.clone(); move || tr(&t)}
                                                 </div>
                                                 <div class="flex items-center gap-2.5 mt-1 text-xs" style="color: var(--ink-40);">
