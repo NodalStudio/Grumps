@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-WORKER_URL="${WORKER_URL:-https://grumps-api.nodalstudio.workers.dev}"
+WORKER_URL="${WORKER_URL:-https://api.grumps.app}"
 ADMIN_TOKEN="${GRUMPS_ADMIN_TOKEN:-}"
 
 if [ -z "$ADMIN_TOKEN" ]; then

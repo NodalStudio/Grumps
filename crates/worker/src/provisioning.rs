@@ -63,7 +63,7 @@ pub async fn provision_workspace_with_meta(
         channel_id.into(),
         name.unwrap_or("").into(),
         database_id.clone().into(),
-        (if is_dm { 1i64 } else { 0i64 }).into(),
+        (if is_dm { 1_i32 } else { 0_i32 }).into(),
     ])?.run().await?;
     Ok((slug, database_id))
 }

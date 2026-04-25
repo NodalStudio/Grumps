@@ -1506,7 +1506,7 @@ impl<'a> WorkspaceDb<'a> {
                 record.cost_usd.into(),
                 (record.latency_ms as i64).into(),
                 tool_calls_json.into(),
-                if record.success { 1i64 } else { 0i64 }.into(),
+                (if record.success { 1_i32 } else { 0_i32 }).into(),
                 record.error.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
             ],
         ).await?;
