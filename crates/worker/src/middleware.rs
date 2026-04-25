@@ -146,12 +146,22 @@ pub fn extract_cookie(req: &Request, name: &str) -> Option<String> {
 }
 
 /// Build the Set-Cookie headers for session + CSRF. Domain=.grumps.app so the
-/// cookie is shared between grumps.app and api.grumps.app subdomains.
+/// cookie is shared between grumps.app and api.grumps.app subdomains. We also
+/// emit explicit `Max-Age=0` cookies bound to the bare host (api.grumps.app)
+/// so any leftover cookies from before the Domain rollout get cleared on the
+/// same response — otherwise the browser keeps both and the host-bound one
+/// shadows the apex-bound one.
 pub fn set_auth_cookies(resp: &mut Response, jwt: &str, csrf: &str, environment: &str) -> Result<()> {
-    let domain_attr = if environment == "production" { "Domain=.grumps.app; " } else { "" };
     let secure_attr = if environment == "production" { "Secure; " } else { "" };
     let max_age = 7 * 24 * 3600;
     let h = resp.headers_mut();
+    if environment == "production" {
+        // Clear stale host-only cookies from the api.grumps.app domain that may
+        // have been issued before we set ENVIRONMENT=production.
+        h.append("Set-Cookie", "grumps_jwt=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")?;
+        h.append("Set-Cookie", "grumps_csrf=; Path=/; Max-Age=0; Secure; SameSite=Lax")?;
+    }
+    let domain_attr = if environment == "production" { "Domain=.grumps.app; " } else { "" };
     h.append("Set-Cookie", &format!(
         "grumps_jwt={}; {}Path=/; Max-Age={}; HttpOnly; {}SameSite=Lax",
         jwt, domain_attr, max_age, secure_attr
@@ -163,12 +173,21 @@ pub fn set_auth_cookies(resp: &mut Response, jwt: &str, csrf: &str, environment:
     Ok(())
 }
 
-/// Expire both cookies — used by /auth/logout.
+/// Expire both cookies — used by /auth/logout. Emits two clears each (with and
+/// without Domain attr) so cookies from before the Domain rollout also expire.
 pub fn clear_auth_cookies(resp: &mut Response, environment: &str) -> Result<()> {
-    let domain_attr = if environment == "production" { "Domain=.grumps.app; " } else { "" };
     let h = resp.headers_mut();
-    h.append("Set-Cookie", &format!("grumps_jwt=; {}Path=/; Max-Age=0; HttpOnly; SameSite=Lax", domain_attr))?;
-    h.append("Set-Cookie", &format!("grumps_csrf=; {}Path=/; Max-Age=0; SameSite=Lax", domain_attr))?;
+    if environment == "production" {
+        // Host-only (legacy api.grumps.app cookies)
+        h.append("Set-Cookie", "grumps_jwt=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")?;
+        h.append("Set-Cookie", "grumps_csrf=; Path=/; Max-Age=0; Secure; SameSite=Lax")?;
+        // Domain-scoped (current)
+        h.append("Set-Cookie", "grumps_jwt=; Domain=.grumps.app; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax")?;
+        h.append("Set-Cookie", "grumps_csrf=; Domain=.grumps.app; Path=/; Max-Age=0; Secure; SameSite=Lax")?;
+    } else {
+        h.append("Set-Cookie", "grumps_jwt=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")?;
+        h.append("Set-Cookie", "grumps_csrf=; Path=/; Max-Age=0; SameSite=Lax")?;
+    }
     Ok(())
 }
 
