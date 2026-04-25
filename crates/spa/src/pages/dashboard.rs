@@ -10,7 +10,13 @@ pub fn DashboardPage() -> impl IntoView {
 
     view! {
         <div class="min-h-screen" style="background: var(--cream);">
-            <PageHeader title=tr("sidebar.my_workspaces") subtitle=tr("page.dashboard.subtitle") />
+            <PageHeader title=tr("sidebar.my_workspaces") subtitle=tr("page.dashboard.subtitle")>
+                <a href="/settings"
+                   class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                   style="color: var(--ink);">
+                    {move || tr("settings.account")}
+                </a>
+            </PageHeader>
             <div class="p-8">
                 {if workspaces.is_empty() {
                     view! { <EmptyState/> }.into_any()
