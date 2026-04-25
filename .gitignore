@@ -16,6 +16,8 @@ crates/spa/dist/
 package-lock.json
 .dev.vars
 .dev.vars.local
+.env
+.env.local
 
 # Editor / tooling local config
 .claude/

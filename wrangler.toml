@@ -2,9 +2,7 @@ name = "grumps-api"
 main = "crates/worker/build/worker/shim.mjs"
 compatibility_date = "2024-12-01"
 
-# Custom domain — requires the `grumps.app` zone to be attached to this
-# Cloudflare account. Applied on `wrangler deploy`. Until the zone exists
-# or propagates, comment the block out to deploy to `*.workers.dev` only.
+# Custom domain — requires the zone to be attached to this Cloudflare account.
 routes = [
   { pattern = "api.grumps.app", zone_name = "grumps.app", custom_domain = true },
 ]
@@ -12,14 +10,30 @@ routes = [
 [build]
 command = "cargo install -q worker-build && cd crates/worker && worker-build --release"
 
+# Public env vars exposed to the worker at runtime via `ctx.env.var(...)`.
+# These are NOT secrets — committed to wrangler.toml at deploy time.
 [vars]
-# This config IS the production deploy. The dev_bypass auth shortcut is
-# gated by `ENVIRONMENT != "production"`, so this MUST stay "production"
-# in the committed file. Local `wrangler dev` overrides via .dev.vars.
 ENVIRONMENT = "production"
 WA_PHONE_NUMBER_ID = "1007990222407676"
 WEB_SEARCH_PROVIDER = "brave"
 TG_BOT_USERNAME = "HeyGrumpsBot"
+
+# Declare which secrets are required at deploy time. Loaded from `.dev.vars`
+# / `.env` for `wrangler dev`; set via `wrangler secret put` for production.
+[secrets]
+required = [
+  "JWT_SECRET",
+  "TG_BOT_TOKEN",
+  "TG_WEBHOOK_SECRET",
+  "ANTHROPIC_API_KEY",
+  "GEMINI_API_KEY",
+  "WA_APP_SECRET",
+  "WA_ACCESS_TOKEN",
+  "CF_API_TOKEN",
+  "CF_ACCOUNT_ID",
+  "BRAVE_API_KEY",
+  "SUPER_ADMIN_PHONES",
+]
 
 [[d1_databases]]
 binding = "INDEX_DB"
