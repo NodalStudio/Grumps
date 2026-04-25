@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. アカウントではなく、グループのために。",
   "pricing.popular_badge": "",
-  "meta.description": "あなたのグループチャットに住む AI エージェント。WhatsApp、Telegram、Discord。グループの決定を覚えています。計画、リマインド、検索。インストール不要。"
+  "meta.description": "あなたのグループチャットに住む AI エージェント。WhatsApp、Telegram、Discord。グループの決定を覚えています。計画、リマインド、検索。インストール不要。",
+  "hero.cta.login": "ログイン",
+  "hero.cta.my_workspaces": "マイワークスペース",
+  "hero.cta.get_started": "はじめる",
+  "hero.cta.secondary": "仕組みを見る"
 }

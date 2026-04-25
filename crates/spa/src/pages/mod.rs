@@ -13,3 +13,4 @@ pub mod scheduled;
 pub mod calendar;
 pub mod observability;
 pub mod global_observability;
+pub mod global_settings;

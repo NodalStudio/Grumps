@@ -14,21 +14,20 @@ async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRo
         .ok_or_else(|| Error::RustError("workspace not found".into()))
 }
 
-fn auth(req: &Request, ctx: &RouteContext<()>) -> Result<middleware::Claims> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    middleware::verify_jwt(req, &jwt_secret).map_err(|e| Error::RustError(e))
-}
-
-fn access(claims: &middleware::Claims, slug: &str) -> Result<()> {
-    middleware::check_workspace_access(claims, slug).map_err(|e| Error::RustError(e))
-}
-
 // ── GET /api/w/:slug/scheduled ────────────────────────────────────────────────
 
 pub async fn list(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let url = req.url()?;
     let mut status: Option<String> = None;
@@ -61,9 +60,17 @@ struct CreateBody {
 }
 
 pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let slug = ws.slug.clone();
     let body: CreateBody = req.json().await
@@ -109,9 +116,17 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
 // ── GET /api/w/:slug/scheduled/:id ───────────────────────────────────────────
 
 pub async fn get(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
 
@@ -127,9 +142,17 @@ pub async fn get(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 // ── DELETE /api/w/:slug/scheduled/:id ────────────────────────────────────────
 
 pub async fn delete(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let slug = ws.slug.clone();
     let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();

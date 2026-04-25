@@ -1424,7 +1424,12 @@ html[dir="rtl"] .lang-menu { right: auto; left: 0; }
       </h1>
       <p class="hero-desc" data-i18n="hero.desc">An AI agent that lives in your group. Remembers what you decide, plans what's next, reminds the right person at the right time. Open the workspace when you need the full picture.</p>
       <div class="hero-actions">
-        <a href="#" class="btn btn-primary btn-large" data-i18n="hero.cta_primary">Add to your group</a>
+        <a href="/login"
+           class="btn btn-primary btn-large"
+           id="hero-cta-primary"
+           data-i18n="hero.cta.login"
+           data-i18n-alt-my="hero.cta.my_workspaces"
+           data-i18n-alt-start="hero.cta.get_started">Log in</a>
         <a href="#demo" class="btn btn-large" data-i18n="hero.cta_secondary">See it in action</a>
       </div>
       <p class="hero-note" data-i18n="hero.note">Free for 1 group · No app to install · Workspace-private memory</p>
@@ -2070,6 +2075,24 @@ if (langSwitcher) {
   });
   document.addEventListener('click', () => langSwitcher.classList.remove('open'));
 }
+</script>
+
+<script>
+  // Hero CTA: swap label based on session state.
+  (function () {
+    var cta = document.getElementById('hero-cta-primary');
+    if (!cta) return;
+    fetch('https://api.grumps.app/auth/me', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (session) {
+        if (!session) return;
+        var key = (session.workspaces && session.workspaces.length > 0) ? 'altMy' : 'altStart';
+        var dataKey = key === 'altMy' ? 'altMyValue' : 'altStartValue';
+        if (cta.dataset[dataKey]) cta.textContent = cta.dataset[dataKey];
+        cta.href = '/dashboard';
+      })
+      .catch(function () {});
+  })();
 </script>
 
 </body>

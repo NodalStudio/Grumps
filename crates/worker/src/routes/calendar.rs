@@ -17,15 +17,6 @@ async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRo
         .ok_or_else(|| Error::RustError("workspace not found".into()))
 }
 
-fn auth(req: &Request, ctx: &RouteContext<()>) -> Result<middleware::Claims> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    middleware::verify_jwt(req, &jwt_secret).map_err(|e| Error::RustError(e))
-}
-
-fn access(claims: &middleware::Claims, slug: &str) -> Result<()> {
-    middleware::check_workspace_access(claims, slug).map_err(|e| Error::RustError(e))
-}
-
 // ── iCal JWT claims ───────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,9 +55,17 @@ const ICAL_SETTING_KEY: &str = "ical_token";
 // ── GET /api/w/:slug/calendar ─────────────────────────────────────────────────
 
 pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let url = req.url()?;
     let now = chrono::Utc::now();
@@ -127,9 +126,17 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
 // ── POST /api/w/:slug/calendar/ical-token ─────────────────────────────────────
 
 pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     // Admin only
     // We verify by checking the member's role in the workspace DB
@@ -154,9 +161,17 @@ pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
 // ── DELETE /api/w/:slug/calendar/ical-token ───────────────────────────────────
 
 pub async fn delete_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());

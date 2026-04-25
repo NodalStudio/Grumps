@@ -11,7 +11,9 @@ gloo-net = { version = "0.6", features = ["http"] }
 gloo-storage = "0.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-web-sys = { version = "0.3", features = ["Window", "Document", "HtmlInputElement", "Navigator", "Clipboard", "Location"] }
+serde-wasm-bindgen = "0.6"
+urlencoding = "2"
+web-sys = { version = "0.3", features = ["Window", "Document", "HtmlDocument", "HtmlInputElement", "Navigator", "Clipboard", "Location", "RequestCredentials"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"

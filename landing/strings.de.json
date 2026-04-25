@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. Gemacht für Gruppen, nicht für Konten.",
   "pricing.popular_badge": "",
-  "meta.description": "Ein KI-Agent, der in deinem Gruppenchat lebt. WhatsApp, Telegram, Discord. Merkt sich, was eure Gruppe entscheidet. Plant, erinnert, findet. Keine App zu installieren."
+  "meta.description": "Ein KI-Agent, der in deinem Gruppenchat lebt. WhatsApp, Telegram, Discord. Merkt sich, was eure Gruppe entscheidet. Plant, erinnert, findet. Keine App zu installieren.",
+  "hero.cta.login": "Anmelden",
+  "hero.cta.my_workspaces": "Meine Workspaces",
+  "hero.cta.get_started": "Loslegen",
+  "hero.cta.secondary": "So funktioniert's"
 }

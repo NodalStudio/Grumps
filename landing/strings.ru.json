@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. Сделано для групп, не для аккаунтов.",
   "pricing.popular_badge": "",
-  "meta.description": "ИИ-агент, живущий в вашем групповом чате. WhatsApp, Telegram, Discord. Помнит, что решает группа. Планирует, напоминает, находит. Без установки приложения."
+  "meta.description": "ИИ-агент, живущий в вашем групповом чате. WhatsApp, Telegram, Discord. Помнит, что решает группа. Планирует, напоминает, находит. Без установки приложения.",
+  "hero.cta.login": "Войти",
+  "hero.cta.my_workspaces": "Мои пространства",
+  "hero.cta.get_started": "Начать",
+  "hero.cta.secondary": "Как это работает"
 }

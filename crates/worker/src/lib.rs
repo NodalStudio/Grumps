@@ -16,6 +16,9 @@ mod agent_sink;
 mod messaging_dispatch;
 mod routes;
 mod scheduler_executor;
+mod rate_limit;
+mod observability;
+mod auth_telegram;
 
 pub use durable_objects::WorkspaceScheduler;
 
@@ -43,15 +46,24 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .post_async("/webhook/telegram", routes::webhook_telegram::handle_incoming)
         // Discord webhook
         .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
-        // Auth
+        // Auth — legacy WA OTP (Bearer JWT)
         .post_async("/auth/otp", routes::auth::handle_send_otp)
         .post_async("/auth/verify", routes::auth::handle_verify_otp)
+        // Auth — Telegram Widget + session management (cookie JWT + CSRF)
+        .post_async("/auth/telegram/verify", routes::auth::handle_telegram_verify)
+        .get_async("/auth/me", routes::auth::handle_me)
+        .post_async("/auth/logout", routes::auth::handle_logout)
+        .get_async("/auth/sessions", routes::sessions::list_sessions)
+        .delete_async("/auth/sessions/:id", routes::sessions::revoke_specific)
+        .post_async("/auth/sessions/revoke-all", routes::sessions::revoke_all_others)
         // Workspaces
         .get_async("/api/workspaces", routes::workspace_api::list_my_workspaces)
+        .patch_async("/api/me", routes::workspace_api::update_me)
         .get_async("/api/w/:slug", routes::workspace_api::workspace_info)
         .get_async("/api/w/:slug/history", routes::workspace_api::workspace_history)
         .get_async("/api/w/:slug/members", routes::workspace_api::workspace_members)
         .patch_async("/api/w/:slug/settings/locale", routes::workspace_api::update_locale)
+        .patch_async("/api/w/:slug/settings/name", routes::workspace_api::update_workspace_name)
         // Todos
         .get_async("/api/w/:slug/todos", routes::todos::list_todos)
         .post_async("/api/w/:slug/todos", routes::todos::create_todo)

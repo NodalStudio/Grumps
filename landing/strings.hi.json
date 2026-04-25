@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. ग्रुपों के लिए बना है, अकाउंट के लिए नहीं।",
   "pricing.popular_badge": "",
-  "meta.description": "एक AI एजेंट जो आपके ग्रुप चैट में रहता है। WhatsApp, Telegram, Discord. आपके ग्रुप के फैसले याद रखता है। प्लान करता है, याद दिलाता है, ढूंढता है। कोई ऐप इंस्टॉल नहीं।"
+  "meta.description": "एक AI एजेंट जो आपके ग्रुप चैट में रहता है। WhatsApp, Telegram, Discord. आपके ग्रुप के फैसले याद रखता है। प्लान करता है, याद दिलाता है, ढूंढता है। कोई ऐप इंस्टॉल नहीं।",
+  "hero.cta.login": "लॉग इन",
+  "hero.cta.my_workspaces": "मेरे वर्कस्पेस",
+  "hero.cta.get_started": "शुरू करें",
+  "hero.cta.secondary": "देखें कैसे काम करता है"
 }

@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps。为群组而做,非为账号。",
   "pricing.popular_badge": "",
-  "meta.description": "一个住在你群聊里的 AI 智能体。WhatsApp、Telegram、Discord。记住你们群组的决定。规划、提醒、查找。无需安装任何应用。"
+  "meta.description": "一个住在你群聊里的 AI 智能体。WhatsApp、Telegram、Discord。记住你们群组的决定。规划、提醒、查找。无需安装任何应用。",
+  "hero.cta.login": "登录",
+  "hero.cta.my_workspaces": "我的工作区",
+  "hero.cta.get_started": "开始使用",
+  "hero.cta.secondary": "了解工作原理"
 }

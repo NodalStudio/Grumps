@@ -15,15 +15,6 @@ async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRo
         .ok_or_else(|| Error::RustError("workspace not found".into()))
 }
 
-fn auth(req: &Request, ctx: &RouteContext<()>) -> Result<middleware::Claims> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    middleware::verify_jwt(req, &jwt_secret).map_err(|e| Error::RustError(e))
-}
-
-fn access(claims: &middleware::Claims, slug: &str) -> Result<()> {
-    middleware::check_workspace_access(claims, slug).map_err(|e| Error::RustError(e))
-}
-
 // ── Response shape ────────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -54,15 +45,21 @@ pub struct ObservabilityResponse {
 // ── GET /api/w/:slug/admin/observability ─────────────────────────────────────
 
 pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = auth(&req, &ctx)?;
-    let ws = resolve_workspace(&ctx).await?;
-    access(&claims, &ws.slug)?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     // Super admin only
     if !middleware::is_super_admin(&ctx.env, &claims) {
-        let mut resp = Response::error("super admin only", 403)?;
-        resp.headers_mut().set("Access-Control-Allow-Origin", "*")?;
-        return Ok(resp);
+        return middleware::error_with_cors(&req, 403, "auth.super_admin_only", "super admin only");
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;

@@ -2,14 +2,9 @@
 
 use worker::*;
 use serde::Serialize;
-use crate::middleware::{is_super_admin};
+use crate::middleware::{self, is_super_admin};
 use crate::db::{get_index_db, WorkspaceDb};
 use crate::d1_rest::D1RestClient;
-
-fn auth(req: &Request, ctx: &RouteContext<()>) -> Result<crate::middleware::Claims> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    crate::middleware::verify_jwt(req, &jwt_secret).map_err(|e| Error::RustError(e))
-}
 
 #[derive(Serialize)]
 pub struct GlobalObservability {
@@ -51,9 +46,12 @@ pub struct GlobalError {
 }
 
 pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match auth(&req, &ctx) { Ok(c) => c, Err(e) => return Ok(Response::error(e.to_string(), 401)?) };
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
     if !is_super_admin(&ctx.env, &claims) {
-        return Ok(Response::error("super admin only", 403)?);
+        return middleware::error_with_cors(&req, 403, "auth.super_admin_only", "super admin only");
     }
 
     // Try KV cache first (5 min TTL)
@@ -177,7 +175,10 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
 
 /// GET /api/admin/me — returns whether the caller is super admin
 pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match auth(&req, &ctx) { Ok(c) => c, Err(e) => return Ok(Response::error(e.to_string(), 401)?) };
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
     let is_super = is_super_admin(&ctx.env, &claims);
     let payload = serde_json::json!({
         "is_super_admin": is_super,

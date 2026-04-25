@@ -4,14 +4,20 @@ use crate::{db, d1_rest, middleware};
 
 /// GET /api/w/:slug/export/todos?format=csv|json
 pub async fn export_todos(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    let claims = middleware::verify_jwt(&req, &jwt_secret).map_err(|e| Error::RustError(e))?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
     let slug = ctx.param("slug").unwrap();
-    middleware::check_workspace_access(&claims, slug).map_err(|e| Error::RustError(e))?;
+    if !claims.workspaces.contains(&slug.to_string()) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let index_db = db::get_index_db(&ctx.env)?;
-    let ws = db::lookup_workspace_by_slug(&index_db, slug).await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))?;
+    let ws = match db::lookup_workspace_by_slug(&index_db, slug).await? {
+        Some(w) => w,
+        None => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
     let d1_client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&d1_client, ws.d1_database_id);
 
@@ -55,14 +61,20 @@ pub async fn export_todos(req: Request, ctx: RouteContext<()>) -> Result<Respons
 
 /// GET /api/w/:slug/export/notes?format=json|md
 pub async fn export_notes(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    let claims = middleware::verify_jwt(&req, &jwt_secret).map_err(|e| Error::RustError(e))?;
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
     let slug = ctx.param("slug").unwrap();
-    middleware::check_workspace_access(&claims, slug).map_err(|e| Error::RustError(e))?;
+    if !claims.workspaces.contains(&slug.to_string()) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
 
     let index_db = db::get_index_db(&ctx.env)?;
-    let ws = db::lookup_workspace_by_slug(&index_db, slug).await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))?;
+    let ws = match db::lookup_workspace_by_slug(&index_db, slug).await? {
+        Some(w) => w,
+        None => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
     let d1_client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&d1_client, ws.d1_database_id);
 

@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. Dibuat untuk grup, bukan untuk akun.",
   "pricing.popular_badge": "",
-  "meta.description": "Agen AI yang tinggal di chat grupmu. WhatsApp, Telegram, Discord. Mengingat keputusan grupmu. Merencanakan, mengingatkan, menemukan. Tanpa aplikasi."
+  "meta.description": "Agen AI yang tinggal di chat grupmu. WhatsApp, Telegram, Discord. Mengingat keputusan grupmu. Merencanakan, mengingatkan, menemukan. Tanpa aplikasi.",
+  "hero.cta.login": "Masuk",
+  "hero.cta.my_workspaces": "Workspace saya",
+  "hero.cta.get_started": "Mulai",
+  "hero.cta.secondary": "Lihat cara kerjanya"
 }

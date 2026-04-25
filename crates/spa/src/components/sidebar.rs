@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::auth::use_auth;
 use crate::components::lang_switcher::LangSwitcher;
+use crate::components::workspace_switcher::WorkspaceSwitcher;
 use crate::i18n::tr;
 
 #[component]
@@ -36,11 +37,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
 
             // Workspace selector
             <div class="px-5 py-4 border-b" style="border-color: var(--ink-15);">
-                <div class="flex items-center gap-2 font-display font-bold text-sm cursor-pointer">
-                    <span class="w-2 h-2 rounded-full bg-teal flex-shrink-0"></span>
-                    {slug}
-                    <span class="ml-auto text-[10px]" style="color: var(--ink-40);">{"\u{25BC}"}</span>
-                </div>
+                <WorkspaceSwitcher current_slug=slug.clone() />
             </div>
 
             // Nav

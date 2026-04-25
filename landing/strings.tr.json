@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. Hesaplar için değil, gruplar için.",
   "pricing.popular_badge": "",
-  "meta.description": "Grup sohbetinizde yaşayan bir AI ajanı. WhatsApp, Telegram, Discord. Grubunuzun kararlarını hatırlar. Planlar, hatırlatır, bulur. Yüklenecek uygulama yok."
+  "meta.description": "Grup sohbetinizde yaşayan bir AI ajanı. WhatsApp, Telegram, Discord. Grubunuzun kararlarını hatırlar. Planlar, hatırlatır, bulur. Yüklenecek uygulama yok.",
+  "hero.cta.login": "Giriş yap",
+  "hero.cta.my_workspaces": "Çalışma alanlarım",
+  "hero.cta.get_started": "Başla",
+  "hero.cta.secondary": "Nasıl çalışıyor"
 }

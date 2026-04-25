@@ -2,7 +2,7 @@ use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 use leptos::prelude::*;
 
-fn api_base() -> String {
+pub fn api_base() -> String {
     web_sys::window()
         .and_then(|w| w.location().origin().ok())
         .map(|origin| {
@@ -182,21 +182,25 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
-    pub fn new(token: ReadSignal<Option<String>>) -> Self {
-        Self { token }
+    pub fn new(_token: ReadSignal<Option<String>>) -> Self {
+        // The token signal is no longer used (cookies carry auth). Kept in the
+        // signature for backward-compat with existing callers — remove in a
+        // follow-up task once all sites stop passing a token.
+        Self { token: _token }
     }
 
-    fn auth_header(&self) -> Option<String> {
-        self.token.get().map(|t| format!("Bearer {}", t))
+    fn build_get(url: &str) -> gloo_net::http::RequestBuilder {
+        Request::get(url).credentials(web_sys::RequestCredentials::Include)
+    }
+
+    fn build_with_csrf(rb: gloo_net::http::RequestBuilder) -> gloo_net::http::RequestBuilder {
+        rb.credentials(web_sys::RequestCredentials::Include)
+            .header("X-CSRF-Token", &crate::auth::read_csrf_cookie())
     }
 
     async fn get<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Result<T, String> {
         let url = format!("{}{}", api_base(), path);
-        let mut req = Request::get(&url);
-        if let Some(auth) = self.auth_header() {
-            req = req.header("Authorization", &auth);
-        }
-        let resp = req.send().await.map_err(|e| e.to_string())?;
+        let resp = Self::build_get(&url).send().await.map_err(|e| e.to_string())?;
         if !resp.ok() {
             return Err(format!("HTTP {}: {}", resp.status(), resp.status_text()));
         }
@@ -205,23 +209,15 @@ impl ApiClient {
 
     async fn post<B: Serialize, T: for<'de> Deserialize<'de>>(&self, path: &str, body: &B) -> Result<T, String> {
         let url = format!("{}{}", api_base(), path);
-        let mut req = Request::post(&url).header("Content-Type", "application/json");
-        if let Some(auth) = self.auth_header() {
-            req = req.header("Authorization", &auth);
-        }
+        let req = Self::build_with_csrf(Request::post(&url)).header("Content-Type", "application/json");
         let resp = req.json(body).map_err(|e| e.to_string())?.send().await.map_err(|e| e.to_string())?;
-        if !resp.ok() {
-            return Err(format!("HTTP {}", resp.status()));
-        }
+        if !resp.ok() { return Err(format!("HTTP {}", resp.status())); }
         resp.json().await.map_err(|e| e.to_string())
     }
 
     async fn put<B: Serialize>(&self, path: &str, body: &B) -> Result<(), String> {
         let url = format!("{}{}", api_base(), path);
-        let mut req = Request::put(&url).header("Content-Type", "application/json");
-        if let Some(auth) = self.auth_header() {
-            req = req.header("Authorization", &auth);
-        }
+        let req = Self::build_with_csrf(Request::put(&url)).header("Content-Type", "application/json");
         let resp = req.json(body).map_err(|e| e.to_string())?.send().await.map_err(|e| e.to_string())?;
         if !resp.ok() { return Err(format!("HTTP {}", resp.status())); }
         Ok(())
@@ -229,10 +225,7 @@ impl ApiClient {
 
     async fn patch<B: Serialize>(&self, path: &str, body: &B) -> Result<(), String> {
         let url = format!("{}{}", api_base(), path);
-        let mut req = Request::patch(&url).header("Content-Type", "application/json");
-        if let Some(auth) = self.auth_header() {
-            req = req.header("Authorization", &auth);
-        }
+        let req = Self::build_with_csrf(Request::patch(&url)).header("Content-Type", "application/json");
         let resp = req.json(body).map_err(|e| e.to_string())?.send().await.map_err(|e| e.to_string())?;
         if !resp.ok() { return Err(format!("HTTP {}", resp.status())); }
         Ok(())
@@ -240,10 +233,7 @@ impl ApiClient {
 
     async fn delete(&self, path: &str) -> Result<(), String> {
         let url = format!("{}{}", api_base(), path);
-        let mut req = Request::delete(&url);
-        if let Some(auth) = self.auth_header() {
-            req = req.header("Authorization", &auth);
-        }
+        let req = Self::build_with_csrf(Request::delete(&url));
         let resp = req.send().await.map_err(|e| e.to_string())?;
         if !resp.ok() { return Err(format!("HTTP {}", resp.status())); }
         Ok(())

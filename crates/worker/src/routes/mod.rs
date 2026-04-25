@@ -3,6 +3,7 @@ pub mod webhook_telegram;
 pub mod webhook_discord;
 pub mod health;
 pub mod auth;
+pub mod sessions;
 pub mod todos;
 pub mod notes;
 pub mod workspace_api;

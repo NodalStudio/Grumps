@@ -13,7 +13,36 @@ pub fn generate_slug() -> String {
     uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string()
 }
 
-pub async fn provision_workspace(d1_client: &D1RestClient, index_db: &D1Database, platform: &str, channel_id: &str) -> Result<(String, String)> {
+/// Backward-compat: callers that don't care about name/is_dm.
+pub async fn provision_workspace(
+    d1_client: &D1RestClient,
+    index_db: &D1Database,
+    platform: &str,
+    channel_id: &str,
+) -> Result<(String, String)> {
+    provision_workspace_with_meta(d1_client, index_db, platform, channel_id, None, false).await
+}
+
+/// DM workspaces (chat.type == "private" on Telegram). The user is both the
+/// channel and the sole admin; welcome message is the shorter DM variant.
+pub async fn provision_workspace_dm(
+    d1_client: &D1RestClient,
+    index_db: &D1Database,
+    platform: &str,
+    channel_id: &str,
+    default_name: Option<&str>,
+) -> Result<(String, String)> {
+    provision_workspace_with_meta(d1_client, index_db, platform, channel_id, default_name, true).await
+}
+
+pub async fn provision_workspace_with_meta(
+    d1_client: &D1RestClient,
+    index_db: &D1Database,
+    platform: &str,
+    channel_id: &str,
+    name: Option<&str>,
+    is_dm: bool,
+) -> Result<(String, String)> {
     let slug = generate_slug();
     let db_name = format!("grumps-ws-{}", slug);
     let database_id = d1_client.create_database(&db_name).await?;
@@ -25,7 +54,16 @@ pub async fn provision_workspace(d1_client: &D1RestClient, index_db: &D1Database
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0007).await?;
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0008).await?;
     d1_client.exec_statements(&database_id, WORKSPACE_SCHEMA_0009).await?;
-    index_db.prepare("INSERT INTO workspaces_meta (slug, platform, platform_channel_id, d1_database_id) VALUES (?1, ?2, ?3, ?4)")
-        .bind(&[slug.clone().into(), platform.into(), channel_id.into(), database_id.clone().into()])?.run().await?;
+    index_db.prepare(
+        "INSERT INTO workspaces_meta (slug, platform, platform_channel_id, name, d1_database_id, is_dm) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+    ).bind(&[
+        slug.clone().into(),
+        platform.into(),
+        channel_id.into(),
+        name.unwrap_or("").into(),
+        database_id.clone().into(),
+        (if is_dm { 1i64 } else { 0i64 }).into(),
+    ])?.run().await?;
     Ok((slug, database_id))
 }

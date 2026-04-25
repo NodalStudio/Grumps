@@ -11,3 +11,4 @@ pub mod empty_state;
 pub mod memory_card;
 pub mod scheduled_card;
 pub mod calendar;
+pub mod workspace_switcher;

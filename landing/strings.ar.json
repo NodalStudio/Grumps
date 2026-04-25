@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. صُنع للمجموعات، لا للحسابات.",
   "pricing.popular_badge": "",
-  "meta.description": "وكيل ذكاء اصطناعي يعيش في دردشة مجموعتك. WhatsApp، Telegram، Discord. يتذكّر قرارات مجموعتك. يخطّط، يذكّر، يعثر. لا تطبيق للتثبيت."
+  "meta.description": "وكيل ذكاء اصطناعي يعيش في دردشة مجموعتك. WhatsApp، Telegram، Discord. يتذكّر قرارات مجموعتك. يخطّط، يذكّر، يعثر. لا تطبيق للتثبيت.",
+  "hero.cta.login": "تسجيل الدخول",
+  "hero.cta.my_workspaces": "مساحات عملي",
+  "hero.cta.get_started": "ابدأ",
+  "hero.cta.secondary": "شاهد كيف يعمل"
 }

@@ -47,12 +47,68 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                 &mcm.old_chat_member.status,
                 &mcm.new_chat_member.status,
             );
+            let new_status = mcm.new_chat_member.status.as_str();
+            if matches!(new_status, "left" | "kicked" | "banned") {
+                let chat_id = mcm.chat.id.to_string();
+                let index_db = db::get_index_db(&ctx.env)?;
+                if let Some(ws) = db::lookup_workspace(&index_db, "telegram", &chat_id).await? {
+                    let _ = db::archive_workspace(&index_db, &ws.slug).await;
+                    crate::observability::log_event("workspace.archived",
+                        &serde_json::json!({ "slug": ws.slug, "reason": new_status }));
+                }
+                return Response::ok("ok");
+            }
             return match transition {
                 Transition::FirstAddAsMember => handle_first_add(&ctx, &tg, &mcm, false).await,
                 Transition::FirstAddAsAdmin => handle_first_add(&ctx, &tg, &mcm, true).await,
                 Transition::Promotion => handle_promotion(&ctx, &tg, &mcm).await,
                 Transition::Ignore => Response::ok("ok"),
             };
+        }
+    }
+
+    // DM auto-provisioning: a private-chat message from a user we haven't seen
+    // in that DM before creates a personal workspace with the user as sole admin.
+    if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
+        if let Some(msg) = &update.message {
+            if msg.chat.chat_type == "private" {
+                if let Some(from) = &msg.from {
+                    let chat_id = msg.chat.id.to_string();
+                    let index_db = db::get_index_db(&ctx.env)?;
+
+                    if db::lookup_workspace(&index_db, "telegram", &chat_id).await?.is_none() {
+                        // First contact — provision the DM workspace and greet.
+                        let d1_client = D1RestClient::from_env(&ctx.env)?;
+                        let locale = Locale::from_code(from.language_code.as_deref().unwrap_or("en"));
+                        let default_name = t(locale, "workspace.default_name.personal", &[]);
+
+                        let (slug, _db_id) = provisioning::provision_workspace_dm(
+                            &d1_client, &index_db, "telegram", &chat_id, Some(&default_name),
+                        ).await?;
+
+                        let _ = db::update_workspace_locale(&index_db, &slug, locale.code()).await;
+
+                        let tg_user_id = from.id.to_string();
+                        let display_name = format_tg_display_name(from);
+                        let _ = db::upsert_identity_user(
+                            &index_db, "telegram", &tg_user_id, &slug, "admin", Some(&display_name),
+                        ).await;
+
+                        crate::observability::log_event("workspace.dm_provisioned",
+                            &serde_json::json!({ "slug": slug, "tg_user_id": tg_user_id }));
+
+                        let welcome = t(locale, "telegram.onboarding.dm_welcome",
+                            &[("slug", &slug), ("bot", &tg.bot_username)]);
+                        let _ = send_message(&tg, &chat_id, &grumps_messaging::adapter::OutboundMessage {
+                            text: welcome, reply_to: None,
+                        }).await;
+
+                        return Response::ok("ok");
+                    }
+                    // DM workspace already exists — fall through so the normal flow
+                    // resolves it and runs the agent routing.
+                }
+            }
         }
     }
 
@@ -81,7 +137,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let ws_db = db::WorkspaceDb::new(&d1_client, workspace.d1_database_id.clone());
     let (member_id, is_first) = ws_db.upsert_member(&inbound.sender_id, &inbound.sender_name).await?;
     let role = if is_first { "admin" } else { "member" };
-    let _ = db::upsert_index_user(&index_db, &inbound.sender_id, &workspace.slug, role).await;
+    let _ = db::upsert_identity_user(&index_db, "telegram", &inbound.sender_id, &workspace.slug, role, Some(&inbound.sender_name)).await;
 
     let text = match &inbound.text { Some(t) => t.as_str(), None => return Response::ok("ok") };
 
@@ -191,8 +247,9 @@ async fn handle_first_add(
     let slug = match db::lookup_workspace(&index_db, "telegram", &chat_id).await? {
         Some(ws) => ws.slug,
         None => {
-            let (slug, _db_id) = provisioning::provision_workspace(
-                &d1_client, &index_db, "telegram", &chat_id,
+            let chat_title = mcm.chat.title.as_deref();
+            let (slug, _db_id) = provisioning::provision_workspace_with_meta(
+                &d1_client, &index_db, "telegram", &chat_id, chat_title, false,
             ).await?;
             slug
         }
@@ -217,6 +274,14 @@ async fn handle_first_add(
 
     let msg = grumps_messaging::adapter::OutboundMessage { text: welcome, reply_to: None };
     let _ = send_message(tg, &chat_id, &msg).await;
+
+    // Link the TG user who added the bot to the workspace + register their identity.
+    let tg_user_id = mcm.from.id.to_string();
+    let display_name = format_tg_display_name(&mcm.from);
+    let role = if added_as_admin { "admin" } else { "member" };
+    let _ = crate::db::upsert_identity_user(
+        &index_db, "telegram", &tg_user_id, &slug, role, Some(&display_name),
+    ).await;
 
     Response::ok("ok")
 }
@@ -252,6 +317,13 @@ async fn handle_promotion(
 
     let msg = grumps_messaging::adapter::OutboundMessage { text, reply_to: None };
     let _ = send_message(tg, &chat_id, &msg).await;
+
+    // The promoted user becomes workspace admin.
+    let tg_user_id = mcm.new_chat_member.user.id.to_string();
+    let display_name = format_tg_display_name(&mcm.new_chat_member.user);
+    let _ = crate::db::upsert_identity_user(
+        &index_db, "telegram", &tg_user_id, &ws.slug, "admin", Some(&display_name),
+    ).await;
 
     Response::ok("ok")
 }
@@ -319,6 +391,14 @@ async fn send_message(
         worker::console_log!("sendMessage failed: {}", e);
     }
     Ok(())
+}
+
+fn format_tg_display_name(u: &grumps_messaging::telegram::TgUser) -> String {
+    let joined = format!("{} {}", u.first_name, u.last_name.as_deref().unwrap_or(""));
+    let trimmed = joined.trim();
+    if !trimmed.is_empty() { return trimmed.to_string(); }
+    if let Some(n) = &u.username { if !n.is_empty() { return n.clone(); } }
+    format!("telegram:{}", u.id)
 }
 
 #[cfg(test)]

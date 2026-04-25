@@ -80,6 +80,23 @@ function applyAttrI18n(html, strings, missing) {
   );
 }
 
+// Resolve `data-i18n-alt-{slot}="key"` into baked `data-alt-{slot}-value="<localized>"`
+// attributes. The browser-side JS (in index.html) reads these via
+// `el.dataset.altMyValue` / `el.dataset.altStartValue`.
+function applyAltI18n(html, strings, missing) {
+  return html.replace(
+    /\sdata-i18n-alt-([a-zA-Z]+)="([^"]+)"/g,
+    (full, slot, key) => {
+      const v = strings[key];
+      if (v == null) { missing.add(key); return full; }
+      const slotLower = slot.toLowerCase();
+      // The original attribute is preserved AND a new data-alt-<slot>-value attribute is added.
+      // The original is harmless (the JS doesn't read it); preserved for traceability.
+      return `${full} data-alt-${slotLower}-value="${escAttr(v)}"`;
+    }
+  );
+}
+
 // Strip any hreflang links already embedded in the source (e.g. left over
 // from a prior build that was committed) so the per-locale injected ones
 // take effect.
@@ -173,13 +190,21 @@ async function main() {
     let html = masterRaw;
     const missing = new Set();
 
+    let strings = {};
     if (locale.code !== 'en') {
-      const strings = await loadStrings(locale.code);
+      strings = await loadStrings(locale.code);
       html = applyAttrI18n(html, strings, missing);
       html = applyTextI18n(html, strings, missing);
-      if (missing.size > 0) {
-        console.warn(`  ! ${missing.size} missing key(s): ${[...missing].slice(0, 6).join(', ')}${missing.size > 6 ? '…' : ''}`);
-      }
+    } else {
+      // Still need the alt resolutions for English.
+      strings = await loadStrings('en').catch(() => ({}));
+    }
+
+    // Resolve hero CTA alt-i18n attributes for ALL locales (English included).
+    html = applyAltI18n(html, strings, missing);
+
+    if (missing.size > 0) {
+      console.warn(`  ! ${missing.size} missing key(s): ${[...missing].slice(0, 6).join(', ')}${missing.size > 6 ? '…' : ''}`);
     }
 
     html = injectHead(html, locale, hreflangLinks);

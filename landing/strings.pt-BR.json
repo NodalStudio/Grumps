@@ -207,5 +207,9 @@
   "footer.github": "GitHub",
   "footer.copy": "© 2026 Grumps. Feito para grupos, não para contas.",
   "pricing.popular_badge": "",
-  "meta.description": "Um agente de IA que mora no seu chat de grupo. WhatsApp, Telegram, Discord. Lembra do que seu grupo decide. Planeja, lembra, encontra. Sem app pra instalar."
+  "meta.description": "Um agente de IA que mora no seu chat de grupo. WhatsApp, Telegram, Discord. Lembra do que seu grupo decide. Planeja, lembra, encontra. Sem app pra instalar.",
+  "hero.cta.login": "Entrar",
+  "hero.cta.my_workspaces": "Meus workspaces",
+  "hero.cta.get_started": "Começar",
+  "hero.cta.secondary": "Veja como funciona"
 }
