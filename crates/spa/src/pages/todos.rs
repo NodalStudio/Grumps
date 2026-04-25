@@ -8,15 +8,16 @@ use crate::i18n::tr;
 pub fn TodosPage() -> impl IntoView {
     let auth = use_auth();
     let params = use_params_map();
-    let slug = move || params.read().get("slug").unwrap_or_default();
+    let slug = Memo::new(move |_| params.read().get("slug").unwrap_or_default());
     let (filter, set_filter) = signal("open".to_string());
     let (refresh_counter, set_refresh) = signal(0u32);
 
     let api = auth.api.clone();
     let api2 = auth.api.clone();
+    let api3 = auth.api.clone();
     let todos = LocalResource::new(move || {
         let api = api.clone();
-        let s = slug();
+        let s = slug.get();
         let f = filter.get();
         let _ = refresh_counter.get();
         async move { api.get_todos(&s, &f).await.unwrap_or_default() }
@@ -25,7 +26,7 @@ pub fn TodosPage() -> impl IntoView {
     let (new_title, set_new_title) = signal(String::new());
     let on_create = move |_: web_sys::KeyboardEvent| {
         let api = api2.clone();
-        let s = slug();
+        let s = slug.get();
         let title = new_title.get();
         if title.trim().is_empty() { return; }
         set_new_title.set(String::new());
@@ -34,6 +35,9 @@ pub fn TodosPage() -> impl IntoView {
             set_refresh.update(|n| *n += 1);
         });
     };
+
+    // Click handler closure cloned per row inside the `For` children.
+    let _ = &api3;
 
     let filters: Vec<(&'static str, &'static str)> = vec![
         ("open", "todo.filter.open"), ("all", "todo.filter.all"),
@@ -79,6 +83,7 @@ pub fn TodosPage() -> impl IntoView {
                             </div>
                         }.into_any();
                     }
+                    let api_for_children = api3.clone();
                     view! {
                         <div class="flex flex-col gap-1.5">
                             <For
@@ -87,6 +92,9 @@ pub fn TodosPage() -> impl IntoView {
                                 children=move |todo| {
                                     let is_done = todo.status == "done";
                                     let is_high = todo.priority == 1;
+                                    let id = todo.id.clone();
+                                    let api_for_click = api_for_children.clone();
+                                    let slug_for_click = slug.get();
                                     view! {
                                         <div
                                             class="flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:translate-x-0.5"
@@ -95,9 +103,20 @@ pub fn TodosPage() -> impl IntoView {
                                             style="background: var(--cream-light);"
                                         >
                                             <div
-                                                class="w-5 h-5 border-2 border-ink rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center"
+                                                class="w-5 h-5 border-2 border-ink rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
                                                 style:background=move || if is_done { "var(--teal)" } else { "var(--cream-light)" }
                                                 style:border-color=move || if is_done { "var(--teal)" } else { "var(--ink)" }
+                                                on:click=move |ev| {
+                                                    ev.stop_propagation();
+                                                    let api = api_for_click.clone();
+                                                    let s = slug_for_click.clone();
+                                                    let id_c = id.clone();
+                                                    let next_status = if is_done { "open" } else { "done" };
+                                                    leptos::task::spawn_local(async move {
+                                                        let _ = api.update_todo(&s, &id_c, &serde_json::json!({ "status": next_status })).await;
+                                                        set_refresh.update(|n| *n += 1);
+                                                    });
+                                                }
                                             >
                                                 {if is_done { "✓" } else { "" }}
                                             </div>

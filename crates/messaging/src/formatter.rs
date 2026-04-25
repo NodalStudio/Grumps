@@ -65,11 +65,11 @@ pub fn todos_added_summary(count: usize, workspace_slug: &str, lang: &str) -> St
 
 /// Format todo list for @grumps list.
 pub fn todo_list(
-    todos: &[(i64, String, String, Option<String>, i32, String)],
+    todos: &[(String, i64, String, String, Option<String>, i32, String)],
     filter_label: &str,
     lang: &str,
 ) -> String {
-    // Tuple: (seq_num, title, status, assignee_name, priority, tags)
+    // Tuple: (id, seq_num, title, status, assignee_name, priority, tags)
     if todos.is_empty() {
         return match filter_label {
             "open" => i18n::t("empty.todos_open", lang).to_string(),
@@ -87,7 +87,7 @@ pub fn todo_list(
         ),
         String::new(),
     ];
-    for (seq, title, status, assignee, priority, _tags) in todos {
+    for (_id, seq, title, status, assignee, priority, _tags) in todos {
         let check = if status == "done" { "✅" } else { "☐" };
         let prio = if *priority == 1 { " 🔴" } else { "" };
         let assigned = assignee
@@ -305,8 +305,8 @@ mod tests {
     #[test]
     fn test_todo_list_with_items() {
         let todos = vec![
-            (1i64, "Buy milk".to_string(), "open".to_string(), Some("Bob".to_string()), 2i32, String::new()),
-            (2i64, "Write tests".to_string(), "open".to_string(), None, 2i32, String::new()),
+            ("uuid-1".to_string(), 1i64, "Buy milk".to_string(), "open".to_string(), Some("Bob".to_string()), 2i32, String::new()),
+            ("uuid-2".to_string(), 2i64, "Write tests".to_string(), "open".to_string(), None, 2i32, String::new()),
         ];
         let result = todo_list(&todos, "open", "en");
         assert!(result.contains("📋 2 todos (open):"));
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_todo_list_done_items() {
         let todos = vec![
-            (7i64, "Deploy app".to_string(), "done".to_string(), None, 1i32, String::new()),
+            ("uuid-7".to_string(), 7i64, "Deploy app".to_string(), "done".to_string(), None, 1i32, String::new()),
         ];
         let result = todo_list(&todos, "done", "en");
         assert!(result.contains("✅ #7 Deploy app"));

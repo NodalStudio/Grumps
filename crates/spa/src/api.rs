@@ -22,6 +22,8 @@ pub fn api_base() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodoItem {
+    #[serde(default)]
+    pub id: String,
     pub seq_num: i64,
     pub title: String,
     pub status: String,

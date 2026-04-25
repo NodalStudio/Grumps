@@ -79,7 +79,7 @@ pub fn todos() -> Vec<TodoItem> {
 }
 fn todo(seq: i64, key: &str, priority: i32, assignee: &str, status: &str) -> TodoItem {
     TodoItem {
-        seq_num: seq, title: key.into(), status: status.into(),
+        id: format!("seed-todo-{}", seq), seq_num: seq, title: key.into(), status: status.into(),
         assigned_name: Some(assignee.into()), priority, tags: String::new(),
     }
 }
@@ -202,8 +202,15 @@ pub fn settings() -> WorkspaceSettings {
 
 // Optimistic mutation stubs.
 pub fn new_todo(title: &str, priority: i32) -> TodoItem {
-    TodoItem { seq_num: 99, title: title.into(), status: "open".into(),
-        assigned_name: None, priority, tags: String::new() }
+    TodoItem {
+        id: "seed-todo-new".into(),
+        seq_num: 99,
+        title: title.into(),
+        status: "open".into(),
+        assigned_name: None,
+        priority,
+        tags: String::new(),
+    }
 }
 pub fn new_note(title: &str, content: &str) -> NoteItem {
     NoteItem { id: "seed-note-new".into(), title: Some(title.into()), content: Some(content.into()),

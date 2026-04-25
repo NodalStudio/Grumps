@@ -38,8 +38,9 @@ pub async fn list_todos(req: Request, ctx: RouteContext<()>) -> Result<Response>
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
     let todos = ws_db.get_todos_filtered(filter, member_id.or(Some(&claims.sub))).await?;
-    let data: Vec<serde_json::Value> = todos.iter().map(|(seq, title, status, assignee, priority, tags)| {
+    let data: Vec<serde_json::Value> = todos.iter().map(|(id, seq, title, status, assignee, priority, tags)| {
         serde_json::json!({
+            "id": id,
             "seq_num": seq,
             "title": title,
             "status": status,

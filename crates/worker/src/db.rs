@@ -383,24 +383,24 @@ impl<'a> WorkspaceDb<'a> {
         Ok(rows.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
     }
 
-    /// Get todos with filter. Returns (seq_num, title, status, assignee_name, priority, tags).
-    pub async fn get_todos_filtered(&self, filter: &str, member_id: Option<&str>) -> Result<Vec<(i64, String, String, Option<String>, i32, String)>> {
+    /// Get todos with filter. Returns (id, seq_num, title, status, assignee_name, priority, tags).
+    pub async fn get_todos_filtered(&self, filter: &str, member_id: Option<&str>) -> Result<Vec<(String, i64, String, String, Option<String>, i32, String)>> {
         #[derive(Deserialize)]
-        struct Row { seq_num: i64, title: String, status: String, assigned_name: Option<String>, priority: i32, tags: String }
+        struct Row { id: String, seq_num: i64, title: String, status: String, assigned_name: Option<String>, priority: i32, tags: String }
 
         let (sql, params): (&str, Vec<serde_json::Value>) = match filter {
-            "open" => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC", vec![]),
-            "all" => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status != 'deleted' ORDER BY created_at DESC", vec![]),
-            "done" => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status = 'done' ORDER BY completed_at DESC", vec![]),
-            "mine" => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_to = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![member_id.unwrap_or("").into()]),
-            _ if filter.starts_with("assignee:") => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_name = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
-            _ if filter.starts_with("tag:") => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE tags LIKE ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![format!("%\"{}\"%" , &filter[4..]).into()]),
-            _ => ("SELECT seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC", vec![]),
+            "open" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC", vec![]),
+            "all" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status != 'deleted' ORDER BY created_at DESC", vec![]),
+            "done" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status = 'done' ORDER BY completed_at DESC", vec![]),
+            "mine" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_to = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![member_id.unwrap_or("").into()]),
+            _ if filter.starts_with("assignee:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_name = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
+            _ if filter.starts_with("tag:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE tags LIKE ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![format!("%\"{}\"%" , &filter[4..]).into()]),
+            _ => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC", vec![]),
         };
 
         let resp = self.q(sql, params).await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| (r.seq_num, r.title, r.status, r.assigned_name, r.priority, r.tags)).collect())
+        Ok(rows.into_iter().map(|r| (r.id, r.seq_num, r.title, r.status, r.assigned_name, r.priority, r.tags)).collect())
     }
 
     /// Get todo by sequence number.
