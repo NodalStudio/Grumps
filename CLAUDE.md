@@ -204,9 +204,93 @@ Two separate migration directories, applied to different databases.
 
 Two tiers:
 - **Workspace admin** — manages a single group's settings and members.
-- **Super admin** — Benoît only. Identified by phone number in the
-  `SUPER_ADMIN_PHONES` env var. Sole access to the cross-workspace
-  observability dashboard, cost analytics, and global admin tools.
+  Determined by the `members.role = 'admin'` row for the authenticated
+  user in the workspace's D1 (`is_workspace_admin` /
+  `is_workspace_admin_by_slug` in `middleware.rs`). The first member to
+  interact with the bot in a new workspace is auto-promoted to admin
+  (DM provisioning + group `chat_member` flow).
+- **Super admin** — the project operator. Sole access to the
+  cross-workspace observability dashboard, cost analytics, and global
+  admin tools. Identification details below.
 
 Never expose super-admin surfaces to workspace admins — they're
-distinct roles.
+distinct roles. Always gate super-admin endpoints with
+`is_super_admin(env, claims)`, never trust a header or query param.
+
+### How super-admin identity is verified
+
+The Telegram Login Widget does **not** expose phone numbers, only the
+stable Telegram numeric user id, first/last name, and username (signed
+by the bot token). Identity flow:
+
+1. **Login**: `POST /auth/widget` receives the widget payload. We HMAC-
+   verify it against `TG_BOT_TOKEN` (`verify_widget_hash`,
+   constant-time compare) and reject `auth_date` older than 1 h.
+2. **Identity persistence**: a row in `user_identities` maps
+   `(platform="telegram", platform_user_id=<tg id>) → user_id`. First
+   login mints a new user_id; subsequent logins look it up.
+3. **JWT**: `create_jwt_with_csrf` encodes `sub=user_id`,
+   `tg_user_id=<tg id>`, `sid=<session id>`, `csrf=<token>`. Signed
+   with `JWT_SECRET`, 7-day exp, set as `HttpOnly; Secure;
+   SameSite=Lax; Domain=.grumps.app` cookie.
+4. **Each request**: `verify_session` decodes the cookie JWT, checks
+   `sid` is still active (D1 `sessions` table, KV-cached 60 s) and —
+   on mutating methods — that the `X-CSRF-Token` header matches the
+   `csrf` claim.
+5. **Super-admin gate**: `is_super_admin(env, claims)` reads
+   `SUPER_ADMIN_TELEGRAM_IDS` (comma-separated Telegram numeric ids)
+   via `env.secret()` and compares with constant-prefix matching
+   against `claims.tg_user_id`. Falls back to `SUPER_ADMIN_PHONES` /
+   `claims.phone` for the legacy WA OTP path; that path is deprecated.
+
+Why we don't use phone for the gate: the Widget never exposes it, so
+`claims.phone` is empty for everyone who logged in via Telegram. We
+also avoid putting any super-admin identifier in `wrangler.toml`
+`[vars]` because that file is committed; secrets stay in
+`wrangler secret put` (prod) or `.dev.vars` (gitignored, local only).
+
+### Webhook authenticity
+
+- Telegram: every `POST /webhook/telegram` MUST present the
+  `X-Telegram-Bot-Api-Secret-Token` header matching `TG_WEBHOOK_SECRET`.
+  The header is mandatory — missing header = 500. (Earlier code treated
+  absence as "skip verification"; that bypass has been closed.)
+- WhatsApp: same model with `X-Hub-Signature-256` HMAC against
+  `WA_APP_SECRET`. Header is mandatory.
+- KV-based dedup on `message_id` blocks replay within the 24 h TTL
+  window even if the secret were ever leaked and rotated.
+
+### Workspace isolation
+
+Two D1 databases. Index DB (one) holds users, workspaces, sessions,
+identities. Per-workspace DB (one per group) holds chat-bound data:
+todos, notes, members, scheduled actions, agent sessions. Every
+workspace-scoped route runs `check_workspace_access(claims, slug)`
+which checks `claims.workspaces.contains(slug)`. The workspace list
+is fixed at login time and refreshed on `/auth/me`.
+
+### Secrets handling
+
+- `wrangler.toml` is committed. `[vars]` block is fine for non-secret
+  configuration; never put credentials there.
+- `.dev.vars` is gitignored. Local-only. Production secrets are set
+  via `wrangler secret put`.
+- `.gitignore` excludes `.env*`, `.dev.vars*`, `*.rlib`, `target/`,
+  `dist/`, `node_modules/`, `.wrangler/`, `.worktrees/`. Verify
+  before adding a new file at root.
+
+### What MUST NOT land in committed files
+
+This is a public repo. Treat every commit as world-readable and
+permanent.
+
+- No real phone numbers, real Telegram ids, real email addresses, or
+  real personal names in source, tests, fixtures, comments, or
+  config. Use placeholders (`+10000000000`, `1234567890`,
+  `user@example.com`, `"Test User"`).
+- No production API keys, bot tokens, webhook secrets, JWT signing
+  keys, database ids that grant access — use `wrangler secret put`.
+- No internal plan identifiers (`Plan A`, `Plan B`, etc.) in
+  commit messages or code comments — see commit-message rule.
+- No screenshots showing real phone numbers, real names, or real
+  group titles at the repo root or in `docs/`.

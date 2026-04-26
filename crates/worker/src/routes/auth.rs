@@ -69,7 +69,7 @@ pub async fn handle_send_otp(mut req: Request, ctx: RouteContext<()>) -> Result<
     let (url, body_str) = wa.build_send_request(&phone, &msg)
         .map_err(|e| Error::RustError(format!("{:?}", e)))?;
 
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("Authorization", &format!("Bearer {}", wa.access_token))?;
     headers.set("Content-Type", "application/json")?;
 
@@ -256,8 +256,9 @@ pub async fn handle_telegram_verify(mut req: Request, ctx: RouteContext<()>) -> 
 
     let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
     let csrf = random_b64_token(32);
-    let jwt = middleware::create_jwt_with_csrf(&user_id, slugs, &sid, &csrf, &jwt_secret)
-        .map_err(|e| Error::RustError(e))?;
+    let jwt = middleware::create_jwt_with_csrf(
+        &user_id, slugs, &sid, &csrf, Some(tg_id.as_str()), &jwt_secret,
+    ).map_err(|e| Error::RustError(e))?;
 
     let body = WidgetLoginResponse {
         user_id: user_id.clone(),

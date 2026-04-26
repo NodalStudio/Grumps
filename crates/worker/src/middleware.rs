@@ -37,6 +37,8 @@ pub struct Claims {
     pub sid: Option<String>,          // session id for cookie-based sessions; None for legacy Bearer
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub csrf: Option<String>,         // CSRF token for cookie-based sessions
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tg_user_id: Option<String>,   // Telegram user id (Widget login) — used by super-admin gate
     pub exp: usize,
 }
 
@@ -67,18 +69,28 @@ pub fn check_workspace_access(claims: &Claims, slug: &str) -> std::result::Resul
 /// Legacy JWT (no sid/csrf) — used by the WA OTP Bearer flow.
 pub fn create_jwt(user_id: &str, phone: &str, workspaces: Vec<String>, secret: &str) -> std::result::Result<String, String> {
     let exp = chrono::Utc::now().timestamp() as usize + 7 * 24 * 3600;
-    let claims = Claims { sub: user_id.into(), phone: phone.into(), workspaces, sid: None, csrf: None, exp };
+    let claims = Claims { sub: user_id.into(), phone: phone.into(), workspaces, sid: None, csrf: None, tg_user_id: None, exp };
     let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
     jsonwebtoken::encode(&jsonwebtoken::Header::default(), &claims, &key).map_err(|e| format!("jwt: {}", e))
 }
 
 /// New JWT for cookie-based sessions. `sid` is required for revocation checks;
 /// `csrf` is required on mutating requests via the X-CSRF-Token header.
-pub fn create_jwt_with_csrf(user_id: &str, workspaces: Vec<String>, sid: &str, csrf: &str, secret: &str) -> std::result::Result<String, String> {
+/// `tg_user_id` is the stable Telegram user id from the Widget login — used by
+/// the super-admin gate (Telegram does not expose phone numbers via the Widget).
+pub fn create_jwt_with_csrf(
+    user_id: &str,
+    workspaces: Vec<String>,
+    sid: &str,
+    csrf: &str,
+    tg_user_id: Option<&str>,
+    secret: &str,
+) -> std::result::Result<String, String> {
     let exp = chrono::Utc::now().timestamp() as usize + 7 * 24 * 3600;
     let claims = Claims {
         sub: user_id.into(), phone: String::new(), workspaces,
-        sid: Some(sid.into()), csrf: Some(csrf.into()), exp,
+        sid: Some(sid.into()), csrf: Some(csrf.into()),
+        tg_user_id: tg_user_id.map(|s| s.to_string()), exp,
     };
     let key = jsonwebtoken::EncodingKey::from_secret(secret.as_bytes());
     jsonwebtoken::encode(&jsonwebtoken::Header::default(), &claims, &key).map_err(|e| format!("jwt: {}", e))
@@ -91,14 +103,36 @@ pub fn with_cors(req: &Request, mut resp: Response) -> Result<Response> {
     Ok(resp)
 }
 
-/// Returns true if the authenticated user's phone is in the SUPER_ADMIN_PHONES env var.
-/// SUPER_ADMIN_PHONES is a comma-separated list of phone numbers (e.g. "+33612345678,+33612345679").
+/// Returns true if the authenticated user is a super-admin.
+/// Primary path (cookie session via Telegram Widget): match `claims.tg_user_id`
+/// against `SUPER_ADMIN_TELEGRAM_IDS` (comma-separated Telegram numeric ids).
+/// Legacy path (WA OTP Bearer): match `claims.phone` against `SUPER_ADMIN_PHONES`.
+/// Both lists are read from `env.secret()` first, with `env.var()` as a dev
+/// fallback so .dev.vars without the secret declared still works locally.
 pub fn is_super_admin(env: &worker::Env, claims: &Claims) -> bool {
-    let phones = env.var("SUPER_ADMIN_PHONES").map(|v| v.to_string()).unwrap_or_default();
-    if phones.is_empty() { return false; }
-    phones.split(',')
-        .map(|p| p.trim())
-        .any(|p| p == claims.phone)
+    if let Some(tg_id) = claims.tg_user_id.as_deref() {
+        if !tg_id.is_empty() {
+            let ids = env.secret("SUPER_ADMIN_TELEGRAM_IDS")
+                .map(|v| v.to_string())
+                .or_else(|_| env.var("SUPER_ADMIN_TELEGRAM_IDS").map(|v| v.to_string()))
+                .unwrap_or_default();
+            if !ids.is_empty()
+                && ids.split(',').map(str::trim).any(|s| s == tg_id) {
+                return true;
+            }
+        }
+    }
+    if !claims.phone.is_empty() {
+        let phones = env.secret("SUPER_ADMIN_PHONES")
+            .map(|v| v.to_string())
+            .or_else(|_| env.var("SUPER_ADMIN_PHONES").map(|v| v.to_string()))
+            .unwrap_or_default();
+        if !phones.is_empty()
+            && phones.split(',').map(str::trim).any(|p| p == claims.phone) {
+            return true;
+        }
+    }
+    false
 }
 
 /// Check if a user has the `admin` role in a workspace, querying the index DB.

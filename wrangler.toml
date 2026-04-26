@@ -21,11 +21,15 @@ TG_BOT_USERNAME = "HeyGrumpsBot"
 # Required secrets (set via `wrangler secret put` in prod, .dev.vars locally):
 #   JWT_SECRET, TG_BOT_TOKEN, TG_WEBHOOK_SECRET, ANTHROPIC_API_KEY,
 #   GEMINI_API_KEY, WA_APP_SECRET, WA_ACCESS_TOKEN, CF_API_TOKEN,
-#   CF_ACCOUNT_ID, BRAVE_API_KEY (optional), SUPER_ADMIN_PHONES (optional).
+#   CF_ACCOUNT_ID, BRAVE_API_KEY (optional),
+#   SUPER_ADMIN_TELEGRAM_IDS (optional, comma-separated Telegram numeric ids
+#     — the Widget login does not expose phone numbers, so super-admin is
+#     identified by Telegram user id),
+#   SUPER_ADMIN_PHONES (optional, legacy WA OTP path only).
 #
 # Not declared via `[secrets] required = [...]` for now because that block
 # fail-stops `wrangler deploy` on any missing secret, including BRAVE_API_KEY
-# / SUPER_ADMIN_PHONES which aren't always set.
+# / SUPER_ADMIN_* which aren't always set.
 
 [[d1_databases]]
 binding = "INDEX_DB"
