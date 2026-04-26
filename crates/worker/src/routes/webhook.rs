@@ -19,11 +19,12 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let wa = build_adapter(&ctx)?;
     let body = req.bytes().await?;
 
-    // 1. HMAC verify
-    if let Some(sig) = req.headers().get("X-Hub-Signature-256")? {
-        if wa.verify_signature(&body, &sig).is_err() {
-            return Response::error("Bad signature", 403);
-        }
+    // 1. HMAC verify. Signature is mandatory: an attacker who omits the header
+    // would otherwise skip verification and inject arbitrary webhook payloads.
+    let sig = req.headers().get("X-Hub-Signature-256")?
+        .ok_or_else(|| Error::RustError("missing X-Hub-Signature-256 header".into()))?;
+    if wa.verify_signature(&body, &sig).is_err() {
+        return Response::error("Bad signature", 403);
     }
 
     // 2. Parse webhook
@@ -151,7 +152,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         let (url, body) = wa.build_send_request(&inbound.sender_id, msg)
             .map_err(|e| worker::Error::RustError(format!("{:?}", e)))?;
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Authorization", &format!("Bearer {}", wa.access_token))?;
         headers.set("Content-Type", "application/json")?;
 

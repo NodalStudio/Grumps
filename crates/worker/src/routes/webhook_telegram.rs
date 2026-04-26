@@ -33,11 +33,12 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let tg = build_adapter(&ctx)?;
     let body = req.bytes().await?;
 
-    // Verify secret token
-    if let Some(secret) = req.headers().get("X-Telegram-Bot-Api-Secret-Token")? {
-        if tg.verify_signature(&body, &secret).is_err() {
-            return Response::error("Bad secret", 403);
-        }
+    // Verify secret token. Header is mandatory: an attacker who omits it
+    // would otherwise skip verification entirely and inject arbitrary updates.
+    let secret = req.headers().get("X-Telegram-Bot-Api-Secret-Token")?
+        .ok_or_else(|| Error::RustError("missing X-Telegram-Bot-Api-Secret-Token header".into()))?;
+    if tg.verify_signature(&body, &secret).is_err() {
+        return Response::error("Bad secret", 403);
     }
 
     // Typed parse of my_chat_member — routes based on status transition.
@@ -212,7 +213,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     for msg in &result.messages {
         let (url, body) = tg.build_send_request(&inbound.channel_id, msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
         let mut init = RequestInit::new();
         init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
@@ -346,7 +347,7 @@ pub(crate) async fn call_set_description(
 ) -> Result<bool> {
     let (url, body) = tg.build_set_description_request(chat_id, description)
         .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("Content-Type", "application/json")?;
     let mut init = RequestInit::new();
     init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
@@ -382,7 +383,7 @@ async fn send_message(
 ) -> Result<()> {
     let (url, body) = tg.build_send_request(chat_id, msg)
         .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("Content-Type", "application/json")?;
     let mut init = RequestInit::new();
     init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
