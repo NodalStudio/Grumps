@@ -189,7 +189,7 @@ If the prompt explicitly mentions @grumps, that's still potentially feedback —
             "maxOutputTokens": 512,
         }
     });
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("content-type", "application/json").ok();
     let req = match Request::new_with_init(&url, RequestInit::new()
         .with_method(Method::Post)

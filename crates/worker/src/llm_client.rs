@@ -59,7 +59,7 @@ impl LlmClient {
             }
         });
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
 
         let mut init = RequestInit::new();
@@ -98,7 +98,7 @@ impl LlmClient {
             }]
         });
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
         headers.set("x-api-key", &self.anthropic_api_key)?;
         headers.set("anthropic-version", "2023-06-01")?;

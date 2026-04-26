@@ -41,7 +41,7 @@ pub async fn handle_cron(env: &Env) -> Result<()> {
                 .build_send_request(&ws.platform_channel_id, &msg)
                 .map_err(|e| Error::RustError(format!("{:?}", e)))?;
 
-            let mut headers = Headers::new();
+            let headers = Headers::new();
             headers.set("Authorization", &format!("Bearer {}", wa.access_token))?;
             headers.set("Content-Type", "application/json")?;
 
@@ -139,7 +139,7 @@ async fn check_and_send_recaps(
             .build_send_request(&ws.platform_channel_id, &msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Authorization", &format!("Bearer {}", wa.access_token))?;
         headers.set("Content-Type", "application/json")?;
 

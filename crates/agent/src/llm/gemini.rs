@@ -169,7 +169,7 @@ pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Re
     let body = serde_json::to_string(&req)
         .map_err(|e| Error::RustError(format!("gemini req serialize: {e}")))?;
 
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("content-type", "application/json")?;
 
     let request = Request::new_with_init(&url, RequestInit::new()

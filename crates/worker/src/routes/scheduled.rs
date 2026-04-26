@@ -184,7 +184,7 @@ async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()>
     loop {
         attempts += 1;
         // Build a fresh request each iteration (Request is not Clone)
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("content-type", "application/json")?;
         let req = Request::new_with_init(
             "https://do/",
@@ -209,7 +209,7 @@ async fn reschedule_do(env: &Env, slug: &str) -> Result<()> {
     let id = do_ns.id_from_name(slug)?;
     let stub = id.get_stub()?;
     let body = serde_json::json!({ "op": "reschedule" });
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("content-type", "application/json")?;
     let req = Request::new_with_init(
         "https://do/",

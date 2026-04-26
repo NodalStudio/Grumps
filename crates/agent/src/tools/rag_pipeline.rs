@@ -99,7 +99,7 @@ fn vectorize_base(account_id: &str, index: &str) -> String {
 }
 
 async fn cf_post(url: &str, token: &str, body: &str) -> Result<String> {
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("Authorization", &format!("Bearer {token}"))?;
     headers.set("Content-Type", "application/json")?;
 

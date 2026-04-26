@@ -23,7 +23,7 @@ pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) 
                 "parse_mode": "Markdown",
             });
             let url = format!("https://api.telegram.org/bot{token}/sendMessage");
-            let mut headers = Headers::new();
+            let headers = Headers::new();
             headers.set("content-type", "application/json")?;
             let req = Request::new_with_init(&url, RequestInit::new()
                 .with_method(Method::Post)

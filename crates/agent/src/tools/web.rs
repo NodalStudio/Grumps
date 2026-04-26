@@ -30,7 +30,7 @@ impl WebSearchProvider for BraveProvider {
             "https://api.search.brave.com/res/v1/web/search?q={}&count={}&freshness={}",
             urlencode(query), count.min(10), if freshness == "all" { "" } else { freshness }
         );
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("X-Subscription-Token", &self.api_key)?;
         headers.set("Accept", "application/json")?;
         let req = Request::new_with_init(&url, RequestInit::new()
@@ -70,7 +70,7 @@ impl WebSearchProvider for SearxngProvider {
     async fn search(&self, query: &str, count: u8, _freshness: &str) -> Result<Vec<Hit>> {
         let url = format!("{}/search?q={}&format=json&safesearch=0",
             self.instance_url.trim_end_matches('/'), urlencode(query));
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Accept", "application/json")?;
         if let Some(key) = &self.api_key {
             headers.set("Authorization", &format!("Bearer {key}"))?;

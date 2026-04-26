@@ -7,7 +7,7 @@
 //!
 //! See spec § 7.6.
 
-use chrono::{DateTime, Utc, NaiveDate, Datelike, Weekday, TimeZone, Duration, Timelike};
+use chrono::{DateTime, Utc, Datelike, Weekday, Duration, Timelike};
 use thiserror::Error;
 
 #[derive(Debug, Error)]

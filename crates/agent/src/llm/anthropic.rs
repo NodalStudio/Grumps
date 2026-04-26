@@ -131,7 +131,7 @@ pub async fn call(env: &Env, req: &AnthropicRequest) -> Result<AnthropicResponse
     let body = serde_json::to_string(req)
         .map_err(|e| Error::RustError(format!("anthropic request serialize: {e}")))?;
 
-    let mut headers = Headers::new();
+    let headers = Headers::new();
     headers.set("x-api-key", &api_key)?;
     headers.set("anthropic-version", "2023-06-01")?;
     headers.set("content-type", "application/json")?;

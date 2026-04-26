@@ -48,7 +48,7 @@ impl D1RestClient {
         let url = format!("https://api.cloudflare.com/client/v4/accounts/{}/d1/database/{}/query", self.account_id, database_id);
         let body = serde_json::to_string(&D1Query { sql: sql.to_string(), params }).map_err(|e| Error::RustError(e.to_string()))?;
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Authorization", &format!("Bearer {}", self.api_token))?;
         headers.set("Content-Type", "application/json")?;
 
@@ -84,7 +84,7 @@ impl D1RestClient {
         let url = format!("https://api.cloudflare.com/client/v4/accounts/{}/d1/database", self.account_id);
         let body = serde_json::json!({"name": name});
 
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Authorization", &format!("Bearer {}", self.api_token))?;
         headers.set("Content-Type", "application/json")?;
 

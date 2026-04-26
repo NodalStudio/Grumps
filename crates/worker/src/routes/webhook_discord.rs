@@ -112,7 +112,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     for msg in &result.messages {
         let (url, body) = discord.build_send_request(&inbound.channel_id, msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
-        let mut headers = Headers::new();
+        let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
         headers.set("Authorization", &format!("Bot {}", discord.bot_token))?;
         let mut init = RequestInit::new();
