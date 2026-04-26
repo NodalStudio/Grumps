@@ -1,0 +1,116 @@
+name: CI
+
+# Verify on every PR and on main: workspace tests, clippy, rustfmt.
+# This workflow does NOT deploy. The deploy-pages.yml workflow handles
+# publishing the landing+SPA bundle, and the worker deploys via wrangler.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# One run per ref; new pushes cancel in-flight runs on the same branch.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rustfmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustfmt)
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt
+          rustup default stable
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (clippy + wasm32)
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # The worker + spa target wasm32-unknown-unknown; the rest are native.
+      # We surface warnings on every workspace member for the native target,
+      # then re-run for wasm32 to catch wasm-only lints. `-D warnings` is
+      # NOT yet enabled because there is a pre-existing dead-code backlog
+      # tracked in docs/superpowers/2026-04-26-audit-followups.md; flip
+      # this to `-- -D warnings` once that cleanup lands so regressions
+      # become hard failures.
+      - name: clippy (native workspace)
+        run: cargo clippy --workspace --all-targets
+      - name: clippy (wasm32 worker + spa)
+        run: |
+          cargo clippy -p grumps-worker --target wasm32-unknown-unknown
+          cargo clippy -p grumps-spa    --target wasm32-unknown-unknown
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - uses: Swatinem/rust-cache@v2
+      # `--lib` skips integration tests under `crates/worker/tests/` that
+      # require a live `wrangler dev` instance; those are gated behind
+      # `#[ignore]` anyway. CI only runs unit + doc tests across the
+      # workspace.
+      - name: cargo test (workspace lib + doctests)
+        run: cargo test --workspace --lib --tests --doc
+
+  i18n-validate:
+    name: i18n locale parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Every locale JSON must (a) parse as JSON and (b) contain every
+      # key that `en.json` defines. Missing keys fall back at runtime
+      # but we want the gap surfaced at PR time.
+      - name: Validate locale files
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'crates/i18n/locales';
+          const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+          const en = JSON.parse(fs.readFileSync(path.join(dir, 'en.json')));
+          const enKeys = new Set(Object.keys(en));
+          let bad = 0;
+          for (const f of files) {
+            let parsed;
+            try { parsed = JSON.parse(fs.readFileSync(path.join(dir, f))); }
+            catch (e) { console.error('FAIL parse', f, e.message); bad++; continue; }
+            if (f === 'en.json') continue;
+            const missing = [...enKeys].filter(k => !(k in parsed));
+            if (missing.length) {
+              console.error('MISSING keys in', f, '(showing up to 10):', missing.slice(0, 10));
+              bad++;
+            }
+          }
+          if (bad) process.exit(1);
+          console.log('All', files.length, 'locale files OK');
+          "
