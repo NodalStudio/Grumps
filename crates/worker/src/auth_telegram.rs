@@ -81,10 +81,10 @@ mod tests {
 
     fn sample_payload() -> TelegramWidgetPayload {
         TelegramWidgetPayload {
-            id: 6108569905,
-            first_name: Some("Benoît".into()),
-            last_name: Some("Mayer".into()),
-            username: Some("bemayer".into()),
+            id: 1234567890,
+            first_name: Some("Test".into()),
+            last_name: Some("User".into()),
+            username: Some("testuser".into()),
             photo_url: None,
             auth_date: 1714000000,
             hash: String::new(),
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn display_name_prefers_first_last() {
         let p = sample_payload();
-        assert_eq!(p.display_name(), "Benoît Mayer");
+        assert_eq!(p.display_name(), "Test User");
     }
 
     #[test]
@@ -146,13 +146,13 @@ mod tests {
         let mut p = sample_payload();
         p.first_name = None;
         p.last_name = None;
-        assert_eq!(p.display_name(), "bemayer");
+        assert_eq!(p.display_name(), "testuser");
     }
 
     #[test]
     fn display_name_falls_back_to_telegram_id() {
         let mut p = sample_payload();
         p.first_name = None; p.last_name = None; p.username = None;
-        assert_eq!(p.display_name(), "telegram:6108569905");
+        assert_eq!(p.display_name(), "telegram:1234567890");
     }
 }
