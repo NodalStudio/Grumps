@@ -283,5 +283,7 @@
   "settings.sessions": "सक्रिय सत्र",
   "settings.this_device": "यह डिवाइस",
   "settings.log_out": "लॉग आउट",
-  "settings.log_out_all_others": "अन्य सभी डिवाइस से लॉग आउट करें"
+  "settings.log_out_all_others": "अन्य सभी डिवाइस से लॉग आउट करें",
+  "agent.quota_exceeded": "आपने इस महीने अपने {limit} एजेंट कॉल इस्तेमाल कर लिए हैं ({plan} प्लान). अगले महीने की 1 तारीख को रीसेट होगा.",
+  "agent.fallback.unfinished": "मैं पूरा नहीं कर पाया — क्या आप थोड़ा और बता सकते हैं?"
 }

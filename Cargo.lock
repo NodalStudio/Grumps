@@ -682,6 +682,7 @@ dependencies = [
  "chrono",
  "grumps-calendar",
  "grumps-core",
+ "grumps-i18n",
  "grumps-memory",
  "grumps-scheduler",
  "serde",

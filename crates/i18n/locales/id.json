@@ -283,5 +283,7 @@
   "settings.sessions": "Sesi aktif",
   "settings.this_device": "Perangkat ini",
   "settings.log_out": "Keluar",
-  "settings.log_out_all_others": "Keluar di perangkat lain"
+  "settings.log_out_all_others": "Keluar di perangkat lain",
+  "agent.quota_exceeded": "Kamu sudah pakai {limit} panggilan agent bulan ini (paket {plan}). Reset tanggal 1 bulan depan.",
+  "agent.fallback.unfinished": "Aku belum selesai — bisa kasih detail lebih?"
 }

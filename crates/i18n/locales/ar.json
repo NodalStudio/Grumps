@@ -283,5 +283,7 @@
   "settings.sessions": "الجلسات النشطة",
   "settings.this_device": "هذا الجهاز",
   "settings.log_out": "تسجيل الخروج",
-  "settings.log_out_all_others": "تسجيل الخروج من الأجهزة الأخرى"
+  "settings.log_out_all_others": "تسجيل الخروج من الأجهزة الأخرى",
+  "agent.quota_exceeded": "لقد استخدمت {limit} طلبات الوكيل هذا الشهر (خطة {plan}). تُجدَّد في اليوم الأول من الشهر القادم.",
+  "agent.fallback.unfinished": "لم أتمكن من إنهاء المهمة — هل يمكنك إعطائي مزيدًا من التفاصيل؟"
 }

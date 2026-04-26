@@ -283,5 +283,7 @@
   "settings.sessions": "활성 세션",
   "settings.this_device": "이 기기",
   "settings.log_out": "로그아웃",
-  "settings.log_out_all_others": "다른 모든 기기에서 로그아웃"
+  "settings.log_out_all_others": "다른 모든 기기에서 로그아웃",
+  "agent.quota_exceeded": "이번 달 에이전트 호출 {limit}회를 모두 사용했습니다({plan} 요금제). 다음 달 1일에 초기화됩니다.",
+  "agent.fallback.unfinished": "끝내지 못했어요 — 좀 더 자세히 알려주실 수 있나요?"
 }

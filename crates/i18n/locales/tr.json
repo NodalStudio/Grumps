@@ -283,5 +283,7 @@
   "settings.sessions": "Etkin oturumlar",
   "settings.this_device": "Bu cihaz",
   "settings.log_out": "Çıkış yap",
-  "settings.log_out_all_others": "Diğer cihazlardan çıkış yap"
+  "settings.log_out_all_others": "Diğer cihazlardan çıkış yap",
+  "agent.quota_exceeded": "Bu ay {limit} agent çağrını kullandın ({plan} planı). Sonraki ayın 1'inde sıfırlanır.",
+  "agent.fallback.unfinished": "Bitiremedim — biraz daha açıklar mısın?"
 }

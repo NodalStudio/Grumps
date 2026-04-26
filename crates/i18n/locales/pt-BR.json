@@ -283,5 +283,7 @@
   "settings.sessions": "Sessões ativas",
   "settings.this_device": "Este dispositivo",
   "settings.log_out": "Sair",
-  "settings.log_out_all_others": "Sair de todos os outros dispositivos"
+  "settings.log_out_all_others": "Sair de todos os outros dispositivos",
+  "agent.quota_exceeded": "Você usou suas {limit} chamadas do agente este mês (plano {plan}). Reinicia no dia 1 do próximo mês.",
+  "agent.fallback.unfinished": "Não consegui terminar — pode me dar mais detalhes?"
 }

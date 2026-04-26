@@ -283,5 +283,7 @@
   "settings.sessions": "アクティブなセッション",
   "settings.this_device": "このデバイス",
   "settings.log_out": "ログアウト",
-  "settings.log_out_all_others": "他のすべてのデバイスからログアウト"
+  "settings.log_out_all_others": "他のすべてのデバイスからログアウト",
+  "agent.quota_exceeded": "今月のエージェント呼び出し（{limit}回、{plan}プラン）を使い切りました。来月1日にリセットされます。",
+  "agent.fallback.unfinished": "完了できませんでした — もう少し詳しく教えてください。"
 }

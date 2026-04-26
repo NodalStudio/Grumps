@@ -283,5 +283,7 @@
   "settings.sessions": "Sesiones activas",
   "settings.this_device": "Este dispositivo",
   "settings.log_out": "Cerrar sesión",
-  "settings.log_out_all_others": "Cerrar sesión en los demás dispositivos"
+  "settings.log_out_all_others": "Cerrar sesión en los demás dispositivos",
+  "agent.quota_exceeded": "Has usado tus {limit} llamadas al agente este mes (plan {plan}). Se reinicia el 1 del mes que viene.",
+  "agent.fallback.unfinished": "No pude terminar — ¿puedes darme más detalle?"
 }

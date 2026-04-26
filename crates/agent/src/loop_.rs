@@ -3,6 +3,7 @@
 
 use worker::*;
 use serde::Serialize;
+use grumps_i18n::{t, Locale};
 use crate::llm::anthropic::{self, AnthropicRequest, ContentBlock, Message};
 use crate::tools::{self, ToolContext};
 use crate::prompt::{self, PromptContext, MemberShort};
@@ -23,7 +24,9 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
     let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
     let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
     if used >= limit {
-        let msg = format!("Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.");
+        let locale = Locale::from_code(&ctx.language);
+        let msg = t(locale, "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", &plan)]);
         ctx.sink.send(&msg).await.ok();
         return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
     }
@@ -126,7 +129,8 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 
     // Loop exited without end_turn (max turns or token cap)
     persist_session(ctx, &messages).await.ok();
-    let fallback = "Je n'ai pas réussi à finir, peux-tu préciser ?".to_string();
+    let locale = Locale::from_code(&ctx.language);
+    let fallback = t(locale, "agent.fallback.unfinished", &[]);
     ctx.sink.send(&fallback).await.ok();
     Ok(LoopResult {
         final_text: Some(fallback),
@@ -142,7 +146,9 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
     let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
     let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
     if used >= limit {
-        let msg = format!("Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.");
+        let locale = Locale::from_code(&ctx.language);
+        let msg = t(locale, "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", &plan)]);
         ctx.sink.send(&msg).await.ok();
         return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
     }

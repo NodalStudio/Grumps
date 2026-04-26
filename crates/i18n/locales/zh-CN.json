@@ -283,5 +283,7 @@
   "settings.sessions": "活动会话",
   "settings.this_device": "此设备",
   "settings.log_out": "退出登录",
-  "settings.log_out_all_others": "在其他所有设备退出"
+  "settings.log_out_all_others": "在其他所有设备退出",
+  "agent.quota_exceeded": "本月你已用完 {limit} 次 agent 调用（{plan} 套餐），下月 1 日重置。",
+  "agent.fallback.unfinished": "我没能完成 — 能再说详细一点吗？"
 }

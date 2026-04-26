@@ -283,5 +283,7 @@
   "settings.sessions": "Aktive Sitzungen",
   "settings.this_device": "Dieses Gerät",
   "settings.log_out": "Abmelden",
-  "settings.log_out_all_others": "Überall sonst abmelden"
+  "settings.log_out_all_others": "Überall sonst abmelden",
+  "agent.quota_exceeded": "Du hast deine {limit} Agent-Anfragen diesen Monat aufgebraucht (Plan {plan}). Reset am 1. nächsten Monats.",
+  "agent.fallback.unfinished": "Ich konnte nicht fertig werden — kannst du es genauer beschreiben?"
 }

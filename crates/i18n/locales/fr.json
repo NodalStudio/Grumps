@@ -283,5 +283,7 @@
   "settings.sessions": "Sessions actives",
   "settings.this_device": "Cet appareil",
   "settings.log_out": "Se déconnecter",
-  "settings.log_out_all_others": "Déconnecter les autres appareils"
+  "settings.log_out_all_others": "Déconnecter les autres appareils",
+  "agent.quota_exceeded": "Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.",
+  "agent.fallback.unfinished": "Je n'ai pas réussi à finir — peux-tu préciser ?"
 }

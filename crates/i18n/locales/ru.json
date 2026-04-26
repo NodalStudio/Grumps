@@ -283,5 +283,7 @@
   "settings.sessions": "Активные сеансы",
   "settings.this_device": "Это устройство",
   "settings.log_out": "Выйти",
-  "settings.log_out_all_others": "Выйти на других устройствах"
+  "settings.log_out_all_others": "Выйти на других устройствах",
+  "agent.quota_exceeded": "Вы использовали все {limit} вызовов агента в этом месяце (тариф {plan}). Сброс 1-го числа следующего месяца.",
+  "agent.fallback.unfinished": "Не получилось закончить — можете уточнить?"
 }

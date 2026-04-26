@@ -8,6 +8,7 @@ grumps-core = { path = "../core" }
 grumps-memory = { path = "../memory" }
 grumps-scheduler = { path = "../scheduler" }
 grumps-calendar = { path = "../calendar" }
+grumps-i18n = { path = "../i18n" }
 worker = { version = "0.8", features = ["d1"] }
 serde.workspace = true
 serde_json.workspace = true
