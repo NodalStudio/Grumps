@@ -26,53 +26,49 @@ at the top of `handle_send_otp` in `crates/worker/src/routes/auth.rs`.
 ## Code-quality / architecture (medium priority)
 
 ### #7 — Locale hardcoded to `"en"` in `crates/worker/src/handler.rs`
-Six `formatter::*` calls (lines 103, 125, 225, 230, 238, 244) pass the
-literal `"en"`, plus two raw English strings (lines 528, 532) violate
-the i18n hard rule. Thread `WorkspaceMetaRow.locale` through the
-`handle_message` signature and replace the literal calls. Add i18n keys
-for the two raw strings (`bot.delete.needs_seq`,
-`bot.summarize.coming_soon`).
+✅ Done in 9cd103a (validate-mutating-routes pass). `handle_message`
+takes a typed `Locale` and threads it through every helper; the two
+raw English strings now route through `agent.todo.which_to_delete` /
+`agent.summarize.coming_soon`.
 
 ### #8 — `messaging_dispatch.rs` bypasses the messaging crate
-`crates/worker/src/messaging_dispatch.rs:18-33` builds Telegram HTTP
-requests inline rather than calling `TelegramAdapter::send` from
-`grumps-messaging`. Comments still reference internal "Plan A" /
-"Plan B" identifiers (banned per CLAUDE.md commit-message rule). Route
-through the adapter; replace the comments with neutral phrasing.
+✅ Done in 2026-04-27 audit-medium pass. Routes through
+`TelegramAdapter::build_send_request`; "Plan A/B" comments removed.
 
 ### #9 — `crates/worker/src/db.rs` is 1660 LOC mixing two DBs
-The file holds both Index-DB queries (`D1Database` binding) and
-Workspace-DB queries (`D1RestClient`). Split into `db/index.rs` and
-`db/workspace.rs`, re-export from `db/mod.rs`. The split makes the
-type-level boundary between the two databases explicit so a future
-contributor can't accidentally route a workspace query into the index.
+✅ Done in 2026-04-27 audit-medium pass. Split into `db/index.rs`
+(300 LOC) and `db/workspace.rs` (1387 LOC) with `db/mod.rs`
+re-exporting both.
 
 ### #10 — Dual auth state in the SPA (`AuthState` and `SessionContext`)
-`crates/spa/src/auth/mod.rs` carries a full `AuthState` struct alongside
-the newer `SessionContext`. `app.rs:20` calls `provide_auth()`
-unconditionally as a "no-op placeholder" outside demo mode. The plan was
-to delete `AuthState` after migration; finish or deprecate explicitly.
+✅ Done in 2026-04-27 audit-medium pass. `AuthState`,
+`provide_auth`, `use_auth` deleted. `ApiClient` is now a unit
+struct constructed at each callsite. `SessionContext` remains
+as the single auth context.
 
 ### #11 — Demo-mode guards scattered through `crates/spa/src/api.rs`
-Currently 15+ `if crate::demo::is_demo() { return ...; }` checks inline.
-Refactor to `trait Api` with `DemoApi` and `LiveApi` implementations,
-chosen at startup and provided as `Arc<dyn Api>`. Removes every inline
-guard and makes "forgot a demo branch" impossible.
+**DEFERRED**. The trait-based refactor (`trait Api` with
+`async-trait`, `DemoApi` + `LiveApi` impls, `Rc<dyn Api>` factory)
+touches 30+ method signatures and 13 callsites. Worth doing on its
+own PR with focused review; out of scope for this batch.
 
 ### #12 — Plan quota limits duplicated 3+ times
-`crates/agent/src/loop_.rs` lines 24, 143, 253 (agent calls) and 262-264
-(web search) each match `plan` against the same numeric ladder. Extract
-to a `fn limits_for_plan(plan: &str) -> QuotaLimits` helper in
-`crates/core/src/billing.rs` and call from all sites.
+✅ Done in 2026-04-27 audit-medium pass. The `Plan` enum moved to
+`crates/core/src/billing.rs` with `agent_call_quota()` and
+`web_search_quota()` methods. Worker re-exports from core. Agent
+crate uses `Plan` directly; old hardcoded ladders deleted. Also
+caught a 4th hardcoded French quota string in `tools/web.rs` and
+moved it to `agent.web_search.quota_exceeded`.
 
 ### #13 — SPA i18n violations
-Hardcoded English strings in:
-- `components/calendar/agenda.rs:18` — `"Nothing scheduled."`
-- `pages/global_observability.rs` lines 65, 119, 183, 300, 301
-- `pages/note_editor.rs:60` — `"Note not found."`
-- `app.rs:25` — `"404 — Not found."`
-
-Add keys to `crates/i18n/locales/en.json` and use `tr(...)`.
+✅ Mostly done in 9cd103a (which added `calendar.agenda.empty`,
+`common.404`, `page.note_editor.not_found`); finished in
+2026-04-27 audit-medium pass with `observability.no_data`,
+`observability.no_workspaces`,
+`observability.no_quality_signals`,
+`observability.access_denied`,
+`observability.super_admin_only` (5 keys × 14 locales) and the
+matching `tr()` calls in `pages/global_observability.rs`.
 
 ### #14 — Observability is one `console_log!` wrapper
 `crates/worker/src/observability.rs` is 11 lines, called from only 9
