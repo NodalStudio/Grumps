@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
-use crate::auth::{use_auth, use_session};
+use crate::api::ApiClient;
+use crate::auth::use_session;
 use crate::components::lang_switcher::LangSwitcher;
 use crate::components::workspace_switcher::WorkspaceSwitcher;
 use crate::i18n::tr;
@@ -16,8 +17,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
     let base = format!("{}/w/{}", prefix, slug);
 
     // Check super admin status once on mount.
-    let auth = use_auth();
-    let api = auth.api.clone();
+    let api = ApiClient::new();
     let admin_me = LocalResource::new(move || {
         let api = api.clone();
         async move { api.get_admin_me().await.ok() }

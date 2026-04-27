@@ -10,14 +10,7 @@ use crate::i18n::provide_locale;
 pub fn App() -> impl IntoView {
     provide_locale();
     if crate::demo::is_demo() {
-        crate::auth::provide_auth();   // legacy AuthState shim for demo pages
         crate::demo::install_postmessage_nav();
-    } else {
-        // Non-demo pages that still rely on the legacy AuthState shim need
-        // a context to be present even before AuthGate runs. Provide an
-        // empty shim so use_auth() in those pages doesn't panic; once
-        // AuthGate populates SessionContext, new pages should prefer that.
-        crate::auth::provide_auth();
     }
     let base: String = crate::demo::router_base();
     view! {

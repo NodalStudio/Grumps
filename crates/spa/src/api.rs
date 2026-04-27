@@ -194,17 +194,13 @@ pub struct VerifyResponse {
 // API Client
 // =====================
 
-#[derive(Clone)]
-pub struct ApiClient {
-    token: ReadSignal<Option<String>>,
-}
+#[derive(Clone, Default)]
+pub struct ApiClient;
 
 impl ApiClient {
-    pub fn new(_token: ReadSignal<Option<String>>) -> Self {
-        // The token signal is no longer used (cookies carry auth). Kept in the
-        // signature for backward-compat with existing callers — remove in a
-        // follow-up task once all sites stop passing a token.
-        Self { token: _token }
+    pub fn new() -> Self {
+        // Cookies + CSRF carry auth; the client is stateless.
+        Self
     }
 
     fn build_get(url: &str) -> gloo_net::http::RequestBuilder {

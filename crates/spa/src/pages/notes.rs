@@ -1,17 +1,16 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 
 #[component]
 pub fn NotesPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     let notes = LocalResource::new(move || {
-        let api = auth.api.clone();
+        let api = ApiClient::new();
         let s = slug();
         async move { api.get_notes(&s).await.unwrap_or_default() }
     });

@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 #[allow(unused_imports)]
 use js_sys;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::api::CalendarItem;
 use crate::components::calendar::month::MonthView;
 use crate::components::calendar::week::WeekView;
@@ -36,7 +36,6 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 
 #[component]
 pub fn CalendarPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
@@ -46,7 +45,7 @@ pub fn CalendarPage() -> impl IntoView {
     let (view_mode, set_view_mode) = signal("month".to_string());
 
     // Fetch calendar items for the visible month
-    let api = auth.api.clone();
+    let api = ApiClient::new();
     let cal_items = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();

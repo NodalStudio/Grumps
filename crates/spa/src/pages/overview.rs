@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 #[allow(unused_imports)]
 use js_sys;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::api::{StatusCounts, CalendarItem, MemoryItem};
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
@@ -29,14 +29,13 @@ fn pad2(n: u32) -> String { format!("{:02}", n) }
 
 #[component]
 pub fn OverviewPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     let (today_y, today_m, today_d) = today_str();
 
     // Status counts + workspace name (single fetch).
-    let api1 = auth.api.clone();
+    let api1 = ApiClient::new();
     let info = LocalResource::new(move || {
         let api = api1.clone();
         let s = slug();
@@ -44,7 +43,7 @@ pub fn OverviewPage() -> impl IntoView {
     });
 
     // Week calendar items
-    let api2 = auth.api.clone();
+    let api2 = ApiClient::new();
     let week_items = LocalResource::new(move || {
         let api = api2.clone();
         let s = slug();
@@ -57,7 +56,7 @@ pub fn OverviewPage() -> impl IntoView {
     });
 
     // Pinned memories
-    let api3 = auth.api.clone();
+    let api3 = ApiClient::new();
     let memories = LocalResource::new(move || {
         let api = api3.clone();
         let s = slug();

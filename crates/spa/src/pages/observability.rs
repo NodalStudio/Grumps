@@ -4,7 +4,7 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use leptos_router::components::A;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::api::{ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -279,18 +279,17 @@ fn Section(title: &'static str, children: Children) -> impl IntoView {
 
 #[component]
 pub fn ObservabilityPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     // Super admin gate: fetch /api/admin/me and redirect if not super admin
-    let api_gate = auth.api.clone();
+    let api_gate = ApiClient::new();
     let gate = LocalResource::new(move || {
         let api = api_gate.clone();
         async move { api.get_admin_me().await.ok() }
     });
 
-    let api = auth.api.clone();
+    let api = ApiClient::new();
     let data = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();

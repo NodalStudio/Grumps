@@ -1,13 +1,12 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use wasm_bindgen::JsCast;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 
 #[component]
 pub fn TodosPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = Memo::new(move |_| params.read().get("slug").unwrap_or_default());
     let (filter, set_filter) = signal("open".to_string());
@@ -17,9 +16,9 @@ pub fn TodosPage() -> impl IntoView {
     // even if the request takes longer than the animation.
     let (toggling, set_toggling) = signal::<Vec<String>>(Vec::new());
 
-    let api = auth.api.clone();
-    let api2 = auth.api.clone();
-    let api3 = auth.api.clone();
+    let api = ApiClient::new();
+    let api2 = ApiClient::new();
+    let api3 = ApiClient::new();
     let todos = LocalResource::new(move || {
         let api = api.clone();
         let s = slug.get();

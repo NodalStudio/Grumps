@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::api::MemoryItem;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
@@ -8,7 +8,6 @@ use crate::components::memory_card::MemoryCard;
 
 #[component]
 pub fn MemoryPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
@@ -26,7 +25,7 @@ pub fn MemoryPage() -> impl IntoView {
     let (form_expires, set_form_expires) = signal(String::new());
     let (form_pinned, set_form_pinned) = signal(false);
 
-    let api = auth.api.clone();
+    let api = ApiClient::new();
     let items = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();
@@ -65,12 +64,12 @@ pub fn MemoryPage() -> impl IntoView {
         set_show_modal.set(true);
     });
 
-    let api2 = auth.api.clone();
+    let api2 = ApiClient::new();
     let on_delete = Callback::new(move |id: String| {
         set_confirm_delete.set(Some(id));
     });
 
-    let api3 = auth.api.clone();
+    let api3 = ApiClient::new();
     let on_toggle_pin = Callback::new(move |id: String| {
         let api = api3.clone();
         let s = slug();
@@ -81,7 +80,7 @@ pub fn MemoryPage() -> impl IntoView {
         });
     });
 
-    let api_save = auth.api.clone();
+    let api_save = ApiClient::new();
     let save = move |_| {
         let api = api_save.clone();
         let s = slug();
@@ -111,7 +110,7 @@ pub fn MemoryPage() -> impl IntoView {
         });
     };
 
-    let api_del = auth.api.clone();
+    let api_del = ApiClient::new();
     let confirm_del = move |_| {
         if let Some(id) = confirm_delete.get() {
             let api = api_del.clone();

@@ -1,12 +1,11 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
-use crate::auth::use_auth;
+use crate::api::ApiClient;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 
 #[component]
 pub fn SettingsPage() -> impl IntoView {
-    let auth = use_auth();
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
@@ -19,7 +18,7 @@ pub fn SettingsPage() -> impl IntoView {
     let (workspace_locale, set_workspace_locale) = signal("en".to_string());
     let (refresh, set_refresh) = signal(0u32);
 
-    let api = auth.api.clone();
+    let api = ApiClient::new();
     let _settings = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();
@@ -39,7 +38,7 @@ pub fn SettingsPage() -> impl IntoView {
         }
     });
 
-    let api_save = auth.api.clone();
+    let api_save = ApiClient::new();
     let save_agent = move |_| {
         let api = api_save.clone();
         let s = slug();
@@ -55,8 +54,8 @@ pub fn SettingsPage() -> impl IntoView {
         });
     };
 
-    let api_locale = auth.api.clone();
-    let api_regen = auth.api.clone();
+    let api_locale = ApiClient::new();
+    let api_regen = ApiClient::new();
     let regen_ical = move |_| {
         let api = api_regen.clone();
         let s = slug();
