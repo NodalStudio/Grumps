@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "アーカイブ済み",
   "memory.badge.auto": "自動",
   "calendar.agenda.empty": "予定はありません。",
-  "common.404": "404 — 見つかりません。"
+  "common.404": "404 — 見つかりません。",
+  "agent.quota_exceeded": "今月のエージェント呼び出し（{limit}回、{plan}プラン）を使い切りました。来月1日にリセットされます。",
+  "agent.fallback.unfinished": "完了できませんでした — もう少し詳しく教えてください。",
+  "agent.web_search.quota_exceeded": "今月のウェブ検索（{limit}回、{plan}プラン）を使い切りました。来月1日にリセットされます。",
+  "observability.no_data": "データなし。",
+  "observability.no_workspaces": "ワークスペースなし。",
+  "observability.no_quality_signals": "品質シグナルはまだありません。",
+  "observability.access_denied": "アクセス拒否またはエラー。",
+  "observability.super_admin_only": "このページはスーパー管理者のみ。"
 }

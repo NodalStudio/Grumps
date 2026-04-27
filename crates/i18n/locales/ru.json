@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "Архивирован",
   "memory.badge.auto": "АВТО",
   "calendar.agenda.empty": "Ничего не запланировано.",
-  "common.404": "404 — Не найдено."
+  "common.404": "404 — Не найдено.",
+  "agent.quota_exceeded": "Вы использовали все {limit} вызовов агента в этом месяце (тариф {plan}). Сброс 1-го числа следующего месяца.",
+  "agent.fallback.unfinished": "Не получилось закончить — можете уточнить?",
+  "agent.web_search.quota_exceeded": "Вы использовали все {limit} веб-поисков в этом месяце (тариф {plan}). Сброс 1-го числа следующего месяца.",
+  "observability.no_data": "Данных пока нет.",
+  "observability.no_workspaces": "Нет workspace'ов.",
+  "observability.no_quality_signals": "Сигналов качества пока нет.",
+  "observability.access_denied": "Доступ запрещён или ошибка.",
+  "observability.super_admin_only": "Страница доступна только супер-администраторам."
 }

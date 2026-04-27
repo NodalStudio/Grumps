@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "Arşivlendi",
   "memory.badge.auto": "OTOM",
   "calendar.agenda.empty": "Planlı bir şey yok.",
-  "common.404": "404 — Bulunamadı."
+  "common.404": "404 — Bulunamadı.",
+  "agent.quota_exceeded": "Bu ay {limit} agent çağrını kullandın ({plan} planı). Sonraki ayın 1'inde sıfırlanır.",
+  "agent.fallback.unfinished": "Bitiremedim — biraz daha açıklar mısın?",
+  "agent.web_search.quota_exceeded": "Bu ay {limit} web aramanı kullandın ({plan} planı). Sonraki ayın 1'inde sıfırlanır.",
+  "observability.no_data": "Henüz veri yok.",
+  "observability.no_workspaces": "Workspace yok.",
+  "observability.no_quality_signals": "Henüz kalite sinyali yok.",
+  "observability.access_denied": "Erişim reddedildi veya hata.",
+  "observability.super_admin_only": "Bu sayfa sadece süper adminlere açık."
 }

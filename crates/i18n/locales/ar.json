@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "مؤرشف",
   "memory.badge.auto": "تلقائي",
   "calendar.agenda.empty": "لا شيء مجدول.",
-  "common.404": "404 — غير موجود."
+  "common.404": "404 — غير موجود.",
+  "agent.quota_exceeded": "لقد استخدمت {limit} طلبات الوكيل هذا الشهر (خطة {plan}). تُجدَّد في اليوم الأول من الشهر القادم.",
+  "agent.fallback.unfinished": "لم أتمكن من إنهاء المهمة — هل يمكنك إعطائي مزيدًا من التفاصيل؟",
+  "agent.web_search.quota_exceeded": "لقد استخدمت {limit} عمليات بحث على الويب هذا الشهر (خطة {plan}). تُجدَّد في اليوم الأول من الشهر القادم.",
+  "observability.no_data": "لا توجد بيانات بعد.",
+  "observability.no_workspaces": "لا توجد مساحات عمل.",
+  "observability.no_quality_signals": "لا توجد إشارات جودة بعد.",
+  "observability.access_denied": "تم رفض الوصول أو حدث خطأ.",
+  "observability.super_admin_only": "هذه الصفحة مقصورة على المسؤولين الكبار."
 }

@@ -1,46 +1,11 @@
 // crates/worker/src/billing.rs
-use serde::{Deserialize, Serialize};
+//
+// Plan enum lives in `grumps_core::billing` so the agent crate (which
+// can't depend on the worker) shares the same source of truth for
+// agent-call and web-search quotas. The worker-specific types
+// (QuotaError, check_* helpers) stay here.
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum Plan {
-    Free,
-    Pro,
-    Business,
-}
-
-impl Plan {
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "pro" => Self::Pro,
-            "business" => Self::Business,
-            _ => Self::Free,
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        match self { Self::Free => "free", Self::Pro => "pro", Self::Business => "business" }
-    }
-
-    pub fn max_todos(&self) -> Option<i64> {
-        match self { Self::Free => Some(25), Self::Pro => Some(200), Self::Business => None }
-    }
-
-    pub fn max_notes(&self) -> Option<i64> {
-        match self { Self::Free => Some(10), Self::Pro => Some(100), Self::Business => None }
-    }
-
-    pub fn max_llm_calls(&self) -> Option<i64> {
-        match self { Self::Free => Some(50), Self::Pro => Some(500), Self::Business => Some(2000) }
-    }
-
-    pub fn max_storage_bytes(&self) -> Option<i64> {
-        match self { Self::Free => Some(100 * 1024 * 1024), Self::Pro => Some(5 * 1024 * 1024 * 1024), Self::Business => Some(50 * 1024 * 1024 * 1024) }
-    }
-
-    pub fn max_groups(&self) -> Option<i64> {
-        match self { Self::Free => Some(1), Self::Pro => Some(5), Self::Business => None }
-    }
-}
+pub use grumps_core::billing::Plan;
 
 /// Quota-exceeded error. Returned as a typed value so callers can format
 /// the user-facing message in the chat's locale instead of a hardcoded

@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "Arquivado",
   "memory.badge.auto": "AUTO",
   "calendar.agenda.empty": "Nada agendado.",
-  "common.404": "404 — Não encontrado."
+  "common.404": "404 — Não encontrado.",
+  "agent.quota_exceeded": "Você usou suas {limit} chamadas do agente este mês (plano {plan}). Reinicia no dia 1 do próximo mês.",
+  "agent.fallback.unfinished": "Não consegui terminar — pode me dar mais detalhes?",
+  "agent.web_search.quota_exceeded": "Você usou suas {limit} buscas na web este mês (plano {plan}). Reinicia no dia 1 do próximo mês.",
+  "observability.no_data": "Sem dados ainda.",
+  "observability.no_workspaces": "Sem workspaces.",
+  "observability.no_quality_signals": "Sem sinais de qualidade ainda.",
+  "observability.access_denied": "Acesso negado ou erro.",
+  "observability.super_admin_only": "Esta página é restrita a super admins."
 }

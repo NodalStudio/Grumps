@@ -3,6 +3,8 @@
 
 use worker::*;
 use serde::{Deserialize, Serialize};
+use grumps_core::billing::Plan;
+use grumps_i18n::{t, Locale};
 use crate::tools::ToolContext;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,16 +160,16 @@ pub async fn web_search(ctx: &ToolContext<'_>, args: serde_json::Value) -> Resul
 
     // Quota check via settings
     let used = ctx.db.get_int_setting("web_search_quota_used_month").await.unwrap_or(0);
-    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
-    let limit = match plan.as_str() {
-        "pro" => 50,
-        "business" => 500,
-        _ => 5,
-    };
+    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan = Plan::from_str(&plan_str);
+    let limit = i64::from(plan.web_search_quota());
     if used >= limit {
+        let locale = Locale::from_code(&ctx.language);
+        let message = t(locale, "agent.web_search.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         return Ok(serde_json::json!({
             "error": "quota_exceeded",
-            "message": format!("Tu as utilisé tes {limit} recherches web ce mois-ci. Plan {plan}."),
+            "message": message,
             "used": used,
             "limit": limit,
         }));

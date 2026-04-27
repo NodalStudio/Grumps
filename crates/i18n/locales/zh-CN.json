@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "已归档",
   "memory.badge.auto": "自动",
   "calendar.agenda.empty": "没有日程。",
-  "common.404": "404 — 未找到。"
+  "common.404": "404 — 未找到。",
+  "agent.quota_exceeded": "本月你已用完 {limit} 次 agent 调用（{plan} 套餐），下月 1 日重置。",
+  "agent.fallback.unfinished": "我没能完成 — 能再说详细一点吗？",
+  "agent.web_search.quota_exceeded": "本月你已用完 {limit} 次网页搜索（{plan} 套餐），下月 1 日重置。",
+  "observability.no_data": "暂无数据。",
+  "observability.no_workspaces": "没有工作区。",
+  "observability.no_quality_signals": "暂无质量信号。",
+  "observability.access_denied": "访问被拒绝或出错。",
+  "observability.super_admin_only": "此页面仅限超级管理员访问。"
 }

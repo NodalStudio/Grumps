@@ -4,6 +4,7 @@
 use worker::*;
 use serde::Serialize;
 use grumps_i18n::{t, Locale};
+use grumps_core::billing::Plan;
 use crate::llm::anthropic::{self, AnthropicRequest, ContentBlock, Message};
 use crate::tools::{self, ToolContext};
 use crate::prompt::{self, PromptContext, MemberShort};
@@ -20,13 +21,14 @@ pub struct LoopResult {
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
     // Check quota before doing anything
-    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan = Plan::from_str(&plan_str);
     let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
-    let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
+    let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
         let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", &plan)]);
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
         return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
     }
@@ -142,13 +144,14 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 /// One-shot variant for autonomous runs (scheduled actions). No session persistence.
 pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<LoopResult> {
     // Check quota
-    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan = Plan::from_str(&plan_str);
     let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
-    let limit = match plan.as_str() { "pro" => 1000, "business" => 5000, _ => 200 };
+    let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
         let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", &plan)]);
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
         return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
     }
@@ -254,21 +257,14 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     let now = chrono::Utc::now().to_rfc3339();
 
     // Quota : read from DB, derive from plan
-    let plan = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan = Plan::from_str(&plan_str);
     let agent_calls_used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0) as u32;
-    let agent_quota = match plan.as_str() {
-        "pro" => 1000u32,
-        "business" => 5000,
-        _ => 200,
-    };
+    let agent_quota = plan.agent_call_quota();
     let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
 
     let web_used = ctx.db.get_int_setting("web_search_quota_used_month").await.unwrap_or(0) as u32;
-    let web_quota = match plan.as_str() {
-        "pro" => 50u32,
-        "business" => 500,
-        _ => 5,
-    };
+    let web_quota = plan.web_search_quota();
     let web_remaining = web_quota.saturating_sub(web_used);
 
     Ok(PromptContext {

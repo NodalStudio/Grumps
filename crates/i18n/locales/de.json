@@ -340,5 +340,13 @@
   "dashboard.workspace.archived": "Archiviert",
   "memory.badge.auto": "AUTO",
   "calendar.agenda.empty": "Nichts geplant.",
-  "common.404": "404 — Nicht gefunden."
+  "common.404": "404 — Nicht gefunden.",
+  "agent.quota_exceeded": "Du hast deine {limit} Agent-Anfragen diesen Monat aufgebraucht (Plan {plan}). Reset am 1. nächsten Monats.",
+  "agent.fallback.unfinished": "Ich konnte nicht fertig werden — kannst du es genauer beschreiben?",
+  "agent.web_search.quota_exceeded": "Du hast deine {limit} Web-Suchen diesen Monat aufgebraucht (Plan {plan}). Reset am 1. nächsten Monats.",
+  "observability.no_data": "Noch keine Daten.",
+  "observability.no_workspaces": "Keine Workspaces.",
+  "observability.no_quality_signals": "Noch keine Qualitätssignale.",
+  "observability.access_denied": "Zugriff verweigert oder Fehler.",
+  "observability.super_admin_only": "Diese Seite ist nur für Super-Admins."
 }
