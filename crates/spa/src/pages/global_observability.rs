@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use crate::api::ApiClient;
 use crate::api::{GlobalObservabilityData, GlobalWorkspaceStats, GlobalModelCostAgg, QualitySignalCount, GlobalError};
+use crate::i18n::tr;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ fn Section(title: &'static str, children: Children) -> impl IntoView {
 #[component]
 fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
     if rows.is_empty() || total == 0.0 {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data yet."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_data")}</div> }.into_any();
     }
 
     let segments: Vec<_> = rows.iter().map(|r| {
@@ -116,7 +117,7 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
 #[component]
 fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
     if rows.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No workspaces."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_workspaces")}</div> }.into_any();
     }
     view! {
         <div class="overflow-x-auto">
@@ -180,7 +181,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
 #[component]
 fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
     if signals.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No quality signals yet."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_quality_signals")}</div> }.into_any();
     }
     let max_count = signals.iter().map(|s| s.count).max().unwrap_or(1).max(1);
 
@@ -292,12 +293,12 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                     let maybe = data.get().map(|w| (*w).clone());
                     match maybe {
                         None => view! {
-                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Loading…"</div>
+                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">{move || tr("common.loading")}</div>
                         }.into_any(),
                         Some(None) => view! {
                             <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                                <div class="font-display text-xl font-extrabold text-brick">"Access denied or error."</div>
-                                <p class="text-sm mt-2" style="color:var(--ink-70);">"This page is restricted to super admins."</p>
+                                <div class="font-display text-xl font-extrabold text-brick">{move || tr("observability.access_denied")}</div>
+                                <p class="text-sm mt-2" style="color:var(--ink-70);">{move || tr("observability.super_admin_only")}</p>
                             </div>
                         }.into_any(),
                         Some(Some(d)) => {
