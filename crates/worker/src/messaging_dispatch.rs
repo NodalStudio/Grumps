@@ -1,45 +1,46 @@
 //! Thin helper to send a message to a workspace's chat group.
-//! Resolves platform from Index DB, builds adapter, sends.
+//! Resolves the platform from the Index DB, then routes through the
+//! corresponding adapter in `grumps_messaging` so request construction
+//! lives in one place.
 
 use worker::*;
-use grumps_messaging::adapter::OutboundMessage;
-use crate::db::get_index_db;
+use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use grumps_messaging::telegram::TelegramAdapter;
+use crate::db::{get_index_db, lookup_platform_channel};
 
 pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<()> {
-    use serde::Deserialize;
-    #[derive(Deserialize)]
-    struct Row { platform: String, platform_channel_id: String }
     let index = get_index_db(env)?;
-    let row: Option<Row> = index.prepare(
-        "SELECT platform, platform_channel_id FROM workspaces_meta WHERE slug = ?1"
-    ).bind(&[ws_slug.into()])?.first(None).await?;
-    let row = row.ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
-    match row.platform.as_str() {
-        "telegram" => {
-            let token = env.secret("TG_BOT_TOKEN")?.to_string();
-            let body = serde_json::json!({
-                "chat_id": row.platform_channel_id,
-                "text": out.text,
-                "parse_mode": "Markdown",
-            });
-            let url = format!("https://api.telegram.org/bot{token}/sendMessage");
-            let headers = Headers::new();
-            headers.set("content-type", "application/json")?;
-            let req = Request::new_with_init(&url, RequestInit::new()
-                .with_method(Method::Post)
-                .with_headers(headers)
-                .with_body(Some(serde_json::to_string(&body).unwrap().into())))?;
-            Fetch::Request(req).send().await?;
-            Ok(())
-        }
-        "whatsapp" => {
-            console_log!("WA send not implemented in messaging_dispatch (Plan A) ; use existing handler path");
-            Err(Error::RustError("WA send via messaging_dispatch not yet implemented".into()))
-        }
-        "discord" => {
-            console_log!("Discord send not implemented in messaging_dispatch (Plan A)");
-            Err(Error::RustError("Discord send via messaging_dispatch not yet implemented".into()))
-        }
+    let (platform, channel_id) = lookup_platform_channel(&index, ws_slug)
+        .await?
+        .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
+    match platform.as_str() {
+        "telegram" => send_via_telegram(env, &channel_id, out).await,
+        "whatsapp" => Err(Error::RustError(
+            "send_to_workspace: WhatsApp not wired yet — use the webhook path".into(),
+        )),
+        "discord" => Err(Error::RustError(
+            "send_to_workspace: Discord not wired yet — use the webhook path".into(),
+        )),
         other => Err(Error::RustError(format!("unknown platform: {other}"))),
     }
+}
+
+async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<()> {
+    let adapter = TelegramAdapter::new(
+        env.secret("TG_BOT_TOKEN")?.to_string(),
+        env.var("TG_BOT_USERNAME")?.to_string(),
+        env.secret("TG_WEBHOOK_SECRET")?.to_string(),
+    );
+    let (url, body) = adapter
+        .build_send_request(chat_id, out)
+        .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+    let mut headers = Headers::new();
+    headers.set("Content-Type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post)
+        .with_headers(headers)
+        .with_body(Some(body.into()));
+    let req = Request::new_with_init(&url, &init)?;
+    Fetch::Request(req).send().await?;
+    Ok(())
 }
