@@ -78,9 +78,21 @@ pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
         return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
     }
 
-    let body: CreateTodo = req.json().await.map_err(|_| Error::RustError("invalid json".into()))?;
-    if body.title.trim().is_empty() {
-        return middleware::with_cors(&req, Response::error("title required", 400)?);
+    let body: CreateTodo = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+    let trimmed = body.title.trim();
+    if trimmed.is_empty() {
+        return middleware::error_with_cors(&req, 400, "bad_request", "title required");
+    }
+    if trimmed.chars().count() > 500 {
+        return middleware::error_with_cors(&req, 400, "bad_request", "title must be ≤ 500 characters");
+    }
+    if let Some(p) = body.priority {
+        if !(1..=3).contains(&p) {
+            return middleware::error_with_cors(&req, 400, "bad_request", "priority must be 1, 2, or 3");
+        }
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
@@ -89,7 +101,7 @@ pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
     let tags_json = serde_json::to_string(&body.tags.unwrap_or_default()).unwrap_or_else(|_| "[]".into());
     let (todo_id, seq_num) = ws_db.insert_todo(
         &body.title,
-        body.priority.unwrap_or(3),
+        body.priority.unwrap_or(2),
         &tags_json,
         &body.assigned_to.unwrap_or_default(),
         &body.assigned_name.unwrap_or_default(),
@@ -132,7 +144,32 @@ pub async fn update_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
     }
 
     let todo_id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
-    let body: UpdateTodo = req.json().await.map_err(|_| Error::RustError("invalid json".into()))?;
+    let body: UpdateTodo = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+
+    // Validate optional fields. Status must be one of the known values;
+    // priority must be 1-3.
+    if let Some(s) = body.status.as_deref() {
+        if !matches!(s, "open" | "in_progress" | "done") {
+            return middleware::error_with_cors(&req, 400, "bad_request", "status must be open|in_progress|done");
+        }
+    }
+    if let Some(p) = body.priority {
+        if !(1..=3).contains(&p) {
+            return middleware::error_with_cors(&req, 400, "bad_request", "priority must be 1, 2, or 3");
+        }
+    }
+    if let Some(t) = body.title.as_deref() {
+        let trimmed = t.trim();
+        if trimmed.is_empty() {
+            return middleware::error_with_cors(&req, 400, "bad_request", "title cannot be empty");
+        }
+        if trimmed.chars().count() > 500 {
+            return middleware::error_with_cors(&req, 400, "bad_request", "title must be ≤ 500 characters");
+        }
+    }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);

@@ -35,9 +35,9 @@ pub fn OverviewPage() -> impl IntoView {
 
     let (today_y, today_m, today_d) = today_str();
 
-    // Status counts
+    // Status counts + workspace name (single fetch).
     let api1 = auth.api.clone();
-    let counts = LocalResource::new(move || {
+    let info = LocalResource::new(move || {
         let api = api1.clone();
         let s = slug();
         async move { api.get_workspace_info(&s).await.ok() }
@@ -74,12 +74,18 @@ pub fn OverviewPage() -> impl IntoView {
     let mon_offset = ((js_dow as i32 + 6) % 7) as u32; // 0=today is Mon..6=today is Sun
 
     view! {
-        <PageHeader title=slug() subtitle=tr("page.overview.title") />
+        <PageHeader title=move || {
+            let s = slug();
+            info.get()
+                .and_then(|data| (*data).clone())
+                .and_then(|d| d.name)
+                .unwrap_or(s)
+        } subtitle=tr("page.overview.title") />
         <div class="flex-1 overflow-y-auto p-8">
             // Stat blocks
             <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
-                {move || counts.get().map(|data| {
-                    let c = (*data).clone().unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
+                {move || info.get().map(|data| {
+                    let c = (*data).clone().map(|d| d.stats).unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
                     view! {
                         <div class="flex border-2 border-ink rounded-sm overflow-hidden mb-6" style="background: var(--cream-light);">
                             <StatBlock number=c.open_todos label=tr("overview.stat.open_todos") color="var(--brick)" />
@@ -99,7 +105,15 @@ pub fn OverviewPage() -> impl IntoView {
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || week_items.get().map(|data| {
                             let items: Vec<CalendarItem> = (*data).clone();
-                            let day_names = ["L","M","M","J","V","S","D"];
+                            let day_names = [
+                                tr("overview.day.short.mon"),
+                                tr("overview.day.short.tue"),
+                                tr("overview.day.short.wed"),
+                                tr("overview.day.short.thu"),
+                                tr("overview.day.short.fri"),
+                                tr("overview.day.short.sat"),
+                                tr("overview.day.short.sun"),
+                            ];
 
                             view! {
                                 <div class="grid grid-cols-7 gap-1">
@@ -131,7 +145,7 @@ pub fn OverviewPage() -> impl IntoView {
                                                     class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold"
                                                     style:background=if is_today { "var(--brick)" } else { "transparent" }
                                                     style:color=if is_today { "white" } else { "var(--ink-40)" }
-                                                >{day_names[col as usize]}</div>
+                                                >{day_names[col as usize].clone()}</div>
                                                 <div
                                                     class="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold"
                                                     style:color=if is_today { "var(--brick)" } else { "var(--ink-70)" }

@@ -1,7 +1,12 @@
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use leptos_router::hooks::use_params_map;
 use crate::auth::use_auth;
 use crate::components::header::PageHeader;
+use crate::i18n::{tr, tr_p};
+
+#[derive(Copy, Clone, PartialEq)]
+enum SaveState { Idle, Saving, Saved, Error }
 
 #[component]
 pub fn NoteEditorPage() -> impl IntoView {
@@ -10,8 +15,9 @@ pub fn NoteEditorPage() -> impl IntoView {
     let slug = move || params.read().get("slug").unwrap_or_default();
     let note_id = move || params.read().get("id").unwrap_or_default();
 
+    let api_for_load = auth.api.clone();
     let note = LocalResource::new(move || {
-        let api = auth.api.clone();
+        let api = api_for_load.clone();
         let s = slug();
         let id = note_id();
         async move { api.get_note(&s, &id).await.ok() }
@@ -19,33 +25,82 @@ pub fn NoteEditorPage() -> impl IntoView {
 
     let (editing, set_editing) = signal(false);
     let (content, set_content) = signal(String::new());
-    let (_title, set_title) = signal(String::new());
+    let (title, set_title) = signal(String::new());
+    let (save_state, set_save_state) = signal(SaveState::Idle);
+
+    let api_for_save = auth.api.clone();
+    let save = StoredValue::new(move || {
+        let api = api_for_save.clone();
+        let s = slug();
+        let id = note_id();
+        let t = title.get();
+        let c = content.get();
+        set_save_state.set(SaveState::Saving);
+        spawn_local(async move {
+            match api.update_note(&s, &id, &t, &c).await {
+                Ok(()) => set_save_state.set(SaveState::Saved),
+                Err(_) => set_save_state.set(SaveState::Error),
+            }
+        });
+    });
 
     view! {
-        <Suspense fallback=|| view! { <div class="p-8" style="color: var(--ink-40);">"Loading..."</div> }>
+        <Suspense fallback=|| view! { <div class="p-8" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
             {move || note.get().map(|data| {
                 if let Some(n) = (*data).clone() {
                     set_content.set(n.content.clone().unwrap_or_default());
                     set_title.set(n.title.clone().unwrap_or_default());
+                    let header_title = n.title.clone()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or_else(|| tr("page.note_editor.untitled"));
+                    let created_at = n.created_at.chars().take(10).collect::<String>();
                     view! {
-                        <PageHeader title=n.title.clone().unwrap_or("(untitled)".into()) subtitle=format!("Created {}", n.created_at)>
+                        <PageHeader
+                            title=header_title
+                            subtitle=tr_p("page.note_editor.created", &[("date", &created_at)])
+                        >
+                            <span class="text-xs mr-2" style="color: var(--ink-40);">
+                                {move || match save_state.get() {
+                                    SaveState::Idle => String::new(),
+                                    SaveState::Saving => tr("page.note_editor.saving"),
+                                    SaveState::Saved => tr("page.note_editor.saved"),
+                                    SaveState::Error => tr("page.note_editor.save_error"),
+                                }}
+                            </span>
                             <button
-                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
-                                style="background: var(--ink); color: var(--cream);"
+                                class="px-3 py-1.5 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                style="background: var(--cream-light);"
                                 on:click=move |_| set_editing.update(|e| *e = !*e)
                             >
-                                {move || if editing.get() { "Preview" } else { "Edit" }}
+                                {move || if editing.get() { tr("page.note_editor.preview") } else { tr("page.note_editor.edit") }}
+                            </button>
+                            <button
+                                class="px-4 py-1.5 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                style="background: var(--ink); color: var(--cream);"
+                                disabled=move || save_state.get() == SaveState::Saving
+                                on:click=move |_| save.with_value(|f| f())
+                            >
+                                {move || tr("page.note_editor.save")}
                             </button>
                         </PageHeader>
                         <div class="flex-1 overflow-y-auto p-8">
                             {move || if editing.get() {
                                 view! {
-                                    <textarea
-                                        class="w-full min-h-[400px] p-4 border-2 border-ink rounded-sm text-sm font-mono outline-none resize-y"
-                                        style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
-                                        prop:value=content
-                                        on:input=move |ev| set_content.set(event_target_value(&ev))
-                                    ></textarea>
+                                    <div class="flex flex-col gap-3">
+                                        <input
+                                            class="w-full p-3 border-2 border-ink rounded-sm text-sm font-semibold outline-none"
+                                            style="background: var(--cream);"
+                                            placeholder=tr("common.title.placeholder")
+                                            prop:value=title
+                                            on:input=move |ev| set_title.set(event_target_value(&ev))
+                                        />
+                                        <textarea
+                                            class="w-full min-h-[400px] p-4 border-2 border-ink rounded-sm text-sm font-mono outline-none resize-y"
+                                            style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
+                                            prop:value=content
+                                            on:input=move |ev| set_content.set(event_target_value(&ev))
+                                        ></textarea>
+                                    </div>
                                 }.into_any()
                             } else {
                                 view! {
@@ -57,7 +112,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                         </div>
                     }.into_any()
                 } else {
-                    view! { <div class="p-8 font-display text-lg">"Note not found."</div> }.into_any()
+                    view! { <div class="p-8 font-display text-lg">{move || tr("page.note_editor.not_found")}</div> }.into_any()
                 }
             })}
         </Suspense>

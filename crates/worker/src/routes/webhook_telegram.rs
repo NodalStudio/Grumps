@@ -205,7 +205,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &clean_text,
         parse_result, &inbound.message_id,
         inbound.quoted_message_id.as_deref(), inbound.quoted_message_text.as_deref(),
-        &inbound.sender_name, &ws_db, &member_id, &workspace.slug,
+        &inbound.sender_name, &ws_db, &member_id, &workspace.slug, &workspace.locale,
         llm.as_ref(), &workspace.plan,
     ).await?;
 

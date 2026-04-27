@@ -22,7 +22,7 @@ pub fn App() -> impl IntoView {
     let base: String = crate::demo::router_base();
     view! {
         <Router base=base>
-            <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">"404 — Not found."</div> }>
+            <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">{move || crate::i18n::tr("common.404")}</div> }>
                 <Route path=path!("/login") view=pages::login::LoginPage />
                 <Route path=path!("/admin/observability") view=pages::global_observability::GlobalObservabilityPage />
 

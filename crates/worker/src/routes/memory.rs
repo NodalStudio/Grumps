@@ -76,11 +76,24 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
     }
 
-    let body: CreateBody = req.json().await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
+    let body: CreateBody = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+    if body.value.trim().is_empty() {
+        return middleware::error_with_cors(&req, 400, "bad_request", "value required");
+    }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+
+    // memory_entries.created_by is FK → members(id). Resolve the calling
+    // user's member-id in this workspace via their Telegram numeric id; if
+    // they aren't a member yet, fall back to NULL rather than failing FK.
+    let created_by = match claims.tg_user_id.as_deref() {
+        Some(tg) if !tg.is_empty() => ws_db.find_member_by_platform_id(tg).await.ok().flatten(),
+        _ => None,
+    };
 
     let new = grumps_memory::NewMemoryEntry {
         key: body.key,
@@ -92,7 +105,7 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         confidence: Some(1.0),
         pinned: body.pinned,
         expires_at: body.expires_at,
-        created_by: Some(claims.sub.clone()),
+        created_by,
     };
     let id = ws_db.create_memory(&new).await?;
     let entry = ws_db.get_memory(&id).await?;
@@ -149,8 +162,10 @@ pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
 
     let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
-    let body: UpdateBody = req.json().await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
+    let body: UpdateBody = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);

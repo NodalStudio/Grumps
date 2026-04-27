@@ -143,6 +143,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &ws_db,
         &member_id,
         &workspace.slug,
+        &workspace.locale,
         llm_client.as_ref(),
         &workspace.plan,
     ).await?;

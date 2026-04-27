@@ -52,7 +52,7 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
-    let (open, done_week, notes, _files) = ws_db.get_status_counts().await?;
+    let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
 
     middleware::with_cors(&req, Response::from_json(&serde_json::json!({
         "slug": ws.slug,
@@ -62,6 +62,7 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
             "open_todos": open,
             "done_this_week": done_week,
             "notes": notes,
+            "files": files,
         }
     }))?)
 }
@@ -202,6 +203,14 @@ pub async fn update_me(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
     if let Some(loc) = &body.default_locale {
         if grumps_i18n::Locale::from_code(loc).code() != loc.as_str() {
             return middleware::error_with_cors(&req, 400, "bad_request", "unknown locale");
+        }
+    }
+    // Validate display_name length when provided. Empty / whitespace-only
+    // is rejected; over 80 chars is rejected to match workspace-name rules.
+    if let Some(name) = &body.display_name {
+        let trimmed = name.trim();
+        if trimmed.is_empty() || trimmed.len() > 80 {
+            return middleware::error_with_cors(&req, 400, "bad_request", "display_name must be 1-80 chars");
         }
     }
 

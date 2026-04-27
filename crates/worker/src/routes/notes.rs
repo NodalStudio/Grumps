@@ -64,7 +64,10 @@ pub async fn create_note(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
         return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
     }
 
-    let body: CreateNote = req.json().await.map_err(|_| Error::RustError("invalid json".into()))?;
+    let body: CreateNote = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
@@ -127,7 +130,10 @@ pub async fn update_note(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
     }
 
     let note_id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
-    let body: UpdateNote = req.json().await.map_err(|_| Error::RustError("invalid json".into()))?;
+    let body: UpdateNote = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);

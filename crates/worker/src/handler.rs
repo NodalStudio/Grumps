@@ -33,9 +33,11 @@ pub async fn handle_message(
     ws_db: &WorkspaceDb<'_>,
     member_id: &str,
     workspace_slug: &str,
+    ws_locale: &str,
     llm_client: Option<&LlmClient>,
     ws_plan: &str,
 ) -> worker::Result<HandlerResult> {
+    let locale = grumps_i18n::Locale::from_code(ws_locale);
     // Agent fast-path: route @grumps mentions through the agent before structured parsing.
     if let Some(env) = env {
         if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text).await? {
@@ -45,14 +47,14 @@ pub async fn handle_message(
 
     let plan = crate::billing::Plan::from_str(ws_plan);
     match parse_result {
-        ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
+        ParseResult::AddTodos(todos) => handle_add_todos(todos, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan).await,
         ParseResult::AddSingleTodo(todo) => {
             // If LLM client is available, classify free text instead of blindly creating a todo
             if let Some(llm) = llm_client {
                 // Check LLM quota before making the call
                 let llm_calls = ws_db.get_llm_calls_this_month().await.unwrap_or(0);
-                if let Err(msg) = crate::billing::check_llm_quota(&plan, llm_calls) {
-                    return Ok(HandlerResult::one(msg, Some(inbound_message_id.to_string())));
+                if let Err(qe) = crate::billing::check_llm_quota(&plan, llm_calls) {
+                    return Ok(HandlerResult::one(qe.render(locale), Some(inbound_message_id.to_string())));
                 }
 
                 let original_text = &todo.title;
@@ -62,45 +64,45 @@ pub async fn handle_message(
                 match llm.classify(original_text, sender_name, &todo_pairs).await {
                     Ok(nlu) => {
                         let _ = ws_db.increment_llm_calls().await;
-                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await;
+                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan).await;
                     }
                     Err(e) => {
                         worker::console_log!("LLM classify error: {}, falling back to AddSingleTodo", e);
                     }
                 }
             }
-            handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug, &plan).await
+            handle_add_todos(vec![todo], inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan).await
         }
-        ParseResult::CompleteTodos(items) => handle_complete_todos(items, ws_db, member_id, inbound_message_id).await,
-        ParseResult::CompleteSingle(target) => handle_complete_single(target, ws_db, member_id, inbound_message_id).await,
-        ParseResult::DeleteTodo(seq) => handle_delete(seq, ws_db, member_id).await,
-        ParseResult::AddNote(note) => handle_add_note(note, ws_db, member_id, &plan).await,
-        ParseResult::ListTodos(filter) => handle_list_todos(filter, ws_db, member_id).await,
-        ParseResult::ListNotes => handle_list_notes(ws_db).await,
-        ParseResult::SearchNotes(query) => handle_search_notes(&query, ws_db).await,
-        ParseResult::ListFiles => Ok(HandlerResult::one("File listing available on the web workspace.".into(), None)),
+        ParseResult::CompleteTodos(items) => handle_complete_todos(items, ws_db, member_id, inbound_message_id, locale).await,
+        ParseResult::CompleteSingle(target) => handle_complete_single(target, ws_db, member_id, inbound_message_id, locale).await,
+        ParseResult::DeleteTodo(seq) => handle_delete(seq, ws_db, member_id, locale).await,
+        ParseResult::AddNote(note) => handle_add_note(note, ws_db, member_id, locale, &plan).await,
+        ParseResult::ListTodos(filter) => handle_list_todos(filter, ws_db, member_id, locale).await,
+        ParseResult::ListNotes => handle_list_notes(ws_db, locale).await,
+        ParseResult::SearchNotes(query) => handle_search_notes(&query, ws_db, locale).await,
+        ParseResult::ListFiles => Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.files.web_only", &[]), None)),
         ParseResult::Help => Ok(HandlerResult::one(formatter::help_text(), None)),
         ParseResult::WorkspaceLink => Ok(HandlerResult::one(format!("grumps.app/w/{}", workspace_slug), None)),
-        ParseResult::Status => handle_status(ws_db, workspace_slug).await,
-        ParseResult::QuotedTodo => handle_quoted_todo(inbound_quoted_message_text, inbound_message_id, ws_db, member_id, workspace_slug, &plan).await,
-        ParseResult::QuotedNote => handle_quoted_note(inbound_quoted_message_text, ws_db, member_id, &plan).await,
-        ParseResult::TaskCardReply(action) => handle_card_reply(action, inbound_quoted_message_id, inbound_message_id, ws_db, member_id).await,
+        ParseResult::Status => handle_status(ws_db, workspace_slug, locale).await,
+        ParseResult::QuotedTodo => handle_quoted_todo(inbound_quoted_message_text, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan).await,
+        ParseResult::QuotedNote => handle_quoted_note(inbound_quoted_message_text, ws_db, member_id, locale, &plan).await,
+        ParseResult::TaskCardReply(action) => handle_card_reply(action, inbound_quoted_message_id, inbound_message_id, ws_db, member_id, locale).await,
         ParseResult::Ignore => Ok(HandlerResult::none()),
     }
 }
 
-async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     // Check todo quota before inserting
     let (open_count, _, _, _) = ws_db.get_status_counts().await?;
-    if let Err(msg) = crate::billing::check_todo_quota(plan, open_count) {
-        return Ok(HandlerResult::one(msg, Some(msg_id.to_string())));
+    if let Err(qe) = crate::billing::check_todo_quota(plan, open_count) {
+        return Ok(HandlerResult::one(qe.render(locale), Some(msg_id.to_string())));
     }
 
     let mut messages = Vec::new();
 
     // Summary first
     messages.push(OutboundMessage {
-        text: formatter::todos_added_summary(todos.len(), slug, "en"),
+        text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
         reply_to: Some(msg_id.to_string()),
     });
 
@@ -122,7 +124,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
             parsed.deadline_text.as_deref(),
             parsed.priority,
             &parsed.tags,
-            "en",
+            locale.code(),
         );
         messages.push(OutboundMessage { text: card, reply_to: None });
     }
@@ -130,7 +132,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
     Ok(HandlerResult::many(messages))
 }
 
-async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, member_id: &str, msg_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, member_id: &str, msg_id: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     let open_todos = ws_db.get_open_todos().await?;
     let mut lines = Vec::new();
 
@@ -139,11 +141,13 @@ async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, memb
             matcher::MatchResult::Exact(m) => {
                 ws_db.complete_todo(&m.todo_id, member_id).await?;
                 ws_db.log_activity(member_id, "todo.completed", "todo", &m.todo_id, "chat").await?;
-                let mut line = format!("\u{2705} #{} \"{}\" \u{2014} done.", m.seq_num, m.title);
+                let seq_str = m.seq_num.to_string();
+                let mut line = grumps_i18n::t(locale, "agent.todo.completed",
+                    &[("seq", &seq_str), ("title", &m.title)]);
                 if let Ok(Some(rec)) = ws_db.get_todo_recurrence(&m.todo_id).await {
                     if let Ok(Some(todo)) = ws_db.get_todo_by_seq(m.seq_num).await {
                         let _ = ws_db.create_next_recurrence(&todo, &rec).await;
-                        line.push_str(" \u{21bb} Next occurrence created.");
+                        line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                     }
                 }
                 lines.push(line);
@@ -151,11 +155,14 @@ async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, memb
             matcher::MatchResult::Fuzzy(candidates) => {
                 let opts: Vec<String> = candidates.iter().enumerate()
                     .map(|(i, c)| format!("  {}. #{} \"{}\"", i + 1, c.seq_num, c.title)).collect();
-                lines.push(format!("\u{1f50d} \"{}\" \u{2014} {} matches:\n{}\nReply with the number.",
-                    item, candidates.len(), opts.join("\n")));
+                let n_str = candidates.len().to_string();
+                let header = grumps_i18n::t(locale, "agent.todo.fuzzy_match_header",
+                    &[("item", item.as_str()), ("n", &n_str)]);
+                let footer = grumps_i18n::t(locale, "agent.todo.fuzzy_match_footer", &[]);
+                lines.push(format!("{}\n{}\n{}", header, opts.join("\n"), footer));
             }
             matcher::MatchResult::NoMatch => {
-                lines.push(format!("\u{2753} \"{}\" \u{2014} no match.", item));
+                lines.push(grumps_i18n::t(locale, "agent.todo.no_match", &[("item", item.as_str())]));
             }
         }
     }
@@ -163,55 +170,63 @@ async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, memb
     Ok(HandlerResult::one(lines.join("\n\n"), Some(msg_id.to_string())))
 }
 
-async fn handle_complete_single(target: CompletionTarget, ws_db: &WorkspaceDb<'_>, member_id: &str, msg_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_complete_single(target: CompletionTarget, ws_db: &WorkspaceDb<'_>, member_id: &str, msg_id: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     match target {
         CompletionTarget::BySeqNum(seq) => {
+            let seq_str = seq.to_string();
             match ws_db.get_todo_by_seq(seq).await? {
                 Some(todo) => {
                     ws_db.complete_todo(&todo.id, member_id).await?;
                     ws_db.log_activity(member_id, "todo.completed", "todo", &todo.id, "chat").await?;
-                    let mut text = format!("\u{2705} #{} \"{}\" \u{2014} done.", seq, todo.title);
+                    let mut text = grumps_i18n::t(locale, "agent.todo.completed",
+                        &[("seq", &seq_str), ("title", &todo.title)]);
                     if let Some(ref rec) = todo.recurrence {
                         if !rec.is_empty() {
                             let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(" \u{21bb} Next occurrence created.");
+                            text.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                         }
                     }
                     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
                 }
-                None => Ok(HandlerResult::one(format!("\u{2753} No todo #{}.", seq), Some(msg_id.to_string()))),
+                None => Ok(HandlerResult::one(
+                    grumps_i18n::t(locale, "agent.todo.not_found", &[("seq", &seq_str)]),
+                    Some(msg_id.to_string()),
+                )),
             }
         }
-        CompletionTarget::ByText(text) => handle_complete_todos(vec![text], ws_db, member_id, msg_id).await,
+        CompletionTarget::ByText(text) => handle_complete_todos(vec![text], ws_db, member_id, msg_id, locale).await,
     }
 }
 
-async fn handle_delete(seq: i64, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_delete(seq: i64, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
+    let seq_str = seq.to_string();
     match ws_db.get_todo_by_seq(seq).await? {
         Some(todo) => {
             ws_db.delete_todo(&todo.id).await?;
             ws_db.log_activity(member_id, "todo.deleted", "todo", &todo.id, "chat").await?;
-            Ok(HandlerResult::one(format!("\u{1f5d1}\u{fe0f} #{} \"{}\" \u{2014} deleted.", seq, todo.title), None))
+            Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.todo.deleted",
+                &[("seq", &seq_str), ("title", &todo.title)]), None))
         }
-        None => Ok(HandlerResult::one(format!("\u{2753} No todo #{}.", seq), None)),
+        None => Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.todo.not_found",
+            &[("seq", &seq_str)]), None)),
     }
 }
 
-async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     // Check note quota
     let (_, _, note_count, _) = ws_db.get_status_counts().await?;
-    if let Err(msg) = crate::billing::check_note_quota(plan, note_count) {
-        return Ok(HandlerResult::one(msg, None));
+    if let Err(qe) = crate::billing::check_note_quota(plan, note_count) {
+        return Ok(HandlerResult::one(qe.render(locale), None));
     }
 
     let title = note.title.as_deref().unwrap_or("");
     let note_id = ws_db.insert_note(title, &note.content, "chat", member_id).await?;
     ws_db.log_activity(member_id, "note.created", "note", &note_id, "chat").await?;
     let t = note.title.map(|t| format!(" \"{}\"", t)).unwrap_or_default();
-    Ok(HandlerResult::one(format!("\u{1f4dd} Note{} saved.", t), None))
+    Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.note.saved", &[("title", &t)]), None))
 }
 
-async fn handle_list_todos(filter: ListFilter, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_list_todos(filter: ListFilter, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     let (actual_filter, actual_label): (String, String) = match &filter {
         ListFilter::Open => ("open".to_string(), "open".to_string()),
         ListFilter::All => ("all".to_string(), "all".to_string()),
@@ -222,47 +237,47 @@ async fn handle_list_todos(filter: ListFilter, ws_db: &WorkspaceDb<'_>, member_i
     };
 
     let todos = ws_db.get_todos_filtered(&actual_filter, Some(member_id)).await?;
-    Ok(HandlerResult::one(formatter::todo_list(&todos, &actual_label, "en"), None))
+    Ok(HandlerResult::one(formatter::todo_list(&todos, &actual_label, locale.code()), None))
 }
 
-async fn handle_list_notes(ws_db: &WorkspaceDb<'_>) -> worker::Result<HandlerResult> {
+async fn handle_list_notes(ws_db: &WorkspaceDb<'_>, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     let notes = ws_db.get_notes().await?;
-    Ok(HandlerResult::one(formatter::note_list(&notes, "en"), None))
+    Ok(HandlerResult::one(formatter::note_list(&notes, locale.code()), None))
 }
 
-async fn handle_search_notes(query: &str, ws_db: &WorkspaceDb<'_>) -> worker::Result<HandlerResult> {
+async fn handle_search_notes(query: &str, ws_db: &WorkspaceDb<'_>, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     let notes = ws_db.search_notes(query).await?;
     if notes.is_empty() {
-        Ok(HandlerResult::one(format!("\u{1f50d} No notes matching \"{}\".", query), None))
+        Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.notes.search_empty", &[("query", query)]), None))
     } else {
-        Ok(HandlerResult::one(formatter::note_list(&notes, "en"), None))
+        Ok(HandlerResult::one(formatter::note_list(&notes, locale.code()), None))
     }
 }
 
-async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str) -> worker::Result<HandlerResult> {
+async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
-    Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug, "en"), None))
+    Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug, locale.code()), None))
 }
 
-async fn handle_quoted_todo(quoted_text: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_quoted_todo(quoted_text: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     let content = quoted_text.unwrap_or("");
     if content.is_empty() {
-        return Ok(HandlerResult::one("\u{2753} No message content to turn into a todo.".into(), None));
+        return Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.quoted.no_todo", &[]), None));
     }
     let parsed = entity::extract_todo_from_line(content);
-    handle_add_todos(vec![parsed], msg_id, ws_db, member_id, slug, plan).await
+    handle_add_todos(vec![parsed], msg_id, ws_db, member_id, slug, locale, plan).await
 }
 
-async fn handle_quoted_note(quoted_text: Option<&str>, ws_db: &WorkspaceDb<'_>, member_id: &str, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_quoted_note(quoted_text: Option<&str>, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
     let content = quoted_text.unwrap_or("");
     if content.is_empty() {
-        return Ok(HandlerResult::one("\u{2753} No message content to save as a note.".into(), None));
+        return Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.quoted.no_note", &[]), None));
     }
     let note = ParsedNote { title: None, content: content.to_string() };
-    handle_add_note(note, ws_db, member_id, plan).await
+    handle_add_note(note, ws_db, member_id, locale, plan).await
 }
 
-async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str) -> worker::Result<HandlerResult> {
+async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
     // Look up which todo this reply refers to
     let todo_id = if let Some(qid) = quoted_msg_id {
         ws_db.get_todo_for_bot_message(qid).await.unwrap_or(None)
@@ -270,7 +285,7 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
 
     let text = match action {
         TaskCardAction::Done => {
-            let mut text = "Done.".to_string();
+            let mut text = grumps_i18n::t(locale, "agent.card.done", &[]);
             if let Some(ref tid) = todo_id {
                 ws_db.complete_todo(tid, member_id).await?;
                 ws_db.log_activity(member_id, "todo.completed", "todo", tid, "chat").await?;
@@ -278,7 +293,7 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
                     if let Some(ref rec) = todo.recurrence {
                         if !rec.is_empty() {
                             let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(" \u{21bb} Next occurrence created.");
+                            text.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                         }
                     }
                 }
@@ -290,14 +305,14 @@ async fn handle_card_reply(action: TaskCardAction, quoted_msg_id: Option<&str>, 
                 ws_db.delete_todo(tid).await?;
                 ws_db.log_activity(member_id, "todo.deleted", "todo", tid, "chat").await?;
             }
-            "Deleted.".into()
+            grumps_i18n::t(locale, "agent.card.deleted", &[])
         }
-        TaskCardAction::Snooze(time) => format!("\u{23f0} Snoozed to {}.", time),
-        TaskCardAction::Edit(title) => format!("\u{270f}\u{fe0f} Updated: \"{}\".", title),
-        TaskCardAction::Reassign(person) => format!("\u{1f464} Reassigned to @{}.", person),
-        TaskCardAction::ChangePriority(p) => format!("{} Priority: {}.", p.emoji(), p.label()),
-        TaskCardAction::AddTag(tag) => format!("\u{1f3f7}\u{fe0f} #{}.", tag),
-        TaskCardAction::ChangeStatus(s) => format!("\u{1f4cc} Status: {}.", s),
+        TaskCardAction::Snooze(time) => grumps_i18n::t(locale, "agent.card.snoozed", &[("time", &time)]),
+        TaskCardAction::Edit(title) => grumps_i18n::t(locale, "agent.card.updated", &[("title", &title)]),
+        TaskCardAction::Reassign(person) => grumps_i18n::t(locale, "agent.card.reassigned", &[("person", &person)]),
+        TaskCardAction::ChangePriority(p) => grumps_i18n::t(locale, "agent.card.priority", &[("emoji", p.emoji()), ("label", p.label())]),
+        TaskCardAction::AddTag(tag) => grumps_i18n::t(locale, "agent.card.tag_added", &[("tag", &tag)]),
+        TaskCardAction::ChangeStatus(s) => grumps_i18n::t(locale, "agent.card.status", &[("status", &s)]),
     };
 
     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
@@ -362,8 +377,19 @@ async fn try_route_via_agent(
         }
         Err(e) => {
             worker::console_log!("agent route failed for ws={ws_slug}: {e}");
+            // Resolve workspace locale; fall back to En on lookup failure.
+            let locale = match crate::db::get_index_db(env)
+                .ok()
+                .and_then(|db| Some((db, ws_slug)))
+            {
+                Some((db, slug)) => match crate::db::lookup_workspace_by_slug(&db, slug).await {
+                    Ok(Some(ws)) => grumps_i18n::Locale::from_code(&ws.locale),
+                    _ => grumps_i18n::Locale::En,
+                },
+                None => grumps_i18n::Locale::En,
+            };
             Ok(Some(HandlerResult::one(
-                "Désolé, j'ai eu un souci technique. Réessaie ?".to_string(),
+                grumps_i18n::t(locale, "agent.error.technical", &[]),
                 None,
             )))
         }
@@ -385,28 +411,64 @@ async fn try_fast_commands(
         Err(_) => return Ok(None),
     };
 
-    // Silence: @grumps tais-toi | @grumps quiet
-    if lower.contains("@grumps tais-toi") || lower.contains("@grumps quiet") {
+    // Resolve the workspace's locale for response strings. Falls back to En
+    // on any error so the fast-path stays available even if the index DB is
+    // briefly unreachable.
+    let locale = match crate::db::get_index_db(env)
+        .ok()
+        .and_then(|db| Some((db, ws_slug)))
+    {
+        Some((db, slug)) => match crate::db::lookup_workspace_by_slug(&db, slug).await {
+            Ok(Some(ws)) => grumps_i18n::Locale::from_code(&ws.locale),
+            _ => grumps_i18n::Locale::En,
+        },
+        None => grumps_i18n::Locale::En,
+    };
+
+    // Silence: matched in every supported language plus a few common synonyms.
+    let silence_triggers = [
+        "@grumps tais-toi", "@grumps quiet", "@grumps silence", "@grumps shh",
+        "@grumps cállate", "@grumps cala-te", "@grumps cale-se",
+        "@grumps ruhe", "@grumps zitto", "@grumps тише", "@grumps sus",
+        "@grumps اسكت", "@grumps चुप", "@grumps 安静", "@grumps 静かに",
+        "@grumps 조용히", "@grumps diam",
+    ];
+    if silence_triggers.iter().any(|t| lower.contains(t)) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
         let _ = kv.put(&silence_key, "1").map(|p| p.expiration_ttl(86400).execute());
-        return Ok(Some(HandlerResult::one("🤫 Silence pour 24h".into(), None)));
+        return Ok(Some(HandlerResult::one(
+            grumps_i18n::t(locale, "agent.silence.confirm", &[]),
+            None,
+        )));
     }
 
-    // Unsilence: @grumps reviens | @grumps unquiet
-    if lower.contains("@grumps reviens") || lower.contains("@grumps unquiet") {
+    let unsilence_triggers = [
+        "@grumps reviens", "@grumps unquiet", "@grumps come back",
+        "@grumps vuelve", "@grumps volta",
+        "@grumps zurück", "@grumps torna", "@grumps вернись", "@grumps geri dön",
+        "@grumps عُد", "@grumps वापस आओ", "@grumps 回来", "@grumps 戻って",
+        "@grumps 돌아와", "@grumps kembali",
+    ];
+    if unsilence_triggers.iter().any(|t| lower.contains(t)) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
         let _ = kv.delete(&silence_key).await;
-        return Ok(Some(HandlerResult::one("👋 De retour".into(), None)));
+        return Ok(Some(HandlerResult::one(
+            grumps_i18n::t(locale, "agent.silence.unset", &[]),
+            None,
+        )));
     }
 
-    // Explicit memory: @grumps souviens-toi que ... / souviens-toi de ...
-    let memory_trigger = if lower.contains("@grumps souviens-toi que ") {
-        lower.find("@grumps souviens-toi que ").map(|i| i + "@grumps souviens-toi que ".len())
-    } else if lower.contains("@grumps souviens-toi de ") {
-        lower.find("@grumps souviens-toi de ").map(|i| i + "@grumps souviens-toi de ".len())
-    } else {
-        None
-    };
+    // Explicit memory: works in fr ("souviens-toi que/de") and en
+    // ("remember that"). Picks whichever phrase the user happened to use.
+    let memory_phrases: &[&str] = &[
+        "@grumps souviens-toi que ",
+        "@grumps souviens-toi de ",
+        "@grumps remember that ",
+        "@grumps remember to ",
+        "@grumps note that ",
+    ];
+    let memory_trigger = memory_phrases.iter()
+        .find_map(|phrase| lower.find(phrase).map(|i| i + phrase.len()));
 
     if let Some(start) = memory_trigger {
         // Extract the content from the original text (preserving case), same start offset
@@ -425,10 +487,16 @@ async fn try_fast_commands(
                 created_by: Some(member_id.to_string()),
             };
             match ws_db.create_memory(&entry).await {
-                Ok(_) => return Ok(Some(HandlerResult::one("💾 Noté !".into(), None))),
+                Ok(_) => return Ok(Some(HandlerResult::one(
+                    grumps_i18n::t(locale, "agent.memory.saved", &[]),
+                    None,
+                ))),
                 Err(e) => {
                     worker::console_log!("fast-path create_memory failed: {e}");
-                    return Ok(Some(HandlerResult::one("Impossible de sauvegarder. Réessaie ?".into(), None)));
+                    return Ok(Some(HandlerResult::one(
+                        grumps_i18n::t(locale, "agent.memory.error", &[]),
+                        None,
+                    )));
                 }
             }
         }
@@ -444,6 +512,7 @@ async fn handle_llm_result(
     ws_db: &WorkspaceDb<'_>,
     member_id: &str,
     slug: &str,
+    locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
 ) -> worker::Result<HandlerResult> {
     use grumps_core::todo::Priority;
@@ -471,16 +540,16 @@ async fn handle_llm_result(
             if !nlu.entities.tags.is_empty() {
                 todo.tags = nlu.entities.tags;
             }
-            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug, plan).await
+            handle_add_todos(vec![todo], msg_id, ws_db, member_id, slug, locale, plan).await
         }
         NluIntent::CompleteTodo => {
             if let Some(seq) = nlu.entities.target_id {
-                handle_complete_single(CompletionTarget::BySeqNum(seq), ws_db, member_id, msg_id).await
+                handle_complete_single(CompletionTarget::BySeqNum(seq), ws_db, member_id, msg_id, locale).await
             } else if let Some(title) = nlu.entities.title {
-                handle_complete_single(CompletionTarget::ByText(title), ws_db, member_id, msg_id).await
+                handle_complete_single(CompletionTarget::ByText(title), ws_db, member_id, msg_id, locale).await
             } else {
                 // Fall back to treating original text as completion target
-                handle_complete_todos(vec![original_todo.title], ws_db, member_id, msg_id).await
+                handle_complete_todos(vec![original_todo.title], ws_db, member_id, msg_id, locale).await
             }
         }
         NluIntent::AddNote => {
@@ -488,10 +557,11 @@ async fn handle_llm_result(
                 title: nlu.entities.title.clone(),
                 content: nlu.entities.title.unwrap_or(original_todo.title),
             };
-            handle_add_note(note, ws_db, member_id, plan).await
+            handle_add_note(note, ws_db, member_id, locale, plan).await
         }
         NluIntent::SetReminder => {
-            let title = nlu.entities.title.unwrap_or("Reminder".into());
+            let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
+            let title = nlu.entities.title.unwrap_or(default_title);
             let remind_at = nlu.entities.deadline.unwrap_or_else(|| "tomorrow 9:00".into());
             let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
             let recurrence = nlu.entities.recurrence.as_deref();
@@ -501,41 +571,47 @@ async fn handle_llm_result(
 
             let rec_text = recurrence.map(|r| format!(" ({})", r)).unwrap_or_default();
             let target_text = if target != member_id {
-                format!(" for @{}", nlu.entities.assignee.as_deref().unwrap_or(""))
+                grumps_i18n::t(locale, "agent.reminder.target_for",
+                    &[("name", nlu.entities.assignee.as_deref().unwrap_or(""))])
             } else {
                 String::new()
             };
 
             Ok(HandlerResult::one(
-                format!("\u{23f0} Reminder set{}: \"{}\"\n\u{1f4c5} {}{}", target_text, title, remind_at, rec_text),
+                grumps_i18n::t(locale, "agent.reminder.set", &[
+                    ("target", &target_text),
+                    ("title", &title),
+                    ("remind_at", &remind_at),
+                    ("rec", &rec_text),
+                ]),
                 Some(msg_id.to_string()),
             ))
         }
         NluIntent::ListTodos => {
-            handle_list_todos(ListFilter::Open, ws_db, member_id).await
+            handle_list_todos(ListFilter::Open, ws_db, member_id, locale).await
         }
         NluIntent::ListNotes => {
-            handle_list_notes(ws_db).await
+            handle_list_notes(ws_db, locale).await
         }
         NluIntent::SearchNotes => {
             let query = nlu.entities.search_query.unwrap_or(original_todo.title);
-            handle_search_notes(&query, ws_db).await
+            handle_search_notes(&query, ws_db, locale).await
         }
         NluIntent::DeleteTodo => {
             if let Some(seq) = nlu.entities.target_id {
-                handle_delete(seq, ws_db, member_id).await
+                handle_delete(seq, ws_db, member_id, locale).await
             } else {
-                Ok(HandlerResult::one("Which todo do you want to delete? Use `delete #N`.".into(), Some(msg_id.to_string())))
+                Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.todo.which_to_delete", &[]), Some(msg_id.to_string())))
             }
         }
         NluIntent::Summarize => {
-            Ok(HandlerResult::one("Summarize is coming soon!".into(), Some(msg_id.to_string())))
+            Ok(HandlerResult::one(grumps_i18n::t(locale, "agent.summarize.coming_soon", &[]), Some(msg_id.to_string())))
         }
         NluIntent::Help => {
             Ok(HandlerResult::one(grumps_messaging::formatter::help_text(), None))
         }
         NluIntent::Status => {
-            handle_status(ws_db, slug).await
+            handle_status(ws_db, slug, locale).await
         }
         NluIntent::Irrelevant => {
             Ok(HandlerResult::none())

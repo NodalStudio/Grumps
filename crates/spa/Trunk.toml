@@ -2,10 +2,22 @@
 target = "index.html"
 dist = "dist"
 
+# Local-dev proxy: forward worker traffic through trunk's dev server so
+# SPA + API share the same origin (localhost:8080). Required for cookies
+# (especially the non-HttpOnly grumps_csrf) to be readable from the SPA.
+[[proxy]]
+backend = "http://127.0.0.1:8787/auth/"
+
+[[proxy]]
+backend = "http://127.0.0.1:8787/api/"
+
+[[proxy]]
+backend = "http://127.0.0.1:8787/health"
+
 [[hooks]]
-stage = "build"
+stage = "pre_build"
 command = "sh"
-command_arguments = ["-c", "npx tailwindcss -i ./input.css -o ./dist/styles.css --minify 2>/dev/null || npx tailwindcss -i ./input.css -o ./dist/styles.css"]
+command_arguments = ["-c", "npx tailwindcss -i ./input.css -o ./tailwind.out.css --minify 2>/dev/null || npx tailwindcss -i ./input.css -o ./tailwind.out.css"]
 
 [[hooks]]
 stage = "post_build"

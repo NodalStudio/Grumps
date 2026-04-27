@@ -56,11 +56,26 @@ impl D1RestClient {
         init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
 
         let req = Request::new_with_init(&url, &init)?;
-        let mut resp = Fetch::Request(req).send().await?;
-        let response: D1Response = resp.json().await?;
+        let mut resp = match Fetch::Request(req).send().await {
+            Ok(r) => r,
+            Err(e) => {
+                worker::console_log!("[d1_rest] fetch failed for {}: {:?}", database_id, e);
+                return Err(e);
+            }
+        };
+        let status = resp.status_code();
+        let text = resp.text().await.unwrap_or_default();
+        if status >= 400 {
+            worker::console_log!("[d1_rest] {} {} body={}", status, database_id, &text.chars().take(300).collect::<String>());
+        }
+        let response: D1Response = serde_json::from_str(&text).map_err(|e| {
+            worker::console_log!("[d1_rest] JSON parse failed status={} body={}", status, &text.chars().take(200).collect::<String>());
+            Error::RustError(format!("D1 JSON parse: {}", e))
+        })?;
 
         if !response.success {
             let msg = response.errors.first().map(|e| e.message.clone()).unwrap_or("unknown D1 error".into());
+            worker::console_log!("[d1_rest] D1 returned success=false: {}", msg);
             return Err(Error::RustError(msg));
         }
         Ok(response)

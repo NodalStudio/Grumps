@@ -66,7 +66,7 @@ pub fn MemoryCard(
                         <span
                             class="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest rounded-sm"
                             style="background: var(--ink-08); color: var(--ink-70);"
-                        >"AUTO"</span>
+                        >{move || crate::i18n::tr("memory.badge.auto")}</span>
                     }.into_any()
                 } else {
                     view! { <span></span> }.into_any()

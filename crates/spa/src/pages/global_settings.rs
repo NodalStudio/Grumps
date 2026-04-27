@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use gloo_net::http::Request;
 use serde::Deserialize;
 use crate::auth::{use_session, read_csrf_cookie};
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_p};
 
 #[component]
 pub fn GlobalSettingsPage() -> impl IntoView {
@@ -70,7 +70,7 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
         </label>
         <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm cursor-pointer"
             style="background: var(--ink); color: var(--cream);"
-            on:click=save>"Save"</button>
+            on:click=save>{move || tr("common.save")}</button>
     }
 }
 
@@ -131,7 +131,7 @@ fn SessionList() -> impl IntoView {
                 <li class="p-3 border-2 border-ink rounded-sm flex justify-between items-center">
                     <div>
                         <div class="font-bold">{s.device_label.clone().unwrap_or_default()} " · " {s.country_hint.clone().unwrap_or_default()}</div>
-                        <div class="text-xs" style="color: var(--ink-40);">{"Last active "}{s.last_seen_at.clone()}</div>
+                        <div class="text-xs" style="color: var(--ink-40);">{move || tr_p("settings.last_active", &[("date", &s.last_seen_at)])}</div>
                     </div>
                     {if s.is_current {
                         view! { <span class="text-xs font-bold uppercase tracking-wider px-2 py-1 border-2 border-ink rounded-sm">{move || tr("settings.this_device")}</span> }.into_any()

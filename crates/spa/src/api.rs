@@ -7,13 +7,16 @@ pub fn api_base() -> String {
         .and_then(|w| w.location().origin().ok())
         .map(|origin| {
             if origin.contains("localhost") || origin.contains("127.0.0.1") {
-                "http://localhost:8787".to_string()
+                // Local dev: use a relative URL so trunk's dev server proxies
+                // /auth/* and /api/* through to the worker on :8787 — same
+                // origin means cookies (esp. grumps_csrf) are readable.
+                String::new()
             } else {
                 // Worker is served at api.grumps.app; SPA lives at grumps.app
                 origin.replace("grumps.app", "api.grumps.app")
             }
         })
-        .unwrap_or_else(|| "http://localhost:8787".to_string())
+        .unwrap_or_default()
 }
 
 // =====================
@@ -70,12 +73,25 @@ pub struct WorkspaceInfo {
     pub role: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StatusCounts {
+    #[serde(default)]
     pub open_todos: i64,
+    #[serde(default)]
     pub done_this_week: i64,
+    #[serde(default)]
     pub notes: i64,
+    #[serde(default)]
     pub files: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WorkspaceOverview {
+    pub slug: String,
+    pub name: Option<String>,
+    pub plan: String,
+    #[serde(default)]
+    pub stats: StatusCounts,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,8 +278,15 @@ impl ApiClient {
         self.get("/api/workspaces").await
     }
 
-    pub async fn get_workspace_info(&self, slug: &str) -> Result<StatusCounts, String> {
-        if crate::demo::is_demo() { return Ok(crate::demo::status_counts()); }
+    pub async fn get_workspace_info(&self, slug: &str) -> Result<WorkspaceOverview, String> {
+        if crate::demo::is_demo() {
+            return Ok(WorkspaceOverview {
+                slug: slug.into(),
+                name: Some("seed.workspace.name".into()),
+                plan: "free".into(),
+                stats: crate::demo::status_counts(),
+            });
+        }
         self.get(&format!("/api/w/{}", slug)).await
     }
 

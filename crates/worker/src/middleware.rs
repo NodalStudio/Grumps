@@ -318,7 +318,13 @@ pub async fn verify_session(req: &Request, env: &Env) -> std::result::Result<Cla
         return Ok(claims);
     }
 
-    // Legacy Bearer path — keeps WA OTP working.
+    // Legacy Bearer path — keeps WA OTP working. If neither a cookie nor an
+    // Authorization header is present, treat it as "no credentials" rather
+    // than "bad token" so clients can distinguish the two.
+    let has_auth_header = req.headers().get("Authorization").ok().flatten().is_some();
+    if !has_auth_header {
+        return Err(AuthError::Unauthenticated);
+    }
     match verify_jwt(req, &secret) {
         Ok(c) => Ok(c),
         Err(e) => Err(AuthError::InvalidToken(e)),

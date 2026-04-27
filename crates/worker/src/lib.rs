@@ -105,6 +105,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         // Super admin
         .get_async("/api/admin/observability", routes::admin_global::observability)
         .get_async("/api/admin/me", routes::admin_global::whoami)
+        .post_async("/api/admin/w/:slug/scheduled/:id/fire", routes::admin_global::force_fire_scheduled)
         // Stripe webhook
         .post_async("/webhook/stripe", routes::stripe_webhook::handle_stripe_webhook)
         .run(req, env)

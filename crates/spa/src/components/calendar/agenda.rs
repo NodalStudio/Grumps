@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::api::CalendarItem;
+use crate::i18n::tr;
 use super::item::CalItem;
 
 fn parse_date_key(s: &str) -> String {
@@ -15,7 +16,7 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                 if all.is_empty() {
                     return view! {
                         <div class="text-center py-16">
-                            <p class="font-display text-lg font-bold">"Nothing scheduled."</p>
+                            <p class="font-display text-lg font-bold">{move || tr("calendar.agenda.empty")}</p>
                         </div>
                     }.into_any();
                 }

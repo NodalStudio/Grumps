@@ -176,6 +176,53 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
 }
 
 /// GET /api/admin/me — returns whether the caller is super admin
+/// POST /api/admin/w/:slug/scheduled/:id/fire — super-admin only.
+/// Force-fires a scheduled action immediately (bypassing the DO alarm),
+/// running the same `execute_action` path the alarm would. Useful as a
+/// production kill-switch and for tests that can't wait on a real alarm
+/// (wrangler dev's alarm subsystem doesn't fire reliably).
+pub async fn force_fire_scheduled(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    if !is_super_admin(&ctx.env, &claims) {
+        return middleware::error_with_cors(&req, 403, "auth.super_admin_only", "super admin only");
+    }
+
+    let slug = match ctx.param("slug") {
+        Some(s) => s.clone(),
+        None => return middleware::error_with_cors(&req, 400, "bad_request", "missing slug"),
+    };
+    let id = match ctx.param("id") {
+        Some(s) => s.clone(),
+        None => return middleware::error_with_cors(&req, 400, "bad_request", "missing id"),
+    };
+
+    let index_db = get_index_db(&ctx.env)?;
+    let ws = match crate::db::lookup_workspace_by_slug(&index_db, &slug).await? {
+        Some(w) => w,
+        None => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+
+    let client = D1RestClient::from_env(&ctx.env)?;
+    let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
+    let action = match db.get_scheduled_action(&id).await? {
+        Some(a) => a,
+        None => return middleware::error_with_cors(&req, 404, "scheduled.not_found", "action not found"),
+    };
+
+    if let Err(e) = crate::scheduler_executor::execute_action(&ctx.env, &slug, &action).await {
+        worker::console_log!("force_fire_scheduled failed for {slug}/{id}: {e}");
+        return middleware::error_with_cors(&req, 500, "execute_failed", &format!("{e}"));
+    }
+
+    let mut resp = Response::from_json(&serde_json::json!({ "ok": true, "id": id }))?;
+    let origin = req.headers().get("Origin")?.unwrap_or_default();
+    middleware::add_cors(&mut resp, Some(&origin))?;
+    Ok(resp)
+}
+
 pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let claims = match middleware::verify_session(&req, &ctx.env).await {
         Ok(c) => c,

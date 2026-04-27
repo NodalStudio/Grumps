@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
-use crate::auth::use_auth;
+use crate::auth::{use_auth, use_session};
 use crate::components::lang_switcher::LangSwitcher;
 use crate::components::workspace_switcher::WorkspaceSwitcher;
 use crate::i18n::tr;
@@ -87,16 +87,39 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                 </A>
             </nav>
 
-            // User footer
-            <div class="px-5 py-3 flex items-center gap-2.5 border-t" style="border-color: var(--ink-15);">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold" style="background: var(--ink); color: var(--cream);">
-                    "A"
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-semibold truncate">{move || tr("sidebar.user.you")}</div>
-                    <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">{move || tr("sidebar.user.role.member")}</div>
-                </div>
-            </div>
+            // User footer — display name + role from session
+            {
+                let footer_slug = slug.clone();
+                view! {
+                    <div class="px-5 py-3 flex items-center gap-2.5 border-t" style="border-color: var(--ink-15);">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-display font-bold" style="background: var(--ink); color: var(--cream);">
+                            {move || {
+                                let session = use_session().unwrap_or_default();
+                                session.display_name.chars().next()
+                                    .map(|c| c.to_uppercase().to_string())
+                                    .unwrap_or_else(|| "A".into())
+                            }}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[13px] font-semibold truncate">
+                                {move || {
+                                    let session = use_session().unwrap_or_default();
+                                    if session.display_name.is_empty() { tr("sidebar.user.you") } else { session.display_name }
+                                }}
+                            </div>
+                            <div class="text-[11px] uppercase tracking-wider font-medium" style="color: var(--ink-40);">
+                                {move || {
+                                    let session = use_session().unwrap_or_default();
+                                    let role = session.workspaces.iter().find(|w| w.slug == footer_slug)
+                                        .map(|w| w.role.clone())
+                                        .unwrap_or_else(|| "member".into());
+                                    role.to_uppercase()
+                                }}
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
             // Lang switcher
             <div class="px-5 py-3 border-t flex items-center justify-between gap-2" style="border-color: var(--ink-15);">
                 <span class="text-[10px] uppercase tracking-[1.5px] font-bold" style="color: var(--ink-40);">{move || tr("sidebar.section.language")}</span>

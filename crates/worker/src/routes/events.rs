@@ -78,11 +78,30 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
     }
 
-    let body: CreateBody = req.json().await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
+    let body: CreateBody = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+
+    if body.title.trim().is_empty() {
+        return middleware::error_with_cors(&req, 400, "bad_request", "title required");
+    }
+    if let Some(ends_at) = body.ends_at {
+        if ends_at < body.starts_at {
+            return middleware::error_with_cors(&req, 400, "bad_request", "ends_at must be at or after starts_at");
+        }
+    }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+
+    // events.created_by is FK → members(id). Resolve the calling user's
+    // member-id in this workspace via their Telegram numeric id; if they
+    // aren't a member yet, fall back to NULL rather than failing FK.
+    let created_by = match claims.tg_user_id.as_deref() {
+        Some(tg) if !tg.is_empty() => ws_db.find_member_by_platform_id(tg).await.ok().flatten(),
+        _ => None,
+    };
 
     let new = grumps_calendar::NewEvent {
         title: body.title,
@@ -96,7 +115,7 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         color: body.color,
         source: grumps_calendar::EventSource::Web,
         related_todo_id: None,
-        created_by: Some(claims.sub.clone()),
+        created_by,
     };
     let id = ws_db.create_event(&new).await?;
     let event = ws_db.get_event(&id).await?;
@@ -154,8 +173,18 @@ pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
 
     let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
-    let body: UpdateBody = req.json().await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
+    let body: UpdateBody = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+
+    // Validate range when both ends are provided. ISO-8601 / RFC3339 strings
+    // sort lexically — sufficient for an order check on UTC-normalized input.
+    if let (Some(starts), Some(ends)) = (&body.starts_at, &body.ends_at) {
+        if ends < starts {
+            return middleware::error_with_cors(&req, 400, "bad_request", "ends_at must be at or after starts_at");
+        }
+    }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);

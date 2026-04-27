@@ -355,6 +355,19 @@ impl<'a> WorkspaceDb<'a> {
         Ok(extract_first::<Row>(&resp)?.map(|r| r.role))
     }
 
+    /// Find a workspace member's id by their platform user id (e.g. Telegram
+    /// numeric id). Used to translate a JWT Claims into the FK-valid
+    /// `members.id` for `created_by` columns on web-originated rows.
+    pub async fn find_member_by_platform_id(&self, platform_user_id: &str) -> Result<Option<String>> {
+        #[derive(Deserialize)]
+        struct Row { id: String }
+        let resp = self.q(
+            "SELECT id FROM members WHERE platform_user_id = ?1",
+            vec![platform_user_id.into()],
+        ).await?;
+        Ok(extract_first::<Row>(&resp)?.map(|r| r.id))
+    }
+
     // --- Todos ---
 
     /// Insert todo with atomic seq_num. Returns (todo_id, seq_num).

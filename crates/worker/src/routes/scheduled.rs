@@ -73,10 +73,33 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
 
     let slug = ws.slug.clone();
-    let body: CreateBody = req.json().await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
+    let body: CreateBody = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+
+    if body.title.trim().is_empty() {
+        return middleware::error_with_cors(&req, 400, "bad_request", "title required");
+    }
+    // Reject past triggers (more than 60s in the past) — non-recurring
+    // past triggers would never fire; recurring ones could fire every
+    // tick until the runtime catches up. The 60s grace window absorbs
+    // clock skew between client and Worker.
+    let now = chrono::Utc::now();
+    if body.trigger_at < now - chrono::Duration::seconds(60) {
+        return middleware::error_with_cors(&req, 400, "bad_request", "trigger_at must be in the future");
+    }
 
     let trigger_at_iso = body.trigger_at.to_rfc3339();
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+
+    // scheduled_actions.created_by is FK → members(id).
+    let created_by = match claims.tg_user_id.as_deref() {
+        Some(tg) if !tg.is_empty() => ws_db.find_member_by_platform_id(tg).await.ok().flatten(),
+        _ => None,
+    };
 
     let new = grumps_scheduler::NewScheduledAction {
         action_type: body.action_type,
@@ -86,11 +109,8 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         condition: body.condition,
         payload: body.payload,
         target_chat: Some("group".into()),
-        created_by: Some(claims.sub.clone()),
+        created_by,
     };
-
-    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
     // 1. INSERT into D1
     let id = ws_db.create_scheduled_action(&new).await?;

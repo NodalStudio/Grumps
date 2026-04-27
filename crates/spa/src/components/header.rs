@@ -1,11 +1,20 @@
 use leptos::prelude::*;
+use leptos::IntoView;
 
+/// Page header with reactive title — accepts anything that implements
+/// `IntoView` for the title (String, &str, closure returning String, etc.).
+/// This lets pages pass a `move || expensive_lookup()` closure that re-runs
+/// reactively when its dependencies change (e.g. when SessionContext is
+/// populated by AuthGate after the initial render).
 #[component]
-pub fn PageHeader(
-    title: String,
-    #[prop(optional)] subtitle: Option<String>,
+pub fn PageHeader<T>(
+    title: T,
+    #[prop(optional, into)] subtitle: Option<String>,
     #[prop(optional)] children: Option<Children>,
-) -> impl IntoView {
+) -> impl IntoView
+where
+    T: IntoView + 'static,
+{
     view! {
         <div class="px-8 h-24 pb-5 border-b-2 border-ink flex items-end justify-between gap-4" style="background: var(--cream-light);">
             <div>

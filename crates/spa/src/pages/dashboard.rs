@@ -64,11 +64,22 @@ fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
                 let prefix = crate::demo::router_base();
                 let href = format!("{}/w/{}", prefix, ws.slug);
                 let title = ws.name.clone().unwrap_or_else(|| ws.slug.clone());
-                let role = ws.role.clone();
+                let role = ws.role.clone().to_uppercase();
+                let archived = ws.archived;
+                let card_class = if archived {
+                    "block p-6 border-2 border-dashed rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5 opacity-60"
+                } else {
+                    "block p-6 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5"
+                };
                 view! {
-                    <a href=href class="block p-6 border-2 border-ink rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5" style="background: var(--cream-light);">
-                        <h3 class="font-display text-lg font-bold">{title}</h3>
-                        <p class="text-[11px] font-semibold uppercase tracking-wider mt-1" style="color: var(--ink-40);">{format_shape(&ws)}</p>
+                    <a href=href class=card_class style="background: var(--cream-light);">
+                        <div class="flex items-start justify-between gap-2 mb-1">
+                            <h3 class="font-display text-lg font-bold">{title}</h3>
+                            {if archived {
+                                Some(view! { <span class="text-[9px] uppercase tracking-wider font-bold px-1.5 py-0.5 border" style="color: var(--ink-40); border-color: var(--ink-40);">{move || tr("dashboard.workspace.archived")}</span> })
+                            } else { None }}
+                        </div>
+                        <p class="text-[11px] font-semibold uppercase tracking-wider" style="color: var(--ink-40);">{format_shape(&ws)}</p>
                         <p class="text-[11px] uppercase tracking-wider mt-2" style="color: var(--ink-40);">{role}</p>
                     </a>
                 }
