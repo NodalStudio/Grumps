@@ -63,7 +63,7 @@ fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
             {workspaces.into_iter().map(|ws| {
                 let prefix = crate::demo::router_base();
                 let href = format!("{}/w/{}", prefix, ws.slug);
-                let title = ws.name.clone().unwrap_or_else(|| ws.slug.clone());
+                let title = ws.name.clone().map(|n| tr(&n)).unwrap_or_else(|| ws.slug.clone());
                 let role = ws.role.clone().to_uppercase();
                 let archived = ws.archived;
                 let card_class = if archived {

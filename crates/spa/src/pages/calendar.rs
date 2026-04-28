@@ -2,8 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 #[allow(unused_imports)]
 use js_sys;
-use crate::api::ApiClient;
-use crate::api::CalendarItem;
+use crate::api::{use_api, CalendarItem};
 use crate::components::calendar::month::MonthView;
 use crate::components::calendar::week::WeekView;
 use crate::components::calendar::agenda::AgendaView;
@@ -45,7 +44,7 @@ pub fn CalendarPage() -> impl IntoView {
     let (view_mode, set_view_mode) = signal("month".to_string());
 
     // Fetch calendar items for the visible month
-    let api = ApiClient::new();
+    let api = use_api();
     let cal_items = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();

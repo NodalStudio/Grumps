@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::hooks::use_params_map;
-use crate::api::ApiClient;
+use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::{tr, tr_p};
 
@@ -14,7 +14,7 @@ pub fn NoteEditorPage() -> impl IntoView {
     let slug = move || params.read().get("slug").unwrap_or_default();
     let note_id = move || params.read().get("id").unwrap_or_default();
 
-    let api_for_load = ApiClient::new();
+    let api_for_load = use_api();
     let note = LocalResource::new(move || {
         let api = api_for_load.clone();
         let s = slug();
@@ -27,7 +27,7 @@ pub fn NoteEditorPage() -> impl IntoView {
     let (title, set_title) = signal(String::new());
     let (save_state, set_save_state) = signal(SaveState::Idle);
 
-    let api_for_save = ApiClient::new();
+    let api_for_save = use_api();
     let save = StoredValue::new(move || {
         let api = api_for_save.clone();
         let s = slug();

@@ -2,13 +2,32 @@ use gloo_net::http::Request;
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 
-use super::{provide_session, SessionContext};
+use super::{provide_session, SessionContext, WorkspaceRef};
 
 #[component]
 pub fn AuthGate(children: ChildrenFn) -> impl IntoView {
-    // Demo bypass — existing demo mode disables real auth.
+    // Demo bypass — existing demo mode disables real auth. The session
+    // is populated from the demo seed so the dashboard, sidebar, and
+    // workspace switcher all see the seeded workspace.
     if crate::demo::is_demo() {
-        provide_session(SessionContext::default());
+        let workspaces = crate::demo::workspaces()
+            .into_iter()
+            .map(|w| WorkspaceRef {
+                slug: w.slug,
+                name: w.name,
+                role: w.role,
+                platform: "telegram".into(),
+                is_dm: false,
+                archived: false,
+            })
+            .collect();
+        provide_session(SessionContext {
+            user_id: crate::demo::DEMO_MEMBER_ID.into(),
+            display_name: "Alice".into(),
+            default_locale: None,
+            workspaces,
+            csrf_token: String::new(),
+        });
         return children().into_any();
     }
 

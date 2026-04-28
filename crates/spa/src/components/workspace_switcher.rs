@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::auth::{use_session, WorkspaceRef};
+use crate::i18n::tr;
 
 #[component]
 pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
@@ -7,7 +8,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
     let (open, set_open) = signal(false);
     let workspaces = session.workspaces.clone();
     let current = workspaces.iter().find(|w| w.slug == current_slug).cloned().unwrap_or_default();
-    let current_label = current.name.clone().unwrap_or_else(|| current.slug.clone());
+    let current_label = current.name.clone().map(|n| tr(&n)).unwrap_or_else(|| current.slug.clone());
     let cur_for_render = current_slug.clone();
 
     view! {
@@ -37,7 +38,7 @@ fn view_row(ws: WorkspaceRef, current_slug: &str) -> impl IntoView {
     };
     let shape = if ws.is_dm { "DM" } else { "GROUP" };
     let badge = format!("{} {}", plat, shape);
-    let name = ws.name.clone().unwrap_or_else(|| ws.slug.clone());
+    let name = ws.name.clone().map(|n| tr(&n)).unwrap_or_else(|| ws.slug.clone());
     let href = format!("/w/{}", ws.slug);
     view! {
         <li>

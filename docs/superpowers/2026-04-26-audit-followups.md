@@ -47,10 +47,22 @@ struct constructed at each callsite. `SessionContext` remains
 as the single auth context.
 
 ### #11 — Demo-mode guards scattered through `crates/spa/src/api.rs`
-**DEFERRED**. The trait-based refactor (`trait Api` with
-`async-trait`, `DemoApi` + `LiveApi` impls, `Rc<dyn Api>` factory)
-touches 30+ method signatures and 13 callsites. Worth doing on its
-own PR with focused review; out of scope for this batch.
+✅ Done in 2026-04-27 audit-medium-2 pass. `crates/spa/src/api.rs`
+split into `api/{mod,types,live,demo}.rs`. `trait Api` covers all
+35 client methods; `LiveApi` does HTTP, `DemoApi` delegates to
+`crate::demo::*` seed functions and returns `Err` for auth.
+`provide_api()` runs once on `App` startup; 13 callsites use
+`use_api()` to fetch the handle from Leptos context. Forgetting a
+demo branch on a future method is now a compile error.
+
+Spec deviation from the original design: `ApiHandle` is
+`Arc<dyn Api + Send + Sync>` (not `Rc<dyn Api>`), because Leptos
+0.7's `provide_context` requires `Send + Sync + 'static`. On the
+single-threaded WASM runtime this is a free constraint at compile
+time only.
+
+Spec: `docs/superpowers/specs/2026-04-27-api-trait-refactor-design.md`.
+Plan: `docs/superpowers/plans/2026-04-27-api-trait-refactor.md`.
 
 ### #12 — Plan quota limits duplicated 3+ times
 ✅ Done in 2026-04-27 audit-medium pass. The `Plan` enum moved to

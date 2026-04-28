@@ -8,6 +8,7 @@ grumps-i18n = { path = "../i18n" }
 leptos = { version = "0.7", features = ["csr"] }
 leptos_router = "0.7"
 gloo-net = { version = "0.6", features = ["http"] }
+async-trait = "0.1"
 gloo-storage = "0.3"
 gloo-timers = { version = "0.3", features = ["futures"] }
 futures = "0.3"

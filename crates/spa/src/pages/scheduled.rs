@@ -1,7 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
-use crate::api::ApiClient;
-use crate::api::ScheduledActionItem;
+use crate::api::{use_api, ScheduledActionItem};
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 use crate::components::scheduled_card::ScheduledCard;
@@ -25,7 +24,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let (form_recurrence, set_form_recurrence) = signal(String::new());
     let (form_payload, set_form_payload) = signal(String::new());
 
-    let api = ApiClient::new();
+    let api = use_api();
     let items = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();
@@ -69,7 +68,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         set_confirm_delete.set(Some(id));
     });
 
-    let api_exec = ApiClient::new();
+    let api_exec = use_api();
     let on_execute = Callback::new(move |id: String| {
         // TODO: POST /api/w/:slug/scheduled-actions/:id/execute
         let _ = (&api_exec, &id);
@@ -77,7 +76,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             .and_then(|w| w.alert_with_message("Execute now — API endpoint TBD").ok());
     });
 
-    let api_save = ApiClient::new();
+    let api_save = use_api();
     let save = move |_| {
         let api = api_save.clone();
         let s = slug();
@@ -105,7 +104,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         });
     };
 
-    let api_del = ApiClient::new();
+    let api_del = use_api();
     let confirm_del = move |_| {
         if let Some(id) = confirm_delete.get() {
             let api = api_del.clone();

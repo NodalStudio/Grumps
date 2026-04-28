@@ -9,6 +9,7 @@ use crate::i18n::provide_locale;
 #[component]
 pub fn App() -> impl IntoView {
     provide_locale();
+    crate::api::provide_api();
     if crate::demo::is_demo() {
         crate::demo::install_postmessage_nav();
     }

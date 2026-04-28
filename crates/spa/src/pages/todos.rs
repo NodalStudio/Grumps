@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use wasm_bindgen::JsCast;
-use crate::api::ApiClient;
+use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 
@@ -16,9 +16,9 @@ pub fn TodosPage() -> impl IntoView {
     // even if the request takes longer than the animation.
     let (toggling, set_toggling) = signal::<Vec<String>>(Vec::new());
 
-    let api = ApiClient::new();
-    let api2 = ApiClient::new();
-    let api3 = ApiClient::new();
+    let api = use_api();
+    let api2 = use_api();
+    let api3 = use_api();
     let todos = LocalResource::new(move || {
         let api = api.clone();
         let s = slug.get();

@@ -3,8 +3,7 @@
 
 use leptos::prelude::*;
 use leptos_router::components::A;
-use crate::api::ApiClient;
-use crate::api::{GlobalObservabilityData, GlobalWorkspaceStats, GlobalModelCostAgg, QualitySignalCount, GlobalError};
+use crate::api::{use_api, GlobalObservabilityData, GlobalWorkspaceStats, GlobalModelCostAgg, QualitySignalCount, GlobalError};
 use crate::i18n::tr;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -252,7 +251,7 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
 #[component]
 pub fn GlobalObservabilityPage() -> impl IntoView {
 
-    let api = ApiClient::new();
+    let api = use_api();
     let data = LocalResource::new(move || {
         let api = api.clone();
         async move { api.get_global_observability().await.ok() }

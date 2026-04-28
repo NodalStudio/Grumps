@@ -2,8 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 #[allow(unused_imports)]
 use js_sys;
-use crate::api::ApiClient;
-use crate::api::{StatusCounts, CalendarItem, MemoryItem};
+use crate::api::{use_api, StatusCounts, CalendarItem, MemoryItem};
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
 
@@ -35,7 +34,7 @@ pub fn OverviewPage() -> impl IntoView {
     let (today_y, today_m, today_d) = today_str();
 
     // Status counts + workspace name (single fetch).
-    let api1 = ApiClient::new();
+    let api1 = use_api();
     let info = LocalResource::new(move || {
         let api = api1.clone();
         let s = slug();
@@ -43,7 +42,7 @@ pub fn OverviewPage() -> impl IntoView {
     });
 
     // Week calendar items
-    let api2 = ApiClient::new();
+    let api2 = use_api();
     let week_items = LocalResource::new(move || {
         let api = api2.clone();
         let s = slug();
@@ -56,7 +55,7 @@ pub fn OverviewPage() -> impl IntoView {
     });
 
     // Pinned memories
-    let api3 = ApiClient::new();
+    let api3 = use_api();
     let memories = LocalResource::new(move || {
         let api = api3.clone();
         let s = slug();
@@ -78,6 +77,7 @@ pub fn OverviewPage() -> impl IntoView {
             info.get()
                 .and_then(|data| (*data).clone())
                 .and_then(|d| d.name)
+                .map(|n| tr(&n))
                 .unwrap_or(s)
         } subtitle=tr("page.overview.title") />
         <div class="flex-1 overflow-y-auto p-8">
@@ -190,7 +190,7 @@ pub fn OverviewPage() -> impl IntoView {
                                                 class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-sm flex-shrink-0"
                                                 style="background: var(--brick); color: white;"
                                             >{item.kind.clone()}</span>
-                                            <span style="color: var(--ink);">{item.value.clone()}</span>
+                                            <span style="color: var(--ink);">{let v = item.value.clone(); move || tr(&v)}</span>
                                         </div>
                                     }).collect_view()}
                                 </div>

@@ -4,8 +4,7 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 use leptos_router::components::A;
-use crate::api::ApiClient;
-use crate::api::{ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
+use crate::api::{use_api, ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -283,13 +282,13 @@ pub fn ObservabilityPage() -> impl IntoView {
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     // Super admin gate: fetch /api/admin/me and redirect if not super admin
-    let api_gate = ApiClient::new();
+    let api_gate = use_api();
     let gate = LocalResource::new(move || {
         let api = api_gate.clone();
         async move { api.get_admin_me().await.ok() }
     });
 
-    let api = ApiClient::new();
+    let api = use_api();
     let data = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();
