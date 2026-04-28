@@ -19,7 +19,8 @@ package-lock.json
 .env
 .env.local
 
-# Editor / tooling local config — ignore everything except the
-# committed slash-commands under .claude/commands/.
-.claude/*
-!.claude/commands/
+# Editor / tooling local config — only the runtime artefacts under
+# .claude/ are ignored. Everything else (commands, settings, etc.)
+# is tracked.
+.claude/worktrees/
+.claude/scheduled_tasks.lock
