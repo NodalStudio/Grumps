@@ -58,6 +58,7 @@ fn EmptyState() -> impl IntoView {
 
 #[component]
 fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
+    let (show_help, set_show_help) = signal(false);
     view! {
         <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
             {workspaces.into_iter().map(|ws| {
@@ -84,11 +85,72 @@ fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
                     </a>
                 }
             }).collect_view()}
-            <a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank"
-               class="block p-6 border-2 border-dashed rounded-sm text-center cursor-pointer transition-colors hover:border-ink"
-               style="border-color: var(--ink-15);">
+            <button
+                type="button"
+                on:click=move |_| set_show_help.set(true)
+                class="block p-6 border-2 border-dashed rounded-sm text-center cursor-pointer transition-colors hover:border-ink w-full"
+                style="border-color: var(--ink-15); background: transparent;">
                 <h3 class="font-display text-sm font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("dashboard.add_another")}</h3>
-            </a>
+            </button>
+        </div>
+        <Show when=move || show_help.get()>
+            <AddGroupHelp on_close=Callback::new(move |_| set_show_help.set(false)) />
+        </Show>
+    }
+}
+
+#[component]
+fn AddGroupHelp(on_close: Callback<()>) -> impl IntoView {
+    let close1 = on_close;
+    let close2 = on_close;
+    view! {
+        <div
+            class="fixed inset-0 z-50 flex items-center justify-center"
+            style="background: rgba(26,26,26,0.5);"
+            on:click=move |_| close1.run(())
+        >
+            <div
+                class="w-full max-w-lg mx-4 border-2 border-ink rounded-sm p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+                style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
+                on:click=|e| e.stop_propagation()
+            >
+                <h2 class="font-display text-xl font-bold">{move || tr("dashboard.add_modal.title")}</h2>
+                <p class="text-sm" style="color: var(--ink-70);">{move || tr("dashboard.add_modal.intro")}</p>
+
+                <div class="border-2 border-ink rounded-sm p-4 flex flex-col gap-2" style="background: var(--cream-light);">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.tg_heading")}</h3>
+                    <ol class="list-decimal pl-5 text-sm flex flex-col gap-1" style="color: var(--ink-70);">
+                        <li>{move || tr("dashboard.add_modal.tg_step1")}</li>
+                        <li>{move || tr("dashboard.add_modal.tg_step2")}</li>
+                        <li>{move || tr("dashboard.add_modal.tg_step3")}</li>
+                        <li>{move || tr("dashboard.add_modal.tg_step4")}</li>
+                    </ol>
+                    <a href="https://t.me/HeyGrumpsBot" target="_blank" rel="noopener"
+                       class="self-start mt-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-ink rounded-sm cursor-pointer"
+                       style="background: var(--ink); color: var(--cream); font-family: var(--font-body);">
+                        {move || tr("dashboard.add_modal.tg_open")}
+                    </a>
+                </div>
+
+                <div class="border-2 border-dashed rounded-sm p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_heading")}</h3>
+                    <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_soon")}</span>
+                </div>
+                <div class="border-2 border-dashed rounded-sm p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
+                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_heading")}</h3>
+                    <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_soon")}</span>
+                </div>
+
+                <div class="flex justify-end">
+                    <button
+                        type="button"
+                        on:click=move |_| close2.run(())
+                        class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                        style="background: var(--cream); color: var(--ink);">
+                        {move || tr("common.close")}
+                    </button>
+                </div>
+            </div>
         </div>
     }
 }

@@ -1408,7 +1408,11 @@ html[dir="rtl"] .lang-menu { right: auto; left: 0; }
       <li><a href="#features" data-i18n="nav.features">Features</a></li>
       <li><a href="#demo" data-i18n="nav.demo">Demo</a></li>
       <li><a href="#pricing" data-i18n="nav.pricing">Pricing</a></li>
-      <li><a href="#" class="btn btn-primary" data-i18n="nav.cta">Add to your group</a></li>
+      <li><a href="/login"
+             class="btn btn-primary auth-cta"
+             data-i18n="hero.cta.login"
+             data-i18n-alt-my="hero.cta.my_workspaces"
+             data-i18n-alt-start="hero.cta.get_started">Log in</a></li>
     </ul>
   </div>
 </nav>
@@ -1425,7 +1429,7 @@ html[dir="rtl"] .lang-menu { right: auto; left: 0; }
       <p class="hero-desc" data-i18n="hero.desc">An AI agent that lives in your group. Remembers what you decide, plans what's next, reminds the right person at the right time. Open the workspace when you need the full picture.</p>
       <div class="hero-actions">
         <a href="/login"
-           class="btn btn-primary btn-large"
+           class="btn btn-primary btn-large auth-cta"
            id="hero-cta-primary"
            data-i18n="hero.cta.login"
            data-i18n-alt-my="hero.cta.my_workspaces"
@@ -1992,7 +1996,11 @@ html[dir="rtl"] .lang-menu { right: auto; left: 0; }
     <div class="section-title" data-i18n="cta.title">Give your group a memory.</div>
     <div class="section-subtitle" data-i18n="cta.subtitle">30 seconds to add. Years of context to gain. Your chat stays the same — just sharper.</div>
     <div class="hero-actions" style="justify-content: center;">
-      <a href="#" class="btn btn-primary btn-large" data-i18n="cta.button">Add to your group</a>
+      <a href="/login"
+         class="btn btn-primary btn-large auth-cta"
+         data-i18n="hero.cta.login"
+         data-i18n-alt-my="hero.cta.my_workspaces"
+         data-i18n-alt-start="hero.cta.get_started">Log in</a>
     </div>
   </div>
 </section>
@@ -2078,18 +2086,23 @@ if (langSwitcher) {
 </script>
 
 <script>
-  // Hero CTA: swap label based on session state.
+  // Auth CTAs: swap label + href based on session state.
+  // Default (logged out) → "Log in" → /login.
+  // Logged in with workspaces → "My workspaces" → /dashboard.
+  // Logged in without workspaces → "Get started" → /dashboard.
   (function () {
-    var cta = document.getElementById('hero-cta-primary');
-    if (!cta) return;
+    var ctas = document.querySelectorAll('.auth-cta');
+    if (!ctas.length) return;
     fetch('https://api.grumps.app/auth/me', { credentials: 'include' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (session) {
         if (!session) return;
-        var key = (session.workspaces && session.workspaces.length > 0) ? 'altMy' : 'altStart';
-        var dataKey = key === 'altMy' ? 'altMyValue' : 'altStartValue';
-        if (cta.dataset[dataKey]) cta.textContent = cta.dataset[dataKey];
-        cta.href = '/dashboard';
+        var hasWs = session.workspaces && session.workspaces.length > 0;
+        var dataKey = hasWs ? 'altMyValue' : 'altStartValue';
+        ctas.forEach(function (cta) {
+          if (cta.dataset[dataKey]) cta.textContent = cta.dataset[dataKey];
+          cta.href = '/dashboard';
+        });
       })
       .catch(function () {});
   })();
