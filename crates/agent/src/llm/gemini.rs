@@ -218,17 +218,31 @@ pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Re
         .map(|p| p.text.as_str())
         .unwrap_or("");
 
-    // Try to parse JSON from the text (Gemini with responseMimeType=application/json should give clean JSON)
-    let intent: ClassifiedIntent = serde_json::from_str(text.trim()).unwrap_or_else(|e| {
-        console_log!("gemini classifier JSON parse failed: {e}, text was: {text} — defaulting to complex");
-        ClassifiedIntent {
-            intent: "complex_agent_task".into(),
-            confidence: 0.0,
-            args: serde_json::Value::Null,
-        }
-    });
+    // Gemini occasionally wraps JSON in prose ("Here is the JSON requested:")
+    // and/or markdown fences (```json ... ```) despite responseMimeType.
+    // Slice from the first `{` to the last `}` to recover the object.
+    let intent: ClassifiedIntent = serde_json::from_str(extract_json_object(text))
+        .unwrap_or_else(|e| {
+            console_log!("gemini classifier JSON parse failed: {e}, text was: {text} — defaulting to complex");
+            ClassifiedIntent {
+                intent: "complex_agent_task".into(),
+                confidence: 0.0,
+                args: serde_json::Value::Null,
+            }
+        });
 
     Ok(intent)
+}
+
+/// Extract the outer JSON object from a string that may include prose or
+/// markdown fences around it. Falls back to the trimmed input if no `{}`
+/// pair is found, so well-formed clean JSON still parses unchanged.
+fn extract_json_object(s: &str) -> &str {
+    let trimmed = s.trim();
+    match (trimmed.find('{'), trimmed.rfind('}')) {
+        (Some(start), Some(end)) if end >= start => &trimmed[start..=end],
+        _ => trimmed,
+    }
 }
 
 #[cfg(test)]
@@ -264,5 +278,25 @@ mod tests {
             args: serde_json::Value::Null,
         };
         assert!(!c.is_high_confidence());
+    }
+
+    #[test]
+    fn extract_json_strips_prose_and_fences() {
+        let raw = "Here is the JSON requested:\n```json\n{\"intent\":\"create_todo\",\"confidence\":0.9,\"args\":null}\n```";
+        let out = extract_json_object(raw);
+        let parsed: ClassifiedIntent = serde_json::from_str(out).expect("must parse");
+        assert_eq!(parsed.intent, "create_todo");
+    }
+
+    #[test]
+    fn extract_json_passes_clean_input_through() {
+        let raw = "  {\"intent\":\"complex_agent_task\",\"confidence\":0.95,\"args\":null}  ";
+        let parsed: ClassifiedIntent = serde_json::from_str(extract_json_object(raw)).expect("must parse");
+        assert_eq!(parsed.intent, "complex_agent_task");
+    }
+
+    #[test]
+    fn extract_json_falls_back_when_no_braces() {
+        assert_eq!(extract_json_object("garbage no braces"), "garbage no braces");
     }
 }
