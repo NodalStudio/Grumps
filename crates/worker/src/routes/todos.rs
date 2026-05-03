@@ -32,12 +32,27 @@ pub async fn list_todos(req: Request, ctx: RouteContext<()>) -> Result<Response>
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect();
     let filter = params.get("status").map(String::as_str).unwrap_or("open");
-    let member_id = params.get("assignee").map(String::as_str);
+    let assignee_param = params.get("assignee").map(String::as_str);
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
-    let todos = ws_db.get_todos_filtered(filter, member_id.or(Some(&claims.sub))).await?;
+    // For "mine", resolve the caller's workspace member_id (different from
+    // claims.sub, which is the index-DB user_id) via their Telegram numeric
+    // id. Other filters ignore the second argument.
+    let resolved_member: Option<String> = if filter == "mine" {
+        match assignee_param {
+            Some(s) => Some(s.to_string()),
+            None => match claims.tg_user_id.as_deref() {
+                Some(tg) if !tg.is_empty() => ws_db.find_member_by_platform_id(tg).await.ok().flatten(),
+                _ => None,
+            },
+        }
+    } else {
+        assignee_param.map(|s| s.to_string())
+    };
+
+    let todos = ws_db.get_todos_filtered(filter, resolved_member.as_deref()).await?;
     let data: Vec<serde_json::Value> = todos.iter().map(|(id, seq, title, status, assignee, priority, tags)| {
         serde_json::json!({
             "id": id,
