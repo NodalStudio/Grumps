@@ -22,4 +22,4 @@ command_arguments = ["-c", "npx tailwindcss -i ./input.css -o ./tailwind.out.css
 [[hooks]]
 stage = "post_build"
 command = "sh"
-command_arguments = ["-c", "cp manifest.json sw.js favicon.svg _routes.json dist/ 2>/dev/null || true"]
+command_arguments = ["-c", "OUT=\"${TRUNK_STAGING_DIR:-dist}\"; cp manifest.json sw.js favicon.svg _routes.json \"$OUT/\" 2>/dev/null || true; HASH=$(git rev-parse --short=12 HEAD 2>/dev/null || date +%s); if [ -f \"$OUT/sw.js\" ]; then sed -i.bak \"s/__BUILD_HASH__/$HASH/g\" \"$OUT/sw.js\" && rm -f \"$OUT/sw.js.bak\"; fi"]

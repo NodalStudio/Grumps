@@ -17,5 +17,18 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
+    <script>
+      // Register the service worker so the new SPA shell propagates to
+      // open tabs at next navigation rather than waiting for the GitHub
+      // Pages 10-min HTTP cache to expire. CACHE_NAME is stamped with
+      // the build SHA in sw.js, so each deploy evicts the previous one.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (e) {
+            console.warn('SW registration failed:', e);
+          });
+        });
+      }
+    </script>
 </body>
 </html>
