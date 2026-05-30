@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " para @{name}",
   "agent.summarize.coming_soon": "¡Resumir llegará pronto!",
   "agent.reminder.default_title": "Recordatorio",
+  "agent.reminder.need_time": "¿Cuándo quieres que te lo recuerde? Dame un día y una hora, p. ej. «mañana a las 9».",
   "agent.todo.completed": "✅ #{seq} «{title}» — hecho.",
   "agent.todo.fuzzy_match_header": "🔍 «{item}» — {n} coincidencias:",
   "agent.todo.fuzzy_match_footer": "Responde con el número.",

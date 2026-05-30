@@ -343,6 +343,7 @@
   "agent.reminder.target_for": " for @{name}",
   "agent.summarize.coming_soon": "Summarize is coming soon!",
   "agent.reminder.default_title": "Reminder",
+  "agent.reminder.need_time": "When should I remind you? Give me a day and time, e.g. \"tomorrow at 9am\".",
   "agent.todo.completed": "✅ #{seq} \"{title}\" — done.",
   "agent.todo.fuzzy_match_header": "🔍 \"{item}\" — {n} matches:",
   "agent.todo.fuzzy_match_footer": "Reply with the number.",

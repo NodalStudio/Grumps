@@ -61,10 +61,18 @@ pub async fn handle_message(
                 let open_todos = ws_db.get_open_todos().await?;
                 let todo_pairs: Vec<(i64, String)> = open_todos.iter().map(|(_, title, seq)| (*seq, title.clone())).collect();
 
-                match llm.classify(original_text, sender_name, &todo_pairs).await {
+                // Anchor the NLU's relative-date resolution to the workspace's
+                // local wall clock, so "tomorrow 9am" becomes a concrete time.
+                let timezone = ws_db.get_setting("timezone").await.ok().flatten()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "UTC".to_string());
+                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let now_local = chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%dT%H:%M:%S").to_string();
+
+                match llm.classify(original_text, sender_name, &todo_pairs, &now_local, &timezone).await {
                     Ok(nlu) => {
                         let _ = ws_db.increment_llm_calls().await;
-                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan).await;
+                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan, &timezone).await;
                     }
                     Err(e) => {
                         worker::console_log!("LLM classify error: {}, falling back to AddSingleTodo", e);
@@ -514,6 +522,7 @@ async fn handle_llm_result(
     slug: &str,
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
+    timezone: &str,
 ) -> worker::Result<HandlerResult> {
     use grumps_core::todo::Priority;
 
@@ -560,9 +569,25 @@ async fn handle_llm_result(
             handle_add_note(note, ws_db, member_id, locale, plan).await
         }
         NluIntent::SetReminder => {
+            let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+            // Resolve the model's concrete local datetime to a UTC instant. If
+            // it's missing or unparseable, ask for a time rather than store a
+            // reminder that can never fire (datetime(NULL) never matches).
+            let remind_at_utc = match nlu.entities.deadline.as_deref()
+                .and_then(|d| grumps_agent::tools::parse_user_datetime(d, &tz))
+            {
+                Some(dt) => dt,
+                None => return Ok(HandlerResult::one(
+                    grumps_i18n::t(locale, "agent.reminder.need_time", &[]),
+                    Some(msg_id.to_string()),
+                )),
+            };
+            // Store UTC (Z); display the local wall clock the user expects.
+            let remind_at = remind_at_utc.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+            let remind_at_display = remind_at_utc.with_timezone(&tz).format("%Y-%m-%d %H:%M").to_string();
+
             let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
             let title = nlu.entities.title.unwrap_or(default_title);
-            let remind_at = nlu.entities.deadline.unwrap_or_else(|| "tomorrow 9:00".into());
             let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
             let recurrence = nlu.entities.recurrence.as_deref();
 
@@ -581,7 +606,7 @@ async fn handle_llm_result(
                 grumps_i18n::t(locale, "agent.reminder.set", &[
                     ("target", &target_text),
                     ("title", &title),
-                    ("remind_at", &remind_at),
+                    ("remind_at", &remind_at_display),
                     ("rec", &rec_text),
                 ]),
                 Some(msg_id.to_string()),
