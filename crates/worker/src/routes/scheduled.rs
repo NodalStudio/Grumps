@@ -194,7 +194,7 @@ pub async fn delete(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 // ── DO RPC helpers ────────────────────────────────────────────────────────────
 
 /// RPC the DO to arm a new alarm. Retries 3x.
-async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()> {
+pub(crate) async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()> {
     let do_ns = env.durable_object("WS_SCHEDULER")?;
     let id = do_ns.id_from_name(slug)?;
     let stub = id.get_stub()?;
@@ -224,7 +224,7 @@ async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()>
 }
 
 /// Tell DO to recompute its next alarm (best-effort).
-async fn reschedule_do(env: &Env, slug: &str) -> Result<()> {
+pub(crate) async fn reschedule_do(env: &Env, slug: &str) -> Result<()> {
     let do_ns = env.durable_object("WS_SCHEDULER")?;
     let id = do_ns.id_from_name(slug)?;
     let stub = id.get_stub()?;

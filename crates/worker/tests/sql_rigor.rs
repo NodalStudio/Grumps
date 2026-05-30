@@ -78,6 +78,30 @@ fn this_week_window_filters_by_bound() {
 }
 
 #[test]
+fn migration_0006_normalizes_free_text_recurrence() {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(include_str!("../../../migrations/workspace/0001_init.sql")).unwrap();
+    c.execute_batch(include_str!("../../../migrations/workspace/0004_scheduling.sql")).unwrap();
+    // Free-text recurrences as carried over by migration 0005.
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload) VALUES ('a','reminder','x','2026-06-01T09:00:00Z','daily','{}')", []).unwrap();
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload) VALUES ('b','reminder','x','2026-06-01T09:00:00Z','every monday','{}')", []).unwrap();
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload) VALUES ('c','reminder','x','2026-06-03T09:00:00Z','weekly','{}')", []).unwrap();
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload) VALUES ('d','reminder','x','2026-06-01T09:00:00Z','FREQ=DAILY','{}')", []).unwrap();
+
+    c.execute_batch(include_str!("../../../migrations/workspace/0006_normalize_recurrence.sql")).unwrap();
+
+    let rec = |id: &str| -> String {
+        c.query_row("SELECT recurrence FROM scheduled_actions WHERE id=?1", [id], |r| r.get(0)).unwrap()
+    };
+    assert_eq!(rec("a"), "FREQ=DAILY");
+    assert_eq!(rec("b"), "FREQ=WEEKLY;BYDAY=MO");
+    // 2026-06-03 is a Wednesday → bare "weekly" derives the day from trigger_at.
+    assert_eq!(rec("c"), "FREQ=WEEKLY;BYDAY=WE");
+    // Already an RRULE → untouched.
+    assert_eq!(rec("d"), "FREQ=DAILY");
+}
+
+#[test]
 fn timezone_seed_default_is_utc() {
     let c = conn();
     let tz: String = c.query_row("SELECT value FROM settings WHERE key='timezone'", [], |r| r.get(0)).unwrap();

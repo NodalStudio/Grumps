@@ -16,20 +16,24 @@ pub struct Migration {
     pub version: u32,
     pub name: &'static str,
     pub sql: &'static str,
+    /// Idempotent DATA migration (INSERT/UPDATE with guards) vs schema migration
+    /// (CREATE/ALTER). Data migrations are also run when baselining a pre-tracking
+    /// database, so existing rows get fixed up; schema ones are only recorded.
+    pub data: bool,
 }
 
-/// The ordered migration registry (version 6 was never created — that gap is
-/// intentional and harmless).
+/// The ordered migration registry.
 pub fn workspace_migrations() -> Vec<Migration> {
     vec![
-        Migration { version: 1, name: "init",              sql: include_str!("../../../migrations/workspace/0001_init.sql") },
-        Migration { version: 2, name: "memory",            sql: include_str!("../../../migrations/workspace/0002_memory.sql") },
-        Migration { version: 3, name: "calendar",          sql: include_str!("../../../migrations/workspace/0003_calendar.sql") },
-        Migration { version: 4, name: "scheduling",        sql: include_str!("../../../migrations/workspace/0004_scheduling.sql") },
-        Migration { version: 5, name: "migrate_reminders", sql: include_str!("../../../migrations/workspace/0005_migrate_reminders.sql") },
-        Migration { version: 7, name: "quality_signals",   sql: include_str!("../../../migrations/workspace/0007_quality_signals.sql") },
-        Migration { version: 8, name: "llm_calls",         sql: include_str!("../../../migrations/workspace/0008_llm_calls.sql") },
-        Migration { version: 9, name: "member_locale",     sql: include_str!("../../../migrations/workspace/0009_member_locale.sql") },
+        Migration { version: 1, name: "init",              data: false, sql: include_str!("../../../migrations/workspace/0001_init.sql") },
+        Migration { version: 2, name: "memory",            data: false, sql: include_str!("../../../migrations/workspace/0002_memory.sql") },
+        Migration { version: 3, name: "calendar",          data: false, sql: include_str!("../../../migrations/workspace/0003_calendar.sql") },
+        Migration { version: 4, name: "scheduling",        data: false, sql: include_str!("../../../migrations/workspace/0004_scheduling.sql") },
+        Migration { version: 5, name: "migrate_reminders", data: true,  sql: include_str!("../../../migrations/workspace/0005_migrate_reminders.sql") },
+        Migration { version: 6, name: "normalize_recurrence", data: true, sql: include_str!("../../../migrations/workspace/0006_normalize_recurrence.sql") },
+        Migration { version: 7, name: "quality_signals",   data: false, sql: include_str!("../../../migrations/workspace/0007_quality_signals.sql") },
+        Migration { version: 8, name: "llm_calls",         data: false, sql: include_str!("../../../migrations/workspace/0008_llm_calls.sql") },
+        Migration { version: 9, name: "member_locale",     data: false, sql: include_str!("../../../migrations/workspace/0009_member_locale.sql") },
     ]
 }
 
@@ -63,9 +67,15 @@ pub async fn apply_pending(client: &D1RestClient, database_id: &str) -> Result<V
 
     let registry = workspace_migrations();
 
-    // Pre-tracking database: schema present, nothing recorded → baseline.
+    // Pre-tracking database: schema present, nothing recorded → baseline. Record
+    // schema migrations as applied (don't re-run ALTERs), but still run the
+    // idempotent DATA migrations so existing rows get fixed up.
     if applied.is_empty() && table_exists(client, database_id, "todos").await? {
         for m in &registry {
+            if m.data {
+                client.exec_statements(database_id, m.sql).await?;
+                console_log!("[migration] (baseline) ran data migration v{} ({}) -> {}", m.version, m.name, database_id);
+            }
             client.query(
                 database_id,
                 "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?1, ?2)",

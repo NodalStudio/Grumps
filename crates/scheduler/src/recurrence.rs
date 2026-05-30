@@ -78,6 +78,32 @@ pub fn parse(rrule: &str) -> Result<Rrule, RruleError> {
     })
 }
 
+/// Convert a free-text recurrence (the legacy reminders format, e.g. "daily",
+/// "every monday", "weekly") into an RRULE string the scheduler understands.
+/// `weekday` is the trigger's local weekday, used when a bare "weekly" has no
+/// named day. Returns `None` for one-off / unrecognized input (fires once).
+/// An input that is already an RRULE (`FREQ=...`) is passed through.
+pub fn text_to_rrule(s: &str, weekday: Weekday) -> Option<String> {
+    let t = s.trim().to_lowercase();
+    if t.is_empty() { return None; }
+    if t.starts_with("freq=") { return Some(s.trim().to_uppercase()); }
+    if t.contains("every day") || t == "daily" { return Some("FREQ=DAILY".into()); }
+    for (name, code) in [
+        ("monday", "MO"), ("tuesday", "TU"), ("wednesday", "WE"), ("thursday", "TH"),
+        ("friday", "FR"), ("saturday", "SA"), ("sunday", "SU"),
+    ] {
+        if t.contains(name) { return Some(format!("FREQ=WEEKLY;BYDAY={code}")); }
+    }
+    if t.contains("weekly") || t.contains("every week") {
+        let code = match weekday {
+            Weekday::Mon => "MO", Weekday::Tue => "TU", Weekday::Wed => "WE",
+            Weekday::Thu => "TH", Weekday::Fri => "FR", Weekday::Sat => "SA", Weekday::Sun => "SU",
+        };
+        return Some(format!("FREQ=WEEKLY;BYDAY={code}"));
+    }
+    None
+}
+
 fn parse_weekday(s: &str) -> Result<Weekday, RruleError> {
     match s {
         "MO" => Ok(Weekday::Mon), "TU" => Ok(Weekday::Tue),
@@ -249,6 +275,22 @@ mod tests {
         let n = next_occurrence(&r, dt(2026, 4, 19, 6, 0), Paris).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
         assert_eq!(n.hour(), 7); // 9am local == 7am UTC in summer
+    }
+
+    #[test]
+    fn text_to_rrule_cases() {
+        use Weekday::*;
+        assert_eq!(text_to_rrule("daily", Mon).as_deref(), Some("FREQ=DAILY"));
+        assert_eq!(text_to_rrule("every day", Mon).as_deref(), Some("FREQ=DAILY"));
+        assert_eq!(text_to_rrule("every monday", Fri).as_deref(), Some("FREQ=WEEKLY;BYDAY=MO"));
+        assert_eq!(text_to_rrule("every friday", Mon).as_deref(), Some("FREQ=WEEKLY;BYDAY=FR"));
+        // bare "weekly" derives the day from the trigger weekday
+        assert_eq!(text_to_rrule("weekly", Wed).as_deref(), Some("FREQ=WEEKLY;BYDAY=WE"));
+        // already an RRULE → passed through (upper-cased)
+        assert_eq!(text_to_rrule("FREQ=WEEKLY;BYDAY=TU", Mon).as_deref(), Some("FREQ=WEEKLY;BYDAY=TU"));
+        // one-off / unknown → None
+        assert_eq!(text_to_rrule("", Mon), None);
+        assert_eq!(text_to_rrule("once in a while", Mon), None);
     }
 
     #[test]

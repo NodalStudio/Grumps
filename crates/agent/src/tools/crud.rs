@@ -100,22 +100,35 @@ pub async fn create_event(ctx: &ToolContext<'_>, args: Value) -> worker::Result<
 }
 
 pub async fn create_reminder(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    use grumps_scheduler::{NewScheduledAction, ActionType};
     // Field names match the tool schema: `text` (message) + `trigger_at` (time).
     let text = args.get("text").and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'text'".into()))?;
     let trigger_at_str = args.get("trigger_at").and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'trigger_at'".into()))?;
-    let recurrence = args.get("recurrence").and_then(|v| v.as_str());
-    let target = args.get("target_member").and_then(|v| v.as_str())
-        .unwrap_or(ctx.member_id);
 
-    // Interpret the model's local wall-clock time in the workspace timezone and
-    // store it as UTC (RFC3339 with Z) so the cron comparison stays correct.
+    // Interpret the model's local wall-clock time in the workspace tz → UTC.
     let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
     let remind_at = super::parse_user_datetime(trigger_at_str, &tz)
         .ok_or_else(|| worker::Error::RustError("create_reminder: invalid 'trigger_at' datetime".into()))?;
     let remind_at_str = remind_at.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let weekday = chrono::Datelike::weekday(&remind_at.with_timezone(&tz));
+    let recurrence = args.get("recurrence").and_then(|v| v.as_str())
+        .and_then(|r| grumps_scheduler::recurrence::text_to_rrule(r, weekday));
 
-    let id = ctx.db.insert_reminder(text, &remind_at_str, recurrence, target, ctx.member_id).await?;
+    // A reminder is a scheduled_action fired by the workspace Durable Object
+    // (unified with schedule_action). The DO alarm is (re)armed by the worker
+    // after the agent loop returns.
+    let action = NewScheduledAction {
+        action_type: ActionType::Reminder,
+        title: text.to_string(),
+        trigger_at: remind_at,
+        recurrence,
+        condition: None,
+        payload: serde_json::json!({ "text": text }),
+        target_chat: Some("group".to_string()),
+        created_by: Some(ctx.member_id.to_string()),
+    };
+    let id = ctx.db.create_scheduled_action(&action).await?;
     Ok(serde_json::json!({ "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
 }

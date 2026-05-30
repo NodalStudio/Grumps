@@ -71,7 +71,7 @@ pub async fn handle_message(
                 match llm.classify(original_text, sender_name, &todo_pairs, &now_local, &timezone).await {
                     Ok(nlu) => {
                         let _ = ws_db.increment_llm_calls().await;
-                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan, &timezone).await;
+                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan, &timezone, env).await;
                     }
                     Err(e) => {
                         worker::console_log!("LLM classify error: {}, falling back to AddSingleTodo", e);
@@ -389,6 +389,10 @@ async fn try_route_via_agent(
 
     match route_result {
         Ok(_) => {
+            // The agent may have created a scheduled_action / reminder; recompute
+            // the workspace DO alarm so it fires promptly (the agent layer can't
+            // arm the Durable Object itself). Best-effort.
+            let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
             // sink.send already pushed the message — return empty HandlerResult to avoid double-send.
             Ok(Some(HandlerResult::none()))
         }
@@ -532,6 +536,7 @@ async fn handle_llm_result(
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
     timezone: &str,
+    env: Option<&Env>,
 ) -> worker::Result<HandlerResult> {
     use grumps_core::todo::Priority;
 
@@ -602,10 +607,30 @@ async fn handle_llm_result(
             let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
             let title = nlu.entities.title.unwrap_or(default_title);
             let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
-            let recurrence = nlu.entities.recurrence.as_deref();
+            // Free-text recurrence ("every monday") → RRULE; bare "weekly" uses
+            // the trigger's local weekday.
+            let local_weekday = chrono::Datelike::weekday(&remind_at_utc.with_timezone(&tz));
+            let recurrence = nlu.entities.recurrence.as_deref()
+                .and_then(|r| grumps_scheduler::recurrence::text_to_rrule(r, local_weekday));
 
-            let id = ws_db.insert_reminder(&title, &remind_at, recurrence, target, member_id).await?;
+            // Unified path: a reminder is a `scheduled_actions` row fired by the
+            // workspace Durable Object (tz-correct recurrence), not the legacy
+            // `reminders` table + cron.
+            let action = grumps_scheduler::NewScheduledAction {
+                action_type: grumps_scheduler::ActionType::Reminder,
+                title: title.clone(),
+                trigger_at: remind_at_utc,
+                recurrence: recurrence.clone(),
+                condition: None,
+                payload: serde_json::json!({ "text": title }),
+                target_chat: Some("group".to_string()),
+                created_by: Some(member_id.to_string()),
+            };
+            let id = ws_db.create_scheduled_action(&action).await?;
             ws_db.log_activity(member_id, "reminder.created", "reminder", &id, "chat").await?;
+            if let Some(env) = env {
+                let _ = crate::routes::scheduled::arm_do_alarm(env, slug, &remind_at).await;
+            }
 
             let rec_text = recurrence.map(|r| format!(" ({})", r)).unwrap_or_default();
             let target_text = if target != member_id {
