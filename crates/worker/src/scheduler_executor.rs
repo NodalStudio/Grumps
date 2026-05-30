@@ -102,7 +102,11 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             if let Some(rrule) = &action.recurrence {
                 let parsed = recurrence::parse(rrule)
                     .map_err(|e| Error::RustError(format!("bad rrule: {e}")))?;
-                if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at) {
+                // Recurrence weekday/BYHOUR are evaluated in the workspace tz.
+                let tz = grumps_core::timeutil::tz_or_utc(
+                    &db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+                );
+                if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at, tz) {
                     db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
                 } else {
                     db.mark_action_done(&action.id).await?;

@@ -7,7 +7,9 @@
 //!
 //! See spec § 7.6.
 
-use chrono::{DateTime, Utc, Datelike, Weekday, Duration, Timelike};
+use chrono::{DateTime, Utc, Datelike, Weekday, Duration, Timelike, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono_tz::Tz;
+use grumps_core::timeutil::local_naive_to_utc;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -86,68 +88,70 @@ fn parse_weekday(s: &str) -> Result<Weekday, RruleError> {
     }
 }
 
-/// Compute the next occurrence after `from` (exclusive).
-pub fn next_occurrence(rule: &Rrule, from: DateTime<Utc>) -> Option<DateTime<Utc>> {
-    // Strategy : starting at `from + 1 minute`, walk day by day for up to
-    // a finite limit, find the first datetime matching the rule.
+/// Compute the next occurrence after `from` (exclusive), in the workspace
+/// timezone `tz`. All weekday/date/BYHOUR arithmetic is done on the LOCAL
+/// calendar (so "every Monday 9am" means 9am *local*, and the weekday is the
+/// local weekday); the result is converted back to a UTC instant. Working on
+/// naive local dates avoids DST pitfalls during the day-by-day walk, and the
+/// final resolution handles a DST gap/fold at the target time.
+pub fn next_occurrence(rule: &Rrule, from: DateTime<Utc>, tz: Tz) -> Option<DateTime<Utc>> {
+    let from_local: NaiveDateTime = from.with_timezone(&tz).naive_local();
+    let base_date: NaiveDate = from_local.date();
+
+    // Time-of-day of each occurrence: BYHOUR/BYMINUTE if set, else `from`'s.
+    let hour = rule.by_hour.unwrap_or_else(|| from_local.hour());
+    let minute = rule.by_minute.unwrap_or_else(|| from_local.minute());
+    let tod = NaiveTime::from_hms_opt(hour, minute, 0)?;
+
     let limit_days = match rule.freq {
         Freq::Daily => 31 * rule.interval as i64,
         Freq::Weekly => 7 * rule.interval as i64 * 4,    // up to ~4 cycles
         Freq::Monthly => 366,
         Freq::Yearly => 366 * 4,
     };
-    let mut candidate = from + Duration::minutes(1);
-    // Snap time to BYHOUR/BYMINUTE if specified
-    if let Some(h) = rule.by_hour {
-        candidate = candidate.with_hour(h)?.with_minute(rule.by_minute.unwrap_or(0))?
-            .with_second(0)?.with_nanosecond(0)?;
-        if candidate <= from { candidate = candidate + Duration::days(1); }
-    }
-    for _ in 0..limit_days {
-        if matches_rule(rule, candidate, from) {
-            return Some(candidate);
+
+    let mut date = base_date;
+    for _ in 0..=limit_days {
+        let candidate = NaiveDateTime::new(date, tod);
+        if candidate > from_local && matches_rule(rule, date, base_date) {
+            return Some(local_naive_to_utc(tz, candidate));
         }
-        candidate = candidate + Duration::days(1);
-        if let Some(h) = rule.by_hour {
-            candidate = candidate.with_hour(h)?.with_minute(rule.by_minute.unwrap_or(0))?
-                .with_second(0)?.with_nanosecond(0)?;
-        }
+        date += Duration::days(1);
     }
     None
 }
 
-fn matches_rule(rule: &Rrule, dt: DateTime<Utc>, base: DateTime<Utc>) -> bool {
+/// Does `date` (a local calendar day) satisfy the rule, relative to the local
+/// `base` day? Time-of-day is handled by the caller's `candidate > from` guard.
+fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
     match rule.freq {
         Freq::Daily => {
-            let days_since_base = (dt.date_naive() - base.date_naive()).num_days();
-            days_since_base > 0 && (days_since_base as u32) % rule.interval == 0
+            let days = (date - base).num_days();
+            days > 0 && (days as u32) % rule.interval == 0
         }
         Freq::Weekly => {
             if rule.by_day.is_empty() { return false; }
-            if !rule.by_day.contains(&dt.weekday()) { return false; }
-            let days_since_base = (dt.date_naive() - base.date_naive()).num_days();
-            if days_since_base <= 0 { return false; }
-            // INTERVAL applies to weeks
-            let weeks_since_base = (days_since_base / 7) as u32;
-            weeks_since_base % rule.interval == 0
+            if !rule.by_day.contains(&date.weekday()) { return false; }
+            let days = (date - base).num_days();
+            if days <= 0 { return false; }
+            // INTERVAL applies to weeks.
+            let weeks = (days / 7) as u32;
+            weeks % rule.interval == 0
         }
-        Freq::Monthly => {
-            if let Some(mday) = rule.by_month_day {
-                dt.day() == mday
-            } else { false }
-        }
-        Freq::Yearly => {
-            if let (Some(m), Some(mday)) = (rule.by_month, rule.by_month_day) {
-                dt.month() == m && dt.day() == mday
-            } else { false }
-        }
+        Freq::Monthly => rule.by_month_day.is_some_and(|mday| date.day() == mday),
+        Freq::Yearly => match (rule.by_month, rule.by_month_day) {
+            (Some(m), Some(mday)) => date.month() == m && date.day() == mday,
+            _ => false,
+        },
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{NaiveDate, TimeZone};
+    use chrono::TimeZone;
+    use chrono_tz::UTC;
+    use chrono_tz::Europe::Paris;
 
     fn dt(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
@@ -193,7 +197,7 @@ mod tests {
     #[test]
     fn next_daily_tomorrow() {
         let r = parse("FREQ=DAILY").unwrap();
-        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0)).unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
     }
 
@@ -201,7 +205,7 @@ mod tests {
     fn next_weekly_friday_from_thursday() {
         let r = parse("FREQ=WEEKLY;BYDAY=FR").unwrap();
         // 2026-04-23 is a Thursday
-        let n = next_occurrence(&r, dt(2026, 4, 23, 10, 0)).unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 23, 10, 0), UTC).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 24).unwrap());
     }
 
@@ -209,29 +213,54 @@ mod tests {
     fn next_weekly_friday_from_friday_returns_next_friday() {
         let r = parse("FREQ=WEEKLY;BYDAY=FR").unwrap();
         // 2026-04-24 is a Friday at 10:00 ; next is 2026-05-01 (next FR)
-        let n = next_occurrence(&r, dt(2026, 4, 24, 10, 0)).unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 24, 10, 0), UTC).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 5, 1).unwrap());
     }
 
     #[test]
     fn next_monthly_first_from_mid_month() {
         let r = parse("FREQ=MONTHLY;BYMONTHDAY=1").unwrap();
-        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0)).unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 5, 1).unwrap());
     }
 
     #[test]
     fn next_yearly_birthday() {
         let r = parse("FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=15").unwrap();
-        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0)).unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2027, 3, 15).unwrap());
     }
 
     #[test]
     fn weekly_with_byhour_snaps_time() {
         let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
-        let n = next_occurrence(&r, dt(2026, 4, 19, 18, 0)).unwrap();  // dimanche 18h
+        let n = next_occurrence(&r, dt(2026, 4, 19, 18, 0), UTC).unwrap();  // dimanche 18h
         assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
         assert_eq!(n.hour(), 9);
+    }
+
+    // ── timezone-aware behaviour ───────────────────────────────────────────
+
+    #[test]
+    fn byhour_is_local_so_utc_hour_reflects_offset() {
+        // "Every Monday 9am" in Paris. From Sunday 2026-04-19 06:00 UTC.
+        // Next Monday 2026-04-20 09:00 *Paris* (CEST, +02:00) == 07:00 UTC.
+        let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 19, 6, 0), Paris).unwrap();
+        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(n.hour(), 7); // 9am local == 7am UTC in summer
+    }
+
+    #[test]
+    fn weekday_uses_local_day_not_utc() {
+        // 2026-04-19 23:00 UTC is already Monday 2026-04-20 01:00 in Paris.
+        // "Every Monday" must treat the local base day (Mon) as excluded and
+        // return the FOLLOWING Monday (2026-04-27) — not this one.
+        let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
+        let n_paris = next_occurrence(&r, dt(2026, 4, 19, 23, 0), Paris).unwrap();
+        assert_eq!(n_paris.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 27).unwrap());
+        // In UTC the base day is still Sunday, so the next Monday is 2026-04-20.
+        let n_utc = next_occurrence(&r, dt(2026, 4, 19, 23, 0), UTC).unwrap();
+        assert_eq!(n_utc.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
     }
 }
