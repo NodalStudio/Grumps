@@ -9,6 +9,7 @@ mod error;
 mod handler;
 mod middleware;
 mod provisioning;
+mod migrations;
 mod llm_client;
 // rag module moved to grumps_agent::tools::rag_pipeline
 mod agent_db_impl;
@@ -107,6 +108,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/admin/observability", routes::admin_global::observability)
         .get_async("/api/admin/me", routes::admin_global::whoami)
         .post_async("/api/admin/w/:slug/scheduled/:id/fire", routes::admin_global::force_fire_scheduled)
+        .post_async("/api/admin/migrate-all", routes::admin_global::migrate_all)
         // Stripe webhook
         .post_async("/webhook/stripe", routes::stripe_webhook::handle_stripe_webhook)
         .run(req, env)

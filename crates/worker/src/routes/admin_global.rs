@@ -238,3 +238,50 @@ pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     middleware::add_cors(&mut resp, Some(&origin))?;
     Ok(resp)
 }
+
+/// POST /api/admin/migrate-all — apply pending schema migrations to every
+/// workspace database (super-admin only). The on-demand backfill for databases
+/// provisioned before a new migration was added.
+pub async fn migrate_all(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    if !is_super_admin(&ctx.env, &claims) {
+        return middleware::error_with_cors(&req, 403, "auth.not_super_admin", "super admin required");
+    }
+
+    let index = get_index_db(&ctx.env)?;
+    let client = D1RestClient::from_env(&ctx.env)?;
+
+    #[derive(serde::Deserialize)]
+    struct WsRow { slug: String, d1_database_id: String }
+    let workspaces: Vec<WsRow> = index.prepare(
+        "SELECT slug, d1_database_id FROM workspaces_meta"
+    ).bind(&[])?.all().await?.results()?;
+
+    let mut applied_total = 0usize;
+    let mut results: Vec<serde_json::Value> = vec![];
+    for ws in &workspaces {
+        match crate::migrations::apply_pending(&client, &ws.d1_database_id).await {
+            Ok(applied) => {
+                applied_total += applied.len();
+                results.push(serde_json::json!({ "slug": ws.slug, "applied": applied }));
+            }
+            Err(e) => {
+                worker::console_log!("[migrate-all] {} failed: {e}", ws.slug);
+                results.push(serde_json::json!({ "slug": ws.slug, "error": e.to_string() }));
+            }
+        }
+    }
+
+    let mut resp = Response::from_json(&serde_json::json!({
+        "ok": true,
+        "workspaces": workspaces.len(),
+        "migrations_applied": applied_total,
+        "results": results,
+    }))?;
+    let origin = req.headers().get("Origin")?.unwrap_or_default();
+    middleware::add_cors(&mut resp, Some(&origin))?;
+    Ok(resp)
+}

@@ -179,26 +179,33 @@ Two separate migration directories, applied to different databases.
   `users`, `workspaces_meta`, `user_workspaces`). **No runtime
   mechanism.** Apply manually: `wrangler d1 execute <index-db>
   --file=migrations/index/<file>.sql`.
-- `migrations/workspace/` — applied to every new per-workspace D1 at
-  provisioning time via `crates/worker/src/provisioning.rs`. Existing
-  workspace DBs must be migrated out-of-band (same wrangler command,
-  looped over every workspace).
+- `migrations/workspace/` — applied to every per-workspace D1 by the
+  **runtime migration runner** (`crates/worker/src/migrations.rs`). The
+  runner records applied versions in a `schema_migrations` table per
+  database, so each migration runs exactly once. New workspaces are
+  migrated at provisioning; existing ones are backfilled on demand via
+  `POST /api/admin/migrate-all` (super-admin). A database that predates
+  the runner (schema present, no `schema_migrations`) is *baselined* —
+  its current versions are recorded without re-running, so ALTER-based
+  migrations don't double-apply.
 
 ### Conventions
 
 - File name: `NNNN_snake_case.sql` — 4 digits, strictly sequential,
   never reuse or renumber. One logical change per file. Leading
-  comment explains the "why".
+  comment explains the "why". (Version 6 is an intentional gap.)
 - `ALTER TABLE … ADD COLUMN` prefers `NOT NULL DEFAULT '<x>'` so
   existing rows populate automatically. Only fall back to NULL if
   there's no sensible default.
-- **Workspace migrations only**: after creating the `.sql` file, also
-  add the `include_str!` constant AND the matching `exec_statements`
-  call in `provisioning.rs`. Forgetting either breaks new-workspace
-  provisioning silently.
-- Before deployment: apply to the production index DB and, for
-  workspace migrations, loop over every existing workspace DB. Never
-  rely on next-write-fixes-it.
+- **Workspace migrations only**: after creating the `.sql` file, append
+  one entry to `workspace_migrations()` in `migrations.rs` (an
+  `include_str!` + strictly-increasing version). That's the single
+  registration point — provisioning and backfill both flow through it.
+- Keep each statement well under the D1 subrequest/timeout limits; the
+  runner sends one migration file per `/query` call.
+- To deploy a workspace migration: ship the code, then call
+  `POST /api/admin/migrate-all` once to backfill existing workspaces.
+  The index DB still has no runtime mechanism — apply those by hand.
 
 ## Admin model
 
