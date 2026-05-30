@@ -2,7 +2,6 @@ use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
 use grumps_nlu::parser;
-use grumps_agent::db::AgentDb as _;
 use crate::{db, d1_rest::D1RestClient, provisioning, handler};
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {

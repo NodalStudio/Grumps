@@ -8,7 +8,6 @@ use grumps_nlu::llm::{NluIntent, NluResponse};
 use crate::db::WorkspaceDb;
 use crate::llm_client::LlmClient;
 use worker::Env;
-use grumps_agent::db::AgentDb as _;
 
 pub struct HandlerResult {
     pub messages: Vec<OutboundMessage>,

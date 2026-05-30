@@ -4,7 +4,6 @@
 use worker::*;
 use serde::Serialize;
 use crate::{db, middleware, d1_rest};
-use grumps_agent::db::AgentDb;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

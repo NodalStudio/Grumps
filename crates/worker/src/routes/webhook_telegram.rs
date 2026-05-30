@@ -2,7 +2,6 @@ use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::telegram::{TelegramAdapter, TgUpdate, TgChatMemberUpdated};
 use grumps_nlu::parser;
-use grumps_agent::db::AgentDb as _;
 use grumps_i18n::{t, Locale};
 use crate::{db, d1_rest::D1RestClient, provisioning, handler};
 

@@ -2,7 +2,6 @@ use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::whatsapp::WhatsAppAdapter;
 use grumps_nlu::parser;
-use grumps_agent::db::AgentDb as _;
 use crate::{db, d1_rest::D1RestClient, provisioning, handler, llm_client::LlmClient};
 
 pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Response> {
