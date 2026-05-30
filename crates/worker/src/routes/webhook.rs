@@ -36,7 +36,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // 3. Dedup via KV
     let kv = ctx.kv("KV")?;
-    let dedup_key = format!("msg:{}", inbound.message_id);
+    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
     if kv.get(&dedup_key).text().await?.is_some() {
         return Response::ok("ok");
     }

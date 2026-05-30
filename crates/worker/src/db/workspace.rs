@@ -100,11 +100,13 @@ impl<'a> WorkspaceDb<'a> {
     /// Insert todo with atomic seq_num. Returns (todo_id, seq_num).
     pub async fn insert_todo(&self, title: &str, priority: i32, tags_json: &str,
                               assigned_to: &str, assigned_name: &str,
-                              created_by: &str, source: &str, message_id: &str) -> Result<(String, i64)> {
+                              created_by: &str, source: &str, message_id: &str,
+                              deadline: Option<&str>) -> Result<(String, i64)> {
         let id = uuid::Uuid::new_v4().to_string();
+        // `deadline` is a civil date "YYYY-MM-DD" (never a UTC instant). Empty/None → NULL.
         self.q(
-            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, message_id, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), ?2, 'open', ?3, ?4, NULLIF(?5,''), NULLIF(?6,''), ?7, ?8, NULLIF(?9,''), datetime('now'), datetime('now'))",
-            vec![id.clone().into(), title.into(), priority.into(), tags_json.into(), assigned_to.into(), assigned_name.into(), created_by.into(), source.into(), message_id.into()],
+            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, message_id, deadline, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), ?2, 'open', ?3, ?4, NULLIF(?5,''), NULLIF(?6,''), ?7, ?8, NULLIF(?9,''), NULLIF(?10,''), datetime('now'), datetime('now'))",
+            vec![id.clone().into(), title.into(), priority.into(), tags_json.into(), assigned_to.into(), assigned_name.into(), created_by.into(), source.into(), message_id.into(), deadline.unwrap_or("").into()],
         ).await?;
 
         #[derive(Deserialize)]
@@ -881,15 +883,19 @@ impl<'a> WorkspaceDb<'a> {
         let mut sets = vec!["updated_at = datetime('now')".to_string()];
         let mut params: Vec<serde_json::Value> = vec![];
         if let Some(v) = title { params.push(v.into()); sets.push(format!("title = ?{}", params.len())); }
+        // Accept a UTC instant (timed event) OR a bare civil date "YYYY-MM-DD"
+        // (all-day event), matching what create_event stores.
+        let valid_dt = |v: &str| chrono::DateTime::parse_from_rfc3339(v).is_ok()
+            || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok();
         if let Some(v) = starts_at {
-            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
-                return Err(worker::Error::RustError("invalid starts_at format, expected RFC3339".into()));
+            if !valid_dt(v) {
+                return Err(worker::Error::RustError("invalid starts_at: expected RFC3339 or YYYY-MM-DD".into()));
             }
             params.push(v.into()); sets.push(format!("starts_at = ?{}", params.len()));
         }
         if let Some(v) = ends_at {
-            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
-                return Err(worker::Error::RustError("invalid ends_at format, expected RFC3339".into()));
+            if !valid_dt(v) {
+                return Err(worker::Error::RustError("invalid ends_at: expected RFC3339 or YYYY-MM-DD".into()));
             }
             params.push(v.into()); sets.push(format!("ends_at = ?{}", params.len()));
         }

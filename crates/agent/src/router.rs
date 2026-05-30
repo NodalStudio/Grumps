@@ -29,8 +29,11 @@ pub async fn route_message<'a>(
     has_active_session: bool,
     sink: &'a dyn MessagingSink,
     db: &'a dyn AgentDb,
+    locale: &'a str,
 ) -> Result<RouteResult> {
-    let language = db.get_setting("default_locale").await.unwrap_or_else(|_| "en".to_string());
+    // Locale is resolved by the caller from the canonical source (the workspace
+    // member/meta locale in the index DB) — not a workspace-D1 setting.
+    let language = if locale.is_empty() { "en".to_string() } else { locale.to_string() };
     let timezone = {
         let t = db.get_setting("timezone").await.unwrap_or_default();
         if t.is_empty() { "UTC".to_string() } else { t }

@@ -40,7 +40,7 @@ pub async fn handle_message(
     let locale = grumps_i18n::Locale::from_code(ws_locale);
     // Agent fast-path: route @grumps mentions through the agent before structured parsing.
     if let Some(env) = env {
-        if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text).await? {
+        if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await? {
             return Ok(result);
         }
     }
@@ -119,9 +119,13 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
         let tags_json = serde_json::to_string(&parsed.tags).unwrap_or_else(|_| "[]".into());
         let assignee = parsed.assignee_mention.as_deref().unwrap_or("");
 
+        // Persist the deadline only when it's a real civil date (the LLM path
+        // normalizes to YYYY-MM-DD; raw regex hints like "friday" fall through).
+        let deadline = parsed.deadline_text.as_deref()
+            .filter(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
         let (todo_id, seq) = ws_db.insert_todo(
             &parsed.title, parsed.priority.as_int(), &tags_json,
-            assignee, assignee, member_id, "chat", msg_id,
+            assignee, assignee, member_id, "chat", msg_id, deadline,
         ).await?;
 
         ws_db.log_activity(member_id, "todo.created", "todo", &todo_id, "chat").await?;
@@ -332,6 +336,7 @@ async fn try_route_via_agent(
     ws_slug: &str,
     member_id: &str,
     text: &str,
+    ws_locale: &str,
 ) -> worker::Result<Option<HandlerResult>> {
     // Only route via agent if the message contains an @grumps mention.
     let lower = text.to_lowercase();
@@ -375,6 +380,7 @@ async fn try_route_via_agent(
         has_session,
         &sink,
         ws_db,
+        ws_locale,
     )
     .await;
 

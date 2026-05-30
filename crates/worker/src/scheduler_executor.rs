@@ -65,7 +65,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
-            let language = db.get_setting("default_locale").await.ok().flatten().unwrap_or_else(|| "en".to_string());
+            let language = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
             let timezone = db.get_setting("timezone").await.ok().flatten()
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "UTC".to_string());
@@ -149,9 +149,7 @@ async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _
     let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
         .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
         .collect();
-    let locale = db.get_setting("default_locale").await.ok().flatten()
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "en".to_string());
+    let locale = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
     let body = grumps_messaging::formatter::recap_message(
         &ws.slug,
         data.open,
