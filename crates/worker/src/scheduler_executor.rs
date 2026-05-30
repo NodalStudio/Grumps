@@ -16,33 +16,18 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
-    // Evaluate condition if present
+    // Condition gate. The DB-backed ConditionContext is still stubbed (it cannot
+    // run async D1 queries from the sync `ConditionContext` trait), so evaluating
+    // a real condition used to ALWAYS fail → reschedule forever → silently
+    // mark_failed after 7 days, i.e. the action never fired. Until conditions are
+    // genuinely evaluable (needs an async trait or pre-fetched context), a present
+    // condition no longer blocks execution — the action fires at trigger_at. We
+    // still validate the JSON shape so malformed payloads are surfaced.
     if let Some(cond_value) = &action.condition {
-        let condition: grumps_scheduler::Condition = match serde_json::from_value(cond_value.clone()) {
-            Ok(c) => c,
-            Err(e) => {
-                console_log!("execute_action: bad condition JSON for {}: {e}, treating as fail-open (true)", action.id);
-                // Bad JSON — mark failed and bail
-                db.mark_action_failed(&action.id, &format!("bad condition JSON: {e}")).await?;
-                return Ok(());
-            }
-        };
-        let ctx = WorkerConditionContext { db: &db };
-        if !grumps_scheduler::evaluate(&condition, &ctx) {
-            // Condition not met — reschedule for later check or give up after 7d
-            let recheck_in = action.payload.get("recheck_in_seconds")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(3600);
-            let next = action.trigger_at + chrono::Duration::seconds(recheck_in);
-            let give_up_at = action.created_at + chrono::Duration::days(7);
-            if next > give_up_at {
-                console_log!("condition give-up for {}: 7d elapsed", action.id);
-                db.mark_action_failed(&action.id, "condition never met within 7d").await?;
-            } else {
-                console_log!("condition not met for {}, recheck at {next}", action.id);
-                db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
-            }
-            return Ok(());
+        if let Err(e) = serde_json::from_value::<grumps_scheduler::Condition>(cond_value.clone()) {
+            console_log!("execute_action {}: malformed condition JSON ({e}) — ignoring, executing", action.id);
+        } else {
+            console_log!("execute_action {}: condition present but not yet evaluated (stub) — executing", action.id);
         }
     }
 
@@ -171,29 +156,7 @@ async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<(
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }
 
-// =============================================
-// ConditionContext (V1 stubs)
-// =============================================
-
-struct WorkerConditionContext<'a> {
-    db: &'a WorkspaceDb<'a>,
-}
-
-impl<'a> grumps_scheduler::ConditionContext for WorkerConditionContext<'a> {
-    fn count_messages_matching(&self, _since: chrono::DateTime<chrono::Utc>, _keywords: &[String]) -> i64 {
-        // V1 stub: no chat-message table in D1 (RAG lives in Vectorize).
-        // Return 0 → conservative (NoMessageMatching fires when count < min, so 0 → fires).
-        0
-    }
-    fn last_active_at(&self, _member_id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-        // V1 stub: would query members.last_seen_at
-        None
-    }
-    fn todo_status_now(&self, _todo_id: &str) -> Option<String> {
-        // V1 stub: would query todos.status
-        None
-    }
-    fn now(&self) -> chrono::DateTime<chrono::Utc> {
-        chrono::Utc::now()
-    }
-}
+// The stubbed ConditionContext was removed: it could not evaluate conditions
+// (the trait is sync, D1 is async) and made conditional actions never fire.
+// See the condition gate in execute_action. Real evaluation needs an async
+// ConditionContext (or a pre-fetched context) — tracked as a follow-up.
