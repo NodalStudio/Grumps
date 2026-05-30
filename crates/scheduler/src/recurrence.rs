@@ -147,6 +147,7 @@ fn matches_rule(rule: &Rrule, dt: DateTime<Utc>, base: DateTime<Utc>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{NaiveDate, TimeZone};
 
     fn dt(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
