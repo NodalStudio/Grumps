@@ -30,6 +30,18 @@ fn db_str_to_enum<T: serde::de::DeserializeOwned>(s: &str, fallback: T, context:
     }
 }
 
+/// Parse an instant stored in D1. Accepts SQLite's `datetime('now')` shape
+/// (`YYYY-MM-DD HH:MM:SS`, UTC) as well as RFC3339 with `T`/`Z`/offset.
+fn parse_db_instant(s: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    let s = s.trim();
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&chrono::Utc));
+    }
+    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|n| chrono::DateTime::from_naive_utc_and_offset(n, chrono::Utc))
+}
+
 // =============================================
 // Workspace DB (via D1 REST API)
 // =============================================
@@ -161,6 +173,29 @@ impl<'a> WorkspaceDb<'a> {
         self.q("UPDATE todos SET status = 'done', completed_at = datetime('now'), completed_by = ?1, updated_at = datetime('now') WHERE id = ?2",
             vec![completed_by.into(), todo_id.into()]).await?;
         Ok(())
+    }
+
+    /// Reopen a completed todo (the inverse of `complete_todo`), used to undo a
+    /// proactive completion.
+    pub async fn reopen_todo(&self, todo_id: &str) -> Result<()> {
+        self.q("UPDATE todos SET status = 'open', completed_at = NULL, completed_by = NULL, updated_at = datetime('now') WHERE id = ?1",
+            vec![todo_id.into()]).await?;
+        Ok(())
+    }
+
+    /// The current status of a todo (e.g. `open`, `done`), or None if it no
+    /// longer exists. Used by the scheduled-action condition gate.
+    pub async fn get_todo_status(&self, todo_id: &str) -> Result<Option<String>> {
+        Ok(self.get_todo_by_id(todo_id).await?.map(|t| t.status))
+    }
+
+    /// The last time a member was seen active, as a UTC instant (None if never
+    /// seen or unparseable). Used by the condition gate.
+    pub async fn get_member_last_seen(&self, member_id: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+        #[derive(Deserialize)]
+        struct R { last_seen_at: Option<String> }
+        let resp = self.q("SELECT last_seen_at FROM members WHERE id = ?1", vec![member_id.into()]).await?;
+        Ok(extract_first::<R>(&resp)?.and_then(|r| r.last_seen_at).and_then(|s| parse_db_instant(&s)))
     }
 
     pub async fn delete_todo(&self, todo_id: &str) -> Result<()> {

@@ -1,5 +1,14 @@
-//! Condition evaluator for scheduled actions B (suivis conditionnels).
-//! See spec § 7.5 — 5 types prédéfinis.
+//! Condition evaluator for scheduled actions (conditional follow-ups).
+//!
+//! Conditions are an *internal* guard on a scheduled action: when present, the
+//! action only fires if the condition holds at trigger time (evaluated against
+//! live workspace state). They are no longer an LLM-facing DSL — the proactive
+//! agent decides when to act by judgement, not by emitting a condition.
+//!
+//! Only conditions backed by stored state are modelled. Earlier keyword-based
+//! variants (`NoMessageMatching`, `KeywordAppeared`) were removed: group message
+//! bodies are not persisted, so they could never be evaluated. Such judgement
+//! ("has anyone mentioned X?") is the job of the proactive path.
 
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
@@ -7,17 +16,17 @@ use chrono::{DateTime, Utc, Duration};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Condition {
-    NoMessageMatching { since: DateTime<Utc>, match_keywords: Vec<String>, min_message_count: u32 },
     MemberActiveAfter { member_id: String, after: DateTime<Utc> },
     TodoStatus { todo_id: String, #[serde(default)] status_not: Option<String>, #[serde(default)] status_is: Option<String> },
     MemberInactiveFor { member_id: String, duration_seconds: i64 },
-    KeywordAppeared { keywords: Vec<String>, since: DateTime<Utc> },
 }
 
 /// Context provided by the worker when evaluating a condition.
-/// The trait is defined here; the worker provides the DB-backed implementation.
+///
+/// The trait is sync; the worker pre-fetches the (small) data a condition names
+/// (one todo's status / one member's last activity) via async D1 calls before
+/// building a context and calling [`evaluate`].
 pub trait ConditionContext {
-    fn count_messages_matching(&self, since: DateTime<Utc>, keywords: &[String]) -> i64;
     fn last_active_at(&self, member_id: &str) -> Option<DateTime<Utc>>;
     fn todo_status_now(&self, todo_id: &str) -> Option<String>;
     fn now(&self) -> DateTime<Utc>;
@@ -25,9 +34,6 @@ pub trait ConditionContext {
 
 pub fn evaluate<C: ConditionContext>(cond: &Condition, ctx: &C) -> bool {
     match cond {
-        Condition::NoMessageMatching { since, match_keywords, min_message_count } => {
-            ctx.count_messages_matching(*since, match_keywords) < *min_message_count as i64
-        }
         Condition::MemberActiveAfter { member_id, after } => {
             ctx.last_active_at(member_id).map(|t| t > *after).unwrap_or(false)
         }
@@ -49,9 +55,6 @@ pub fn evaluate<C: ConditionContext>(cond: &Condition, ctx: &C) -> bool {
                 Some(t) => now.signed_duration_since(t) >= Duration::seconds(*duration_seconds),
             }
         }
-        Condition::KeywordAppeared { keywords, since } => {
-            ctx.count_messages_matching(*since, keywords) > 0
-        }
     }
 }
 
@@ -60,37 +63,18 @@ mod tests {
     use super::*;
 
     struct MockCtx {
-        msg_count: i64,
         last_active: Option<DateTime<Utc>>,
         todo_status: Option<String>,
         now: DateTime<Utc>,
     }
     impl ConditionContext for MockCtx {
-        fn count_messages_matching(&self, _: DateTime<Utc>, _: &[String]) -> i64 { self.msg_count }
         fn last_active_at(&self, _: &str) -> Option<DateTime<Utc>> { self.last_active }
         fn todo_status_now(&self, _: &str) -> Option<String> { self.todo_status.clone() }
         fn now(&self) -> DateTime<Utc> { self.now }
     }
 
     fn ctx() -> MockCtx {
-        MockCtx { msg_count: 0, last_active: None, todo_status: None, now: Utc::now() }
-    }
-
-    #[test]
-    fn no_message_matching_fires_when_none() {
-        let cond = Condition::NoMessageMatching {
-            since: Utc::now(), match_keywords: vec!["x".into()], min_message_count: 1,
-        };
-        assert!(evaluate(&cond, &ctx()));
-    }
-
-    #[test]
-    fn no_message_matching_skips_when_present() {
-        let cond = Condition::NoMessageMatching {
-            since: Utc::now(), match_keywords: vec!["x".into()], min_message_count: 1,
-        };
-        let c = MockCtx { msg_count: 1, ..ctx() };
-        assert!(!evaluate(&cond, &c));
+        MockCtx { last_active: None, todo_status: None, now: Utc::now() }
     }
 
     #[test]
@@ -101,6 +85,15 @@ mod tests {
         };
         let c = MockCtx { last_active: Some(Utc::now()), ..ctx() };
         assert!(evaluate(&cond, &c));
+    }
+
+    #[test]
+    fn member_active_after_skips_when_never_seen() {
+        let cond = Condition::MemberActiveAfter {
+            member_id: "m1".into(),
+            after: Utc::now() - Duration::days(1),
+        };
+        assert!(!evaluate(&cond, &ctx()));
     }
 
     #[test]
@@ -145,22 +138,5 @@ mod tests {
             ..ctx()
         };
         assert!(!evaluate(&cond, &c));
-    }
-
-    #[test]
-    fn keyword_appeared_fires_when_present() {
-        let cond = Condition::KeywordAppeared {
-            keywords: vec!["restau".into()], since: Utc::now() - Duration::days(1),
-        };
-        let c = MockCtx { msg_count: 1, ..ctx() };
-        assert!(evaluate(&cond, &c));
-    }
-
-    #[test]
-    fn keyword_appeared_skips_when_absent() {
-        let cond = Condition::KeywordAppeared {
-            keywords: vec!["restau".into()], since: Utc::now() - Duration::days(1),
-        };
-        assert!(!evaluate(&cond, &ctx()));
     }
 }

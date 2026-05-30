@@ -161,7 +161,6 @@ pub fn schedule_action() -> Value {
                 "title": { "type": "string", "description": "Human summary" },
                 "trigger_at": { "type": "string", "format": "date-time", "description": "Local wall-clock time in the group's timezone (see CURRENT DATETIME in your context), ISO-8601 with NO timezone suffix, e.g. 2026-05-31T20:00:00. Do not convert to UTC." },
                 "recurrence": { "type": "string" },
-                "condition": { "type": "object", "description": "Optional condition JSON" },
                 "payload": { "type": "object", "description": "Action payload (instruction string for agent_task, etc.)" }
             },
             "required": ["action_type", "title", "trigger_at", "payload"]
