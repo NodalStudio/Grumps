@@ -30,13 +30,18 @@ fn push_prop(out: &mut String, line: String) {
     out.push_str("\r\n");
 }
 
-pub fn generate_ical(workspace_name: &str, items: &[CalendarItem]) -> String {
+pub fn generate_ical(workspace_name: &str, items: &[CalendarItem], workspace_tz: Option<&str>) -> String {
     let mut out = String::new();
     out.push_str("BEGIN:VCALENDAR\r\n");
     out.push_str("VERSION:2.0\r\n");
     out.push_str("PRODID:-//Grumps//Calendar 1.0//EN\r\n");
     push_prop(&mut out, format!("NAME:Grumps \u{2014} {workspace_name}"));
     push_prop(&mut out, format!("X-WR-CALNAME:Grumps \u{2014} {workspace_name}"));
+    // Default calendar timezone for the subscriber's client (helps all-day /
+    // floating items render against the workspace's calendar).
+    if let Some(tz) = workspace_tz.filter(|t| !t.is_empty()) {
+        push_prop(&mut out, format!("X-WR-TIMEZONE:{tz}"));
+    }
     out.push_str("X-PUBLISHED-TTL:PT15M\r\n");
 
     for item in items {
@@ -88,7 +93,8 @@ mod tests {
 
     #[test]
     fn empty_generates_valid_envelope() {
-        let s = generate_ical("Test", &[]);
+        let s = generate_ical("Test", &[], Some("Europe/Paris"));
+        assert!(s.contains("X-WR-TIMEZONE:Europe/Paris"));
         assert!(s.starts_with("BEGIN:VCALENDAR"));
         assert!(s.ends_with("END:VCALENDAR\r\n"));
         assert!(s.contains("PRODID:-//Grumps//Calendar 1.0//EN"));
@@ -110,7 +116,7 @@ mod tests {
             editable: true,
             url: "/w/ws1/events/1".into(),
         };
-        let s = generate_ical("Test", &[item]);
+        let s = generate_ical("Test", &[item], None);
         assert!(s.contains("UID:evt:1@grumps.app"));
         assert!(s.contains("DTSTART:20260420T100000Z"));
         assert!(s.contains("SUMMARY:R\u{e9}union"));
@@ -127,7 +133,7 @@ mod tests {
             ends_at: None, all_day: false, location: None, color: "teal".into(),
             member_id: None, recurrence: None, editable: true, url: "/x".into(),
         };
-        let s = generate_ical("Test", &[item]);
+        let s = generate_ical("Test", &[item], None);
         // Each physical line (split on \n) should be <= 75 octets
         for line in s.split('\n') {
             let line = line.trim_end_matches('\r');
@@ -153,7 +159,7 @@ mod tests {
             editable: true,
             url: "/x".into(),
         };
-        let s = generate_ical("X", &[item]);
+        let s = generate_ical("X", &[item], None);
         assert!(s.contains(r"SUMMARY:Hello\; world\, hi"));
     }
 }

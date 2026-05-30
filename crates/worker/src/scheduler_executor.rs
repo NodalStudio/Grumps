@@ -141,7 +141,9 @@ async fn execute_event_notify(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb
 
 async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
     // Build the recap from live workspace data, same as the weekly cron path.
-    let data = db.get_recap_data().await?;
+    let tz = db.get_setting("timezone").await.ok().flatten()
+        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let data = db.get_recap_data(&tz).await?;
     // Nothing worth reporting → stay silent rather than send an empty recap.
     if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
         return Ok(());

@@ -52,10 +52,11 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
-    let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
-    // The SPA renders all timestamps in this timezone (never the browser's).
+    // The SPA renders all timestamps in this timezone (never the browser's);
+    // it also anchors the "done this week" count to the workspace calendar.
     let timezone = ws_db.get_setting("timezone").await.ok().flatten()
         .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".into());
+    let (open, done_week, notes, files) = ws_db.get_status_counts(&timezone).await?;
     let timezone_source = ws_db.get_setting("timezone_source").await.ok().flatten().unwrap_or_default();
 
     middleware::with_cors(&req, Response::from_json(&serde_json::json!({

@@ -115,7 +115,7 @@ async fn check_and_send_recaps(
         if kv.get(&recap_key).text().await?.is_some() { continue; }
 
         // Get recap data
-        let data = ws_db.get_recap_data().await?;
+        let data = ws_db.get_recap_data(tz.name()).await?;
 
         // Only send if there's something to report
         if data.open == 0 && data.done_week == 0 && data.new_notes == 0 { continue; }

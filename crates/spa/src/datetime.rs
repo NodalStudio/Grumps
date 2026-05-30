@@ -76,6 +76,21 @@ pub fn format_time(utc_iso: &str, tz: &str, locale: &str) -> String {
     render(&date, locale, &opts, utc_iso)
 }
 
+/// The civil date key "YYYY-MM-DD" of a UTC instant *as seen in `tz`* — for
+/// grouping/sorting timeline items by the workspace's calendar day. Use this
+/// for timed instants; all-day items already carry a bare date (don't shift).
+pub fn date_key_in_tz(utc_iso: &str, tz: &str) -> String {
+    let fallback = utc_iso.get(0..10).unwrap_or(utc_iso).to_string();
+    let date = js_sys::Date::new(&JsValue::from_str(utc_iso));
+    let opts = js_sys::Object::new();
+    set_opt(&opts, "timeZone", tz);
+    set_opt(&opts, "year", "numeric");
+    set_opt(&opts, "month", "2-digit");
+    set_opt(&opts, "day", "2-digit");
+    // en-CA renders as "YYYY-MM-DD".
+    render(&date, "en-CA", &opts, &fallback)
+}
+
 /// Format a **civil date** (all-day item / deadline) — NO timezone shift. A day
 /// is a day; we format the stored calendar date as-is (anchored in UTC so the
 /// displayed day always equals the stored day).

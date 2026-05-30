@@ -100,8 +100,9 @@ pub async fn handle_message(
 }
 
 async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
-    // Check todo quota before inserting
-    let (open_count, _, _, _) = ws_db.get_status_counts().await?;
+    // Check todo quota before inserting. Only `open` is used here, so the
+    // (tz-sensitive) "this week" count is irrelevant — pass UTC to skip a read.
+    let (open_count, _, _, _) = ws_db.get_status_counts("UTC").await?;
     if let Err(qe) = crate::billing::check_todo_quota(plan, open_count) {
         return Ok(HandlerResult::one(qe.render(locale), Some(msg_id.to_string())));
     }
@@ -225,8 +226,8 @@ async fn handle_delete(seq: i64, ws_db: &WorkspaceDb<'_>, member_id: &str, local
 }
 
 async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
-    // Check note quota
-    let (_, _, note_count, _) = ws_db.get_status_counts().await?;
+    // Check note quota. Only `notes` is used → tz-irrelevant, pass UTC.
+    let (_, _, note_count, _) = ws_db.get_status_counts("UTC").await?;
     if let Err(qe) = crate::billing::check_note_quota(plan, note_count) {
         return Ok(HandlerResult::one(qe.render(locale), None));
     }
@@ -267,7 +268,10 @@ async fn handle_search_notes(query: &str, ws_db: &WorkspaceDb<'_>, locale: grump
 }
 
 async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
-    let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
+    // "Done this week" follows the workspace calendar.
+    let tz = ws_db.get_setting("timezone").await.ok().flatten()
+        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let (open, done_week, notes, files) = ws_db.get_status_counts(&tz).await?;
     Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug, locale.code()), None))
 }
 

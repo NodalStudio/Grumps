@@ -21,10 +21,17 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                     }.into_any();
                 }
 
-                // Group by date
+                // Group by the workspace-tz calendar day. Timed instants are
+                // converted into the workspace tz; all-day items keep their
+                // bare date (converting would shift the day).
+                let tz = crate::datetime::use_timezone();
                 let mut groups: Vec<(String, Vec<CalendarItem>)> = Vec::new();
                 for item in all {
-                    let key = parse_date_key(&item.starts_at);
+                    let key = if item.all_day {
+                        parse_date_key(&item.starts_at)
+                    } else {
+                        crate::datetime::date_key_in_tz(&item.starts_at, &tz)
+                    };
                     if let Some(last) = groups.last_mut() {
                         if last.0 == key {
                             last.1.push(item);

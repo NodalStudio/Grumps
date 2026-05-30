@@ -491,9 +491,11 @@ impl<'a> WorkspaceDb<'a> {
     // --- Recap ---
 
     /// Get data needed for a recap.
-    pub async fn get_recap_data(&self) -> Result<RecapData> {
+    pub async fn get_recap_data(&self, tz: &str) -> Result<RecapData> {
         #[derive(Deserialize)]
         struct Count { cnt: i64 }
+        // "This week" = the last 7 *local* days, anchored to the workspace tz.
+        let week_start = week_start_utc(tz);
 
         // Open todos
         let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')", vec![]).await?;
@@ -504,7 +506,7 @@ impl<'a> WorkspaceDb<'a> {
         let assigned: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Completed this week
-        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime('now', '-7 days')", vec![]).await?;
+        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let done_week: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // High priority open
@@ -512,7 +514,7 @@ impl<'a> WorkspaceDb<'a> {
         let high_priority: Vec<HighPrioTodo> = extract_rows(&r)?;
 
         // New notes this week
-        let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime('now', '-7 days')", vec![]).await?;
+        let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Active reminders
@@ -543,14 +545,15 @@ impl<'a> WorkspaceDb<'a> {
 
     // --- Status counts ---
 
-    pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
+    pub async fn get_status_counts(&self, tz: &str) -> Result<(i64, i64, i64, i64)> {
         #[derive(Deserialize)]
         struct Row { cnt: i64 }
+        let week_start = week_start_utc(tz);
 
         let r1 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')", vec![]).await?;
         let open: i64 = extract_first::<Row>(&r1)?.map(|r| r.cnt).unwrap_or(0);
 
-        let r2 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime('now', '-7 days')", vec![]).await?;
+        let r2 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let done_week: i64 = extract_first::<Row>(&r2)?.map(|r| r.cnt).unwrap_or(0);
 
         let r3 = self.q("SELECT COUNT(*) as cnt FROM notes", vec![]).await?;
@@ -911,6 +914,18 @@ impl<'a> WorkspaceDb<'a> {
         let resp = self.q("DELETE FROM events WHERE id = ?1", vec![id.into()]).await?;
         Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
     }
+}
+
+/// UTC instant ("...Z") for the start of the last-7-*local*-days window in `tz`,
+/// used by the "this week" recap/status counts so the boundary follows the
+/// workspace's calendar rather than UTC midnight.
+fn week_start_utc(tz: &str) -> String {
+    let tz = grumps_core::timeutil::tz_or_utc(tz);
+    let today = grumps_core::timeutil::today_in_tz(tz);
+    let (start, _) = grumps_core::timeutil::local_window_bounds_utc(
+        tz, today - chrono::Duration::days(6), today,
+    );
+    grumps_core::timeutil::to_utc_z(start)
 }
 
 fn event_row_to_event(r: EventRow) -> Event {

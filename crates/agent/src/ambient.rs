@@ -252,7 +252,9 @@ pub async fn apply_analysis<'a>(
         // Cooldown + rate limit check (KV)
         let kv = env.kv("KV").ok();
         let cooldown_key = format!("proactive:{workspace_slug}:lastfire");
-        let hour_key = format!("proactive:{workspace_slug}:{}", chrono::Utc::now().format("%Y-%m-%d-%H"));
+        // Rate-limit bucket resets on the workspace-local hour boundary.
+        let tz = grumps_core::timeutil::tz_or_utc(&db.get_setting("timezone").await.unwrap_or_default());
+        let hour_key = format!("proactive:{workspace_slug}:{}", chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d-%H"));
         let mut should_proceed = true;
         if let Some(ref kv) = kv {
             if kv.get(&cooldown_key).text().await.ok().flatten().is_some() {

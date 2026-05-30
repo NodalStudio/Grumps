@@ -68,6 +68,8 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
 
     let url = req.url()?;
+    // Coarse default window (the SPA/agent send explicit from/to); the workspace
+    // tz offset shifts only the ±month edges by hours, never which items fall in.
     let now = chrono::Utc::now();
     let default_from = (now - chrono::Duration::days(30)).to_rfc3339();
     let default_to   = (now + chrono::Duration::days(90)).to_rfc3339();
@@ -258,8 +260,9 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
         .collect();
 
     let workspace_name = ws.name.as_deref().unwrap_or(slug);
+    let tz = ws_db.get_setting("timezone").await.ok().flatten().filter(|s| !s.is_empty());
     let items = aggregate(events, todos_json, reminders_json, scheduled_json, slug);
-    let ical_body = generate_ical(workspace_name, &items);
+    let ical_body = generate_ical(workspace_name, &items, tz.as_deref());
 
     let mut resp = Response::ok(ical_body)?;
     resp.headers_mut().set("Content-Type", "text/calendar; charset=utf-8")?;
