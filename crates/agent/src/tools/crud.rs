@@ -43,13 +43,12 @@ pub async fn create_event(ctx: &ToolContext<'_>, args: Value) -> worker::Result<
     let starts_at_str = args.get("starts_at").and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_event: missing 'starts_at'".into()))?;
 
-    let starts_at = chrono::DateTime::parse_from_rfc3339(starts_at_str)
-        .map(|d| d.with_timezone(&chrono::Utc))
-        .map_err(|_| worker::Error::RustError("create_event: invalid 'starts_at' format (RFC3339 required)".into()))?;
+    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let starts_at = super::parse_user_datetime(starts_at_str, &tz)
+        .ok_or_else(|| worker::Error::RustError("create_event: invalid 'starts_at' datetime".into()))?;
 
     let ends_at = args.get("ends_at").and_then(|v| v.as_str())
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-        .map(|d| d.with_timezone(&chrono::Utc));
+        .and_then(|s| super::parse_user_datetime(s, &tz));
 
     let description = args.get("description").and_then(|v| v.as_str()).map(String::from);
     let location = args.get("location").and_then(|v| v.as_str()).map(String::from);
@@ -76,14 +75,22 @@ pub async fn create_event(ctx: &ToolContext<'_>, args: Value) -> worker::Result<
 }
 
 pub async fn create_reminder(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let title = args.get("title").and_then(|v| v.as_str())
-        .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'title'".into()))?;
-    let remind_at = args.get("remind_at").and_then(|v| v.as_str())
-        .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'remind_at'".into()))?;
+    // Field names match the tool schema: `text` (message) + `trigger_at` (time).
+    let text = args.get("text").and_then(|v| v.as_str())
+        .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'text'".into()))?;
+    let trigger_at_str = args.get("trigger_at").and_then(|v| v.as_str())
+        .ok_or_else(|| worker::Error::RustError("create_reminder: missing 'trigger_at'".into()))?;
     let recurrence = args.get("recurrence").and_then(|v| v.as_str());
     let target = args.get("target_member").and_then(|v| v.as_str())
         .unwrap_or(ctx.member_id);
 
-    let id = ctx.db.insert_reminder(title, remind_at, recurrence, target, ctx.member_id).await?;
-    Ok(serde_json::json!({ "id": id, "created": true, "title": title, "remind_at": remind_at }))
+    // Interpret the model's local wall-clock time in the workspace timezone and
+    // store it as UTC (RFC3339 with Z) so the cron comparison stays correct.
+    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let remind_at = super::parse_user_datetime(trigger_at_str, &tz)
+        .ok_or_else(|| worker::Error::RustError("create_reminder: invalid 'trigger_at' datetime".into()))?;
+    let remind_at_str = remind_at.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+    let id = ctx.db.insert_reminder(text, &remind_at_str, recurrence, target, ctx.member_id).await?;
+    Ok(serde_json::json!({ "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
 }

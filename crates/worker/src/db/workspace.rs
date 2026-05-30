@@ -297,7 +297,10 @@ impl<'a> WorkspaceDb<'a> {
     /// Get active reminders that should fire now (remind_at <= now).
     pub async fn get_due_reminders(&self) -> Result<Vec<ReminderRow>> {
         let resp = self.q(
-            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND remind_at <= datetime('now')",
+            // Normalize both sides through datetime() so an ISO-8601 remind_at
+            // (with 'T' / 'Z' / offset) compares correctly against UTC now —
+            // a raw string `<=` breaks on the 'T'-vs-space separator.
+            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND datetime(remind_at) <= datetime('now')",
             vec![],
         ).await?;
         extract_rows(&resp)
@@ -393,6 +396,17 @@ impl<'a> WorkspaceDb<'a> {
         let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![key.into()]).await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.map(|r| r.value))
+    }
+
+    /// Fetch all settings rows in one query (the table holds only a handful of
+    /// rows per workspace). Avoids an N+1 of one REST call per key when the
+    /// agent builds its prompt context.
+    pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
+        #[derive(Deserialize)]
+        struct Row { key: String, value: String }
+        let resp = self.q("SELECT key, value FROM settings", vec![]).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
     }
 
     /// Upsert a setting value by key.
@@ -1070,7 +1084,7 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
 }
 
 // =============================================
-// AgentSession CRUD (for Plan B — minimal here)
+// AgentSession CRUD
 // =============================================
 
 impl<'a> WorkspaceDb<'a> {

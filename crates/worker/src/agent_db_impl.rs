@@ -158,7 +158,14 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn get_setting(&self, key: &str) -> Result<String> {
-        Ok(self.get_setting(key).await?.unwrap_or_else(|| "free".into()))
+        // Missing → empty string. Callers apply their own per-key default
+        // (e.g. Plan::from_str("") == Free). A hardcoded "free" here leaked the
+        // plan default into unrelated keys (e.g. timezone, persona).
+        Ok(self.get_setting(key).await?.unwrap_or_default())
+    }
+
+    async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
+        self.get_all_settings().await
     }
 
     async fn get_int_setting(&self, key: &str) -> Result<i64> {

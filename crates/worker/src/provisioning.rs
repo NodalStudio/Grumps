@@ -65,5 +65,16 @@ pub async fn provision_workspace_with_meta(
         database_id.clone().into(),
         (if is_dm { 1_i32 } else { 0_i32 }).into(),
     ])?.run().await?;
+
+    // Seed workspace-scoped settings the agent reads when building its prompt.
+    // `platform` is intrinsic and never changes; `workspace_name` may be refined
+    // later by the platform's group-title update. Best-effort: a settings write
+    // failure must not abort provisioning (the prompt falls back gracefully).
+    let ws_db = crate::db::WorkspaceDb::new(d1_client, database_id.clone());
+    ws_db.set_setting("platform", platform).await.ok();
+    if let Some(n) = name.filter(|n| !n.is_empty()) {
+        ws_db.set_setting("workspace_name", n).await.ok();
+    }
+
     Ok((slug, database_id))
 }

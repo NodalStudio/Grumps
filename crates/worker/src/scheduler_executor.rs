@@ -1,8 +1,7 @@
 //! Dispatch scheduled actions when their alarm fires.
 //! See spec § 7.4.
 //!
-//! Plan A scope : reminder, event_notify, recap.
-//! follow_up + agent_task come in Plan B (require agent loop).
+//! Handles: reminder, event_notify, recap, follow_up, agent_task.
 
 use worker::*;
 use grumps_scheduler::{ScheduledAction, ActionType};
@@ -67,6 +66,9 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             };
 
             let language = db.get_setting("default_locale").await.ok().flatten().unwrap_or_else(|| "en".to_string());
+            let timezone = db.get_setting("timezone").await.ok().flatten()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "UTC".to_string());
             let ctx = grumps_agent::tools::ToolContext {
                 env,
                 workspace_slug: ws_slug,
@@ -74,6 +76,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 sink: &sink,
                 db: &db,
                 language,
+                timezone,
             };
 
             match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
@@ -132,10 +135,29 @@ async fn execute_event_notify(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, _db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
-    // Reuse existing recap logic from worker/src/cron.rs if it exists.
-    // For Plan A, we send a placeholder recap. Plan B will integrate real LLM-generated recap.
-    let body = "📋 Recap hebdomadaire — placeholder (Plan B improves this with LLM-generated content).".to_string();
+async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
+    // Build the recap from live workspace data, same as the weekly cron path.
+    let data = db.get_recap_data().await?;
+    // Nothing worth reporting → stay silent rather than send an empty recap.
+    if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+        return Ok(());
+    }
+    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
+        .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+        .collect();
+    let locale = db.get_setting("default_locale").await.ok().flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "en".to_string());
+    let body = grumps_messaging::formatter::recap_message(
+        &ws.slug,
+        data.open,
+        data.assigned,
+        data.done_week,
+        &high_prio,
+        data.new_notes,
+        data.reminders,
+        &locale,
+    );
     send_to_group(env, ws, &body).await
 }
 

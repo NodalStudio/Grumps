@@ -9,9 +9,9 @@ pub async fn schedule_action(ctx: &ToolContext<'_>, args: Value) -> worker::Resu
         .ok_or_else(|| worker::Error::RustError("schedule_action: missing 'title'".into()))?;
     let trigger_at_str = args.get("trigger_at").and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("schedule_action: missing 'trigger_at'".into()))?;
-    let trigger_at = chrono::DateTime::parse_from_rfc3339(trigger_at_str)
-        .map(|d| d.with_timezone(&chrono::Utc))
-        .map_err(|_| worker::Error::RustError("schedule_action: invalid 'trigger_at' (RFC3339 required)".into()))?;
+    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let trigger_at = super::parse_user_datetime(trigger_at_str, &tz)
+        .ok_or_else(|| worker::Error::RustError("schedule_action: invalid 'trigger_at' datetime".into()))?;
 
     let action_type_str = args.get("action_type").and_then(|v| v.as_str()).unwrap_or("reminder");
     let action_type: ActionType = serde_json::from_value(Value::String(action_type_str.to_string()))

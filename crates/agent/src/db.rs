@@ -111,6 +111,9 @@ pub trait AgentDb {
     async fn get_setting(&self, key: &str) -> worker::Result<String>;
     async fn get_int_setting(&self, key: &str) -> worker::Result<i64>;
     async fn increment_int_setting(&self, key: &str, delta: i64) -> worker::Result<()>;
+    /// Fetch every setting row in one query. Lets the prompt builder assemble
+    /// its context with a single round-trip instead of one REST call per key.
+    async fn get_all_settings(&self) -> worker::Result<std::collections::HashMap<String, String>>;
 
     // --- bot activity + quality signals ---
     async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> worker::Result<Option<String>>;

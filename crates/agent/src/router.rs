@@ -31,7 +31,11 @@ pub async fn route_message<'a>(
     db: &'a dyn AgentDb,
 ) -> Result<RouteResult> {
     let language = db.get_setting("default_locale").await.unwrap_or_else(|_| "en".to_string());
-    let ctx = ToolContext { env, workspace_slug: ws_slug, member_id, sink, db, language };
+    let timezone = {
+        let t = db.get_setting("timezone").await.unwrap_or_default();
+        if t.is_empty() { "UTC".to_string() } else { t }
+    };
+    let ctx = ToolContext { env, workspace_slug: ws_slug, member_id, sink, db, language, timezone };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).
     if has_active_session {
