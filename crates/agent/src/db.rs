@@ -83,6 +83,15 @@ pub trait AgentDb {
         created_by: Option<&str>,
     ) -> worker::Result<String>;
 
+    /// Open/in-progress todos as `(id, title, seq_num)` for fuzzy completion.
+    async fn list_open_todos(&self) -> worker::Result<Vec<(String, String, i64)>>;
+    /// Recently completed todos as `(id, title, seq_num)` for fuzzy reopen.
+    async fn list_done_todos(&self) -> worker::Result<Vec<(String, String, i64)>>;
+    /// Mark a todo done.
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> worker::Result<()>;
+    /// Reopen a completed todo (the inverse of `complete_todo`).
+    async fn reopen_todo(&self, todo_id: &str) -> worker::Result<()>;
+
     // --- events ---
     async fn create_event(&self, e: &NewEvent) -> worker::Result<String>;
     async fn list_events_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<Event>>;

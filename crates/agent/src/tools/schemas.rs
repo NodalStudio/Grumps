@@ -9,6 +9,8 @@ pub fn all_tools() -> Vec<Value> {
         query_chat_history(),
         save_memory(),
         create_todo(),
+        complete_todo(),
+        reopen_todo(),
         create_note(),
         create_event(),
         create_reminder(),
@@ -92,6 +94,34 @@ pub fn create_todo() -> Value {
                 "tags": { "type": "array", "items": { "type": "string" } }
             },
             "required": ["title"]
+        }
+    })
+}
+
+pub fn complete_todo() -> Value {
+    json!({
+        "name": "complete_todo",
+        "description": "Mark an existing todo as done. Provide its seq_num (the #N number, preferred when known) OR a natural-language `query` describing it — fuzzy matching resolves the todo. If the match is ambiguous the result lists candidates to choose from.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": { "type": "string", "description": "Natural-language description of the todo to complete" },
+                "seq_num": { "type": "integer", "description": "The todo's number (#N)" }
+            }
+        }
+    })
+}
+
+pub fn reopen_todo() -> Value {
+    json!({
+        "name": "reopen_todo",
+        "description": "Reopen a previously completed todo (undo a completion). Provide its seq_num OR a natural-language `query` describing it.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": { "type": "string", "description": "Natural-language description of the completed todo to reopen" },
+                "seq_num": { "type": "integer", "description": "The todo's number (#N)" }
+            }
         }
     })
 }
@@ -226,8 +256,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_tools_count_is_11() {
-        assert_eq!(all_tools().len(), 11);
+    fn all_tools_count_is_13() {
+        assert_eq!(all_tools().len(), 13);
     }
 
     #[test]

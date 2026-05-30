@@ -24,7 +24,7 @@ use mcp_types::{Tool, ToolAnnotations};
 use serde_json::Value;
 
 use super::{schemas, ToolContext};
-use super::{crud, scheduler, calendar, memory, rag, web, chat};
+use super::{crud, todos, scheduler, calendar, memory, rag, web, chat};
 
 /// An executable tool: its MCP descriptor plus its handler.
 #[async_trait::async_trait(?Send)]
@@ -94,6 +94,10 @@ const MUTATING: fn() -> ToolAnnotations = || ToolAnnotations {
 };
 handler!(SaveMemory, "save_memory", schemas::save_memory, MUTATING(), memory::save_memory);
 handler!(CreateTodo, "create_todo", schemas::create_todo, MUTATING(), crud::create_todo);
+// Reversible mutations: not destructive (each has an inverse — complete↔reopen),
+// so they may be proposed-then-confirmed in proactive mode and undone after.
+handler!(CompleteTodo, "complete_todo", schemas::complete_todo, MUTATING(), todos::complete_todo);
+handler!(ReopenTodo, "reopen_todo", schemas::reopen_todo, MUTATING(), todos::reopen_todo);
 handler!(CreateNote, "create_note", schemas::create_note, MUTATING(), crud::create_note);
 handler!(CreateEvent, "create_event", schemas::create_event, MUTATING(), crud::create_event);
 handler!(CreateReminder, "create_reminder", schemas::create_reminder, MUTATING(), crud::create_reminder);
@@ -106,6 +110,8 @@ pub fn registry() -> Vec<Box<dyn ToolHandler>> {
         Box::new(QueryChatHistory),
         Box::new(SaveMemory),
         Box::new(CreateTodo),
+        Box::new(CompleteTodo),
+        Box::new(ReopenTodo),
         Box::new(CreateNote),
         Box::new(CreateEvent),
         Box::new(CreateReminder),
@@ -161,9 +167,16 @@ mod tests {
     #[test]
     fn registry_covers_all_named_tools() {
         let names: Vec<&str> = registry().iter().map(|h| h.name()).collect();
-        assert_eq!(names.len(), 11);
+        assert_eq!(names.len(), 13);
         let unique: std::collections::HashSet<_> = names.iter().collect();
         assert_eq!(unique.len(), names.len(), "duplicate tool names");
+    }
+
+    #[test]
+    fn mutating_todo_tools_registered() {
+        assert_eq!(annotations("complete_todo").unwrap().read_only_hint, Some(false));
+        assert_eq!(annotations("complete_todo").unwrap().destructive_hint, Some(false));
+        assert_eq!(annotations("reopen_todo").unwrap().destructive_hint, Some(false));
     }
 
     #[test]

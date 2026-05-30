@@ -189,6 +189,30 @@ impl<'a> WorkspaceDb<'a> {
         Ok(self.get_todo_by_id(todo_id).await?.map(|t| t.status))
     }
 
+    /// Open/in-progress todos as `(id, title, seq_num)`, for fuzzy completion
+    /// matching by the `complete_todo` tool.
+    pub async fn list_open_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
+        #[derive(Deserialize)]
+        struct R { id: String, title: String, seq_num: i64 }
+        let resp = self.q(
+            "SELECT id, title, seq_num FROM todos WHERE status IN ('open','in_progress') ORDER BY seq_num",
+            vec![],
+        ).await?;
+        Ok(extract_rows::<R>(&resp)?.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
+    }
+
+    /// Recently completed todos as `(id, title, seq_num)`, for fuzzy matching by
+    /// the `reopen_todo` tool (most-recent first, capped).
+    pub async fn list_done_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
+        #[derive(Deserialize)]
+        struct R { id: String, title: String, seq_num: i64 }
+        let resp = self.q(
+            "SELECT id, title, seq_num FROM todos WHERE status = 'done' ORDER BY completed_at DESC LIMIT 25",
+            vec![],
+        ).await?;
+        Ok(extract_rows::<R>(&resp)?.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
+    }
+
     /// The last time a member was seen active, as a UTC instant (None if never
     /// seen or unparseable). Used by the condition gate.
     pub async fn get_member_last_seen(&self, member_id: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>> {

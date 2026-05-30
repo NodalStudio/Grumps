@@ -71,6 +71,22 @@ impl AgentDb for WorkspaceDb<'_> {
         ).await
     }
 
+    async fn list_open_todos(&self) -> Result<Vec<(String, String, i64)>> {
+        self.list_open_todos_brief().await
+    }
+
+    async fn list_done_todos(&self) -> Result<Vec<(String, String, i64)>> {
+        self.list_done_todos_brief().await
+    }
+
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> Result<()> {
+        self.complete_todo(todo_id, completed_by).await
+    }
+
+    async fn reopen_todo(&self, todo_id: &str) -> Result<()> {
+        self.reopen_todo(todo_id).await
+    }
+
     async fn create_event(&self, e: &NewEvent) -> Result<String> {
         self.create_event(e).await
     }

@@ -719,6 +719,7 @@ dependencies = [
  "grumps-core",
  "grumps-i18n",
  "grumps-memory",
+ "grumps-nlu",
  "grumps-scheduler",
  "mcp-types",
  "schemars",

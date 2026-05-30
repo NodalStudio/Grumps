@@ -8,6 +8,7 @@ grumps-core = { path = "../core" }
 grumps-memory = { path = "../memory" }
 grumps-scheduler = { path = "../scheduler" }
 grumps-calendar = { path = "../calendar" }
+grumps-nlu = { path = "../nlu" }
 grumps-i18n = { path = "../i18n" }
 mcp-types = { path = "../mcp-types", features = ["schemars"] }
 worker = { version = "0.8", features = ["d1"] }
