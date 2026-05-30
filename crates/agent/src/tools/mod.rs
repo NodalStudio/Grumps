@@ -96,9 +96,22 @@ pub async fn dispatch(
     }
 }
 
+/// Normalize a model-emitted deadline into a **civil date** `"YYYY-MM-DD"` in
+/// `tz`. A todo deadline is a calendar day, not an instant — so we never convert
+/// it to UTC (which would shift the day). Accepts a bare date (kept as-is) or a
+/// datetime/instant (whose date *as seen in `tz`* is taken). `None` if unparseable.
+pub fn parse_user_date(s: &str, tz: &chrono_tz::Tz) -> Option<String> {
+    let s = s.trim();
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+        return Some(d.format("%Y-%m-%d").to_string());
+    }
+    parse_user_datetime(s, tz)
+        .map(|utc| grumps_core::timeutil::date_of(utc, *tz).format("%Y-%m-%d").to_string())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_user_datetime;
+    use super::{parse_user_datetime, parse_user_date};
     use chrono_tz::Europe::Paris;
     use chrono_tz::America::New_York;
     use chrono_tz::Asia::{Tokyo, Kolkata};
@@ -201,6 +214,25 @@ mod tests {
         assert!(parse_user_datetime("not a date", &UTC).is_none());
         assert!(parse_user_datetime("", &UTC).is_none());
         assert!(parse_user_datetime("2026-13-99T99:99:99", &UTC).is_none());
+    }
+
+    #[test]
+    fn user_date_keeps_bare_date_as_civil() {
+        assert_eq!(parse_user_date("2026-06-05", &Paris).as_deref(), Some("2026-06-05"));
+    }
+
+    #[test]
+    fn user_date_takes_local_date_of_a_datetime() {
+        // 2026-06-05T00:30:00 local Paris is still June 5 (not shifted to June 4).
+        assert_eq!(parse_user_date("2026-06-05T00:30:00", &Paris).as_deref(), Some("2026-06-05"));
+        // A UTC instant near midnight resolves to the *local* civil date.
+        // 2026-06-04T23:30:00Z is 2026-06-05 01:30 in Paris → June 5.
+        assert_eq!(parse_user_date("2026-06-04T23:30:00Z", &Paris).as_deref(), Some("2026-06-05"));
+    }
+
+    #[test]
+    fn user_date_garbage_is_none() {
+        assert!(parse_user_date("someday", &UTC).is_none());
     }
 
     #[test]

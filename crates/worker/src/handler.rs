@@ -537,7 +537,11 @@ async fn handle_llm_result(
                 todo.assignee_mention = Some(assignee);
             }
             if let Some(deadline) = nlu.entities.deadline {
-                todo.deadline_text = Some(deadline);
+                // Normalize to a civil date (YYYY-MM-DD) in the workspace tz; a
+                // deadline is a calendar day, not an instant. Unparseable → no
+                // deadline (better than storing relative text that never matches).
+                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                todo.deadline_text = grumps_agent::tools::parse_user_date(&deadline, &tz);
             }
             if let Some(ref p) = nlu.entities.priority {
                 todo.priority = match p.as_str() {

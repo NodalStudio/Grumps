@@ -2,8 +2,22 @@
 //! See spec § 9.1.
 
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use crate::Event;
+
+/// Parse a stored date string into a UTC instant for calendar placement.
+/// Accepts both an instant (RFC3339 `…Z`/offset) and a bare civil date
+/// (`YYYY-MM-DD`, placed at that day's UTC midnight for sorting). Returns
+/// `None` only if neither shape parses.
+fn parse_calendar_dt(s: &str) -> Option<DateTime<Utc>> {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&Utc));
+    }
+    NaiveDate::parse_from_str(s, "%Y-%m-%d")
+        .ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|nd| Utc.from_utc_datetime(&nd))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -59,12 +73,12 @@ pub fn aggregate(
             t.get("title").and_then(|v| v.as_str()),
             t.get("deadline").and_then(|v| v.as_str()),
         ) {
-            if let Ok(dt) = DateTime::parse_from_rfc3339(deadline) {
+            if let Some(dt) = parse_calendar_dt(deadline) {
                 items.push(CalendarItem {
                     id: format!("todo:{id}"),
                     source: CalendarSource::Todo,
                     title: title.to_string(),
-                    starts_at: dt.with_timezone(&Utc),
+                    starts_at: dt,
                     ends_at: None,
                     all_day: true,
                     location: None,
@@ -173,5 +187,24 @@ mod tests {
         // Sorted : todo (Apr 20) before event (Apr 22)
         assert_eq!(items[0].id, "todo:t1");
         assert_eq!(items[1].id, "evt:e1");
+    }
+
+    #[test]
+    fn todo_with_bare_civil_date_is_kept() {
+        // Regression guard: a deadline stored as "YYYY-MM-DD" (no time) must
+        // still produce a calendar item (previously the RFC3339-only parse
+        // silently dropped it).
+        let todo = serde_json::json!({
+            "id": "t9",
+            "title": "Renew passport",
+            "deadline": "2026-04-20",
+            "status": "open",
+        });
+        let items = aggregate(vec![], vec![todo], vec![], vec![], "ws1");
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, "todo:t9");
+        assert!(items[0].all_day);
+        assert_eq!(items[0].starts_at.date_naive(),
+                   NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
     }
 }

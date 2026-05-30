@@ -4,11 +4,24 @@ use serde_json::Value;
 use grumps_calendar::{NewEvent, EventSource};
 use super::ToolContext;
 
+/// A civil date "YYYY-MM-DD" anchored at UTC midnight — the storage sentinel
+/// for all-day events (the DB layer writes back the bare date).
+fn civil_date_to_utc(date_str: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    use chrono::TimeZone;
+    chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|ndt| chrono::Utc.from_utc_datetime(&ndt))
+}
+
 pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
     let title = args.get("title").and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_todo: missing 'title'".into()))?;
     let assignee = args.get("assignee").and_then(|v| v.as_str());
-    let deadline = args.get("deadline").and_then(|v| v.as_str());
+    // A deadline is a civil date in the workspace tz — normalized to YYYY-MM-DD,
+    // never converted to a UTC instant (which would shift the day).
+    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let deadline = args.get("deadline").and_then(|v| v.as_str())
+        .and_then(|d| super::parse_user_date(d, &tz));
     let priority = args.get("priority").and_then(|v| v.as_i64()).unwrap_or(3) as i32;
     let tags: Vec<String> = args.get("tags")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
@@ -17,7 +30,7 @@ pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<V
     let id = ctx.db.create_todo_simple(
         title,
         assignee,
-        deadline,
+        deadline.as_deref(),
         priority,
         tags,
         Some(ctx.member_id),
@@ -44,15 +57,27 @@ pub async fn create_event(ctx: &ToolContext<'_>, args: Value) -> worker::Result<
         .ok_or_else(|| worker::Error::RustError("create_event: missing 'starts_at'".into()))?;
 
     let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
-    let starts_at = super::parse_user_datetime(starts_at_str, &tz)
-        .ok_or_else(|| worker::Error::RustError("create_event: invalid 'starts_at' datetime".into()))?;
+    let all_day = args.get("all_day").and_then(|v| v.as_bool()).unwrap_or(false);
+    let ends_at_str = args.get("ends_at").and_then(|v| v.as_str());
 
-    let ends_at = args.get("ends_at").and_then(|v| v.as_str())
-        .and_then(|s| super::parse_user_datetime(s, &tz));
+    // All-day events are civil dates (no time, no tz shift): we anchor the date
+    // at UTC midnight so the storage layer can write a bare "YYYY-MM-DD".
+    // Timed events are instants converted from the local wall clock to UTC.
+    let (starts_at, ends_at) = if all_day {
+        let s = super::parse_user_date(starts_at_str, &tz)
+            .and_then(|d| civil_date_to_utc(&d))
+            .ok_or_else(|| worker::Error::RustError("create_event: invalid 'starts_at' date".into()))?;
+        let e = ends_at_str.and_then(|s| super::parse_user_date(s, &tz)).and_then(|d| civil_date_to_utc(&d));
+        (s, e)
+    } else {
+        let s = super::parse_user_datetime(starts_at_str, &tz)
+            .ok_or_else(|| worker::Error::RustError("create_event: invalid 'starts_at' datetime".into()))?;
+        let e = ends_at_str.and_then(|s| super::parse_user_datetime(s, &tz));
+        (s, e)
+    };
 
     let description = args.get("description").and_then(|v| v.as_str()).map(String::from);
     let location = args.get("location").and_then(|v| v.as_str()).map(String::from);
-    let all_day = args.get("all_day").and_then(|v| v.as_bool()).unwrap_or(false);
     let color = args.get("color").and_then(|v| v.as_str()).map(String::from);
 
     let event = NewEvent {

@@ -442,8 +442,8 @@ impl<'a> WorkspaceDb<'a> {
         let resp = self.q(
             "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
              FROM reminders \
-             WHERE status = 'active' AND remind_at >= ?1 AND remind_at <= ?2 \
-             ORDER BY remind_at ASC",
+             WHERE status = 'active' AND datetime(remind_at) >= datetime(?1) AND datetime(remind_at) <= datetime(?2) \
+             ORDER BY datetime(remind_at) ASC",
             vec![from.into(), to.into()],
         ).await?;
         extract_rows::<serde_json::Value>(&resp)
@@ -454,8 +454,8 @@ impl<'a> WorkspaceDb<'a> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, status, fire_count, created_by \
              FROM scheduled_actions \
-             WHERE status = 'pending' AND trigger_at >= ?1 AND trigger_at <= ?2 \
-             ORDER BY trigger_at ASC",
+             WHERE status = 'pending' AND datetime(trigger_at) >= datetime(?1) AND datetime(trigger_at) <= datetime(?2) \
+             ORDER BY datetime(trigger_at) ASC",
             vec![from.into(), to.into()],
         ).await?;
         extract_rows::<serde_json::Value>(&resp)
@@ -475,9 +475,12 @@ impl<'a> WorkspaceDb<'a> {
     /// List todos with a deadline in [from, to] range (non-done only).
     pub async fn list_todos_with_deadline_in_range(&self, from: &str, to: &str) -> Result<Vec<TodoBrief>> {
         let resp = self.q(
+            // Civil-date comparison: date() normalizes both a bare 'YYYY-MM-DD'
+            // deadline and the range bounds (which may arrive as instants), so a
+            // calendar day is compared as a day regardless of stored shape.
             "SELECT id, seq_num, title, deadline, assigned_to, priority, status \
-             FROM todos WHERE deadline IS NOT NULL AND deadline >= ?1 AND deadline <= ?2 AND status != 'done' \
-             ORDER BY deadline ASC",
+             FROM todos WHERE deadline IS NOT NULL AND date(deadline) >= date(?1) AND date(deadline) <= date(?2) AND status != 'done' \
+             ORDER BY date(deadline) ASC",
             vec![from.into(), to.into()],
         ).await?;
         extract_rows(&resp)
@@ -819,8 +822,15 @@ impl<'a> WorkspaceDb<'a> {
         let attendees_json = serde_json::to_string(&e.attendees).unwrap_or_else(|_| "[]".into());
         let source = enum_to_db_str(&e.source, "web");
         let color = e.color.clone().unwrap_or_else(|| "teal".into());
+        // All-day events store a civil date ("YYYY-MM-DD"); timed events store a
+        // UTC instant. For all-day, starts_at/ends_at carry the date at UTC
+        // midnight (set by the caller), so formatting %Y-%m-%d yields the date.
+        let fmt_dt = |d: chrono::DateTime<chrono::Utc>| -> String {
+            if e.all_day { d.format("%Y-%m-%d").to_string() } else { d.to_rfc3339() }
+        };
+        let starts_at_val: serde_json::Value = fmt_dt(e.starts_at).into();
         let ends_at: serde_json::Value = e.ends_at
-            .map(|d| serde_json::Value::String(d.to_rfc3339()))
+            .map(|d| serde_json::Value::String(fmt_dt(d)))
             .unwrap_or(serde_json::Value::Null);
 
         self.q(
@@ -830,7 +840,7 @@ impl<'a> WorkspaceDb<'a> {
                 id.clone().into(),
                 e.title.clone().into(),
                 e.description.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
-                e.starts_at.to_rfc3339().into(),
+                starts_at_val,
                 ends_at,
                 (if e.all_day { 1 } else { 0 }).into(),
                 e.location.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
@@ -857,8 +867,10 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn list_events_in_range(&self, from: &str, to: &str) -> Result<Vec<Event>> {
         let resp = self.q(
+            // datetime() normalizes a bare all-day date (→ midnight) and a UTC
+            // instant alike, against UTC bound params.
             "SELECT id, title, description, starts_at, ends_at, all_day, location, recurrence, attendees, color, source, related_todo_id, created_by, created_at, updated_at \
-             FROM events WHERE starts_at >= ?1 AND starts_at <= ?2 ORDER BY starts_at ASC",
+             FROM events WHERE datetime(starts_at) >= datetime(?1) AND datetime(starts_at) <= datetime(?2) ORDER BY datetime(starts_at) ASC",
             vec![from.into(), to.into()],
         ).await?;
         let rows: Vec<EventRow> = extract_rows(&resp)?;
@@ -896,11 +908,17 @@ impl<'a> WorkspaceDb<'a> {
 }
 
 fn event_row_to_event(r: EventRow) -> Event {
-    use chrono::{DateTime, Utc, TimeZone};
+    use chrono::{DateTime, NaiveDate, Utc, TimeZone};
+    // Accept a UTC instant (timed event) or a bare civil date (all-day event,
+    // placed at that day's UTC midnight). Epoch is the last-resort fallback.
     let parse_dt = |s: &str| -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339(s)
-            .map(|d| d.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+        if let Ok(d) = DateTime::parse_from_rfc3339(s) {
+            return d.with_timezone(&Utc);
+        }
+        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d").ok().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+            return Utc.from_utc_datetime(&ndt);
+        }
+        Utc.timestamp_opt(0, 0).unwrap()
     };
     Event {
         id: r.id,
