@@ -1,5 +1,5 @@
 //! Grumps agent : cascade router + Sonnet tool use + multi-turn sessions.
-//! See spec § 8 and Plan B.
+//! See spec § 8.
 
 pub mod db;
 pub mod llm;
