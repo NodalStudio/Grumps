@@ -266,44 +266,53 @@ pub async fn apply_analysis<'a>(
             }
         }
         if should_proceed {
-            // Sonnet filter
-            let pinned = db.list_pinned_memory().await.unwrap_or_default();
-            let pinned_summary = pinned.iter().take(20)
-                .map(|m| format!("- {}", m.value))
-                .collect::<Vec<_>>().join("\n");
-            let system = format!(
-"You are Grumps, an AI assistant in a group chat. The classifier suggested you might want to chime in on this message:
-\"{raw_text}\"
-Reason: {reason}
-
-Pinned facts you know:
-{pinned_summary}
-
-Decide: do you have a SPECIFIC, USEFUL, NON-INTRUSIVE thing to say? If yes, reply with the message text (concise). If no, return empty text.",
+            // Escalate to the tool-enabled agent in PROACTIVE mode. It may either
+            // propose a concrete action (a mutating tool call, staged for the user
+            // to confirm) or simply chime in with text — both are posted to the
+            // group by run_oneshot. A staged action is parked in KV for the
+            // confirmation handler to execute once a human says "oui".
+            let language = db.get_setting("language").await.ok()
+                .filter(|s| !s.is_empty()).unwrap_or_else(|| "en".to_string());
+            let ctx = crate::tools::ToolContext {
+                env,
+                workspace_slug,
+                member_id,
+                sink,
+                db,
+                language,
+                timezone: tz.name().to_string(),
+                autonomy: crate::tools::Autonomy::Proactive,
+            };
+            let instruction = format!(
+                "A group member just wrote (you were NOT addressed — you are observing proactively):\n\"{raw_text}\"\n\nClassifier reason: {reason}\n\nIf a concrete workspace action is clearly warranted — e.g. someone reports finishing a task, so the matching todo should be completed — use the appropriate tool. If instead you have a brief, specific, useful thing to say, say it. Otherwise reply with empty text and do nothing.",
                 reason = analysis.proactive.reason
             );
-            let req = crate::llm::anthropic::AnthropicRequest {
-                system: Some(system),
-                messages: vec![crate::llm::anthropic::Message {
-                    role: "user".into(),
-                    content: serde_json::Value::String(format!("Group message: {raw_text}")),
-                }],
-                ..Default::default()
-            };
-            if let Ok(resp) = crate::llm::anthropic::call_with_telemetry(env, db, "proactive_filter", Some(member_id), None, &req).await {
-                let final_text = resp.content.iter().filter_map(|b| match b {
-                    crate::llm::anthropic::ContentBlock::Text { text } => Some(text.as_str()),
-                    _ => None,
-                }).collect::<Vec<_>>().join(" ").trim().to_string();
-                if final_text.len() >= 5 {
-                    sink.send(&final_text).await.ok();
-                    let action_id = db.log_bot_action("bot.proactive_intervention", &final_text, None).await.ok().flatten();
+            if let Ok(result) = crate::loop_::run_oneshot(&ctx, &instruction).await {
+                let said_something = result.final_text.as_deref()
+                    .map(|t| !t.trim().is_empty()).unwrap_or(false);
+                let intervened = result.staged_action.is_some() || said_something;
+                if let Some(staged) = &result.staged_action {
+                    // Park the proposed action for confirmation (group-scoped, short TTL).
+                    if let Some(ref kv) = kv {
+                        let pending = serde_json::json!({
+                            "tool": staged.get("tool"),
+                            "args": staged.get("args"),
+                            "member_id": member_id,
+                            "summary": result.final_text,
+                        });
+                        kv.put(&format!("proactive:pending:{workspace_slug}"), &pending.to_string())
+                            .map(|p| p.expiration_ttl(3600).execute()).ok();
+                    }
+                    db.log_bot_action("bot.proactive_proposal", result.final_text.as_deref().unwrap_or(""), None).await.ok();
+                } else if said_something {
+                    db.log_bot_action("bot.proactive_intervention", result.final_text.as_deref().unwrap_or(""), None).await.ok();
+                }
+                if intervened {
                     if let Some(kv) = kv {
                         kv.put(&cooldown_key, "1").map(|p| p.expiration_ttl(60).execute()).ok();
                         let cnt: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
                         kv.put(&hour_key, &(cnt + 1).to_string()).map(|p| p.expiration_ttl(7200).execute()).ok();
                     }
-                    let _ = action_id;
                 }
             }
         }

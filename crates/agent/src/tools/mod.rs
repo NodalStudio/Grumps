@@ -18,6 +18,15 @@ use worker::Env;
 use crate::router::MessagingSink;
 use crate::db::AgentDb;
 
+/// Whether the agent is acting because it was addressed (`Reactive`) or on its
+/// own initiative from ambient observation (`Proactive`). In `Proactive` mode a
+/// mutating tool is not executed outright — it is staged for the user to confirm.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Autonomy {
+    Reactive,
+    Proactive,
+}
+
 /// Context passed to each tool handler.
 pub struct ToolContext<'a> {
     pub env: &'a Env,
@@ -30,6 +39,9 @@ pub struct ToolContext<'a> {
     /// IANA timezone of the workspace (e.g. "Europe/Paris"). Used to convert
     /// the local wall-clock times the model emits into UTC for storage.
     pub timezone: String,
+    /// Reactive (addressed) vs proactive (self-initiated). Gates whether mutating
+    /// tools execute directly or are staged for confirmation.
+    pub autonomy: Autonomy,
 }
 
 /// Parse a datetime string produced by the model into UTC.

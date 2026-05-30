@@ -17,6 +17,10 @@ pub struct LoopResult {
     pub final_text: Option<String>,
     pub turns: u32,
     pub total_tokens: u32,
+    /// A mutating tool call the agent wanted to make while acting proactively,
+    /// captured instead of executed so a human can confirm it. `{tool, args}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staged_action: Option<serde_json::Value>,
 }
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
@@ -30,7 +34,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         let msg = t(locale, "agent.quota_exceeded",
             &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -101,6 +105,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
                 final_text: last_text,
                 turns: turn,
                 total_tokens,
+                staged_action: None,
             });
         }
 
@@ -138,6 +143,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         final_text: Some(fallback),
         turns: MAX_TURNS,
         total_tokens,
+        staged_action: None,
     })
 }
 
@@ -153,7 +159,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         let msg = t(locale, "agent.quota_exceeded",
             &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -167,6 +173,9 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
 
     let mut total_tokens = 0u32;
     let mut last_text: Option<String> = None;
+    // In proactive mode the first mutating tool the model reaches for is staged
+    // (captured, not executed) so a human can confirm it.
+    let mut staged_action: Option<serde_json::Value> = None;
 
     for turn in 1..=MAX_TURNS {
         let req = AnthropicRequest {
@@ -211,14 +220,32 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
                 final_text: last_text,
                 turns: turn,
                 total_tokens,
+                staged_action,
             });
         }
 
         let mut tool_results: Vec<serde_json::Value> = vec![];
         for (tu_id, tu_name, tu_input) in &tool_uses {
-            let result = match tools::dispatch(ctx, tu_name, tu_input.clone()).await {
-                Ok(v) => v,
-                Err(e) => serde_json::json!({ "error": e.to_string() }),
+            // Proactive + mutating → stage instead of execute. We capture the
+            // first such call and tell the model to propose-and-stop, so its
+            // final reply becomes the confirmation request posted to the group.
+            let stage = ctx.autonomy == tools::Autonomy::Proactive
+                && tools::registry::annotations(tu_name)
+                    .map(|a| a.read_only_hint != Some(true))
+                    .unwrap_or(false);
+            let result = if stage {
+                if staged_action.is_none() {
+                    staged_action = Some(serde_json::json!({ "tool": tu_name, "args": tu_input }));
+                }
+                serde_json::json!({
+                    "status": "needs_confirmation",
+                    "note": "NOT performed. You are acting proactively, so this change must be confirmed by a human first. In your final reply, briefly state what you propose to do and ask the group to confirm (e.g. reply 'oui'). Do not call further tools."
+                })
+            } else {
+                match tools::dispatch(ctx, tu_name, tu_input.clone()).await {
+                    Ok(v) => v,
+                    Err(e) => serde_json::json!({ "error": e.to_string() }),
+                }
             };
             tool_results.push(serde_json::json!({
                 "type": "tool_result",
@@ -240,6 +267,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         final_text: last_text,
         turns: MAX_TURNS,
         total_tokens,
+        staged_action,
     })
 }
 

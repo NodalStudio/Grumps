@@ -76,6 +76,8 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 db: &db,
                 language,
                 timezone,
+                // Scheduled tasks run with full authority (already user-scheduled).
+                autonomy: grumps_agent::tools::Autonomy::Reactive,
             };
 
             match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
