@@ -35,7 +35,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
-    let tools_json = tools::schemas::all_tools();
+    let tools_json = tools::anthropic_tools();
 
     // Load any existing session for this member
     let existing = ctx.db.get_active_agent_session(ctx.member_id).await.ok().flatten();
@@ -158,7 +158,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
 
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
-    let tools_json = tools::schemas::all_tools();
+    let tools_json = tools::anthropic_tools();
 
     let mut messages: Vec<Message> = vec![Message {
         role: "user".into(),
