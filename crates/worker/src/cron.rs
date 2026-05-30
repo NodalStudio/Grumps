@@ -1,6 +1,5 @@
 // crates/worker/src/cron.rs
 use worker::*;
-use chrono::Datelike;
 use crate::{db, d1_rest::D1RestClient};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 
@@ -64,12 +63,11 @@ pub async fn handle_cron(env: &Env) -> Result<()> {
         }
     }
 
-    // Check and send recaps (weekly on Mondays)
-    let today = chrono::Utc::now();
-    if today.weekday() == chrono::Weekday::Mon {
-        if let Err(e) = check_and_send_recaps(env, &index_db, &d1_client, &wa).await {
-            console_log!("Recap error: {:?}", e);
-        }
+    // Recaps fire on the *local* Monday. The cron runs once globally, but each
+    // workspace has its own timezone, so the Monday check happens per-workspace
+    // inside the helper rather than gating on UTC Monday here.
+    if let Err(e) = check_and_send_recaps(env, &index_db, &d1_client, &wa).await {
+        console_log!("Recap error: {:?}", e);
     }
 
     Ok(())
@@ -81,8 +79,6 @@ async fn check_and_send_recaps(
     d1_client: &D1RestClient,
     wa: &grumps_messaging::whatsapp::WhatsAppAdapter,
 ) -> Result<()> {
-    use chrono::Utc;
-
     #[derive(serde::Deserialize)]
     struct WsRow {
         slug: String,
@@ -101,6 +97,12 @@ async fn check_and_send_recaps(
     for ws in &workspaces {
         let ws_db = db::WorkspaceDb::new(d1_client, ws.d1_database_id.clone());
 
+        // Recap fires on the workspace's *local* Monday.
+        let tz = grumps_core::timeutil::tz_or_utc(
+            &ws_db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+        );
+        if grumps_core::timeutil::tz_weekday(tz) != chrono::Weekday::Mon { continue; }
+
         // Check settings: is recap enabled? (default: enabled)
         let enabled = match ws_db.get_setting("recap_enabled").await {
             Ok(Some(v)) => v == "true",
@@ -108,8 +110,8 @@ async fn check_and_send_recaps(
         };
         if !enabled { continue; }
 
-        // KV dedup: at most one recap per day per workspace
-        let recap_key = format!("recap:{}:{}", ws.slug, Utc::now().format("%Y-%m-%d"));
+        // KV dedup: at most one recap per local day per workspace.
+        let recap_key = format!("recap:{}:{}", ws.slug, grumps_core::timeutil::tz_today_str(tz));
         if kv.get(&recap_key).text().await?.is_some() { continue; }
 
         // Get recap data
