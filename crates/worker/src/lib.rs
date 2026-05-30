@@ -63,6 +63,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/w/:slug/history", routes::workspace_api::workspace_history)
         .get_async("/api/w/:slug/members", routes::workspace_api::workspace_members)
         .patch_async("/api/w/:slug/settings/locale", routes::workspace_api::update_locale)
+        .patch_async("/api/w/:slug/settings/timezone", routes::workspace_api::update_timezone)
         .patch_async("/api/w/:slug/settings/name", routes::workspace_api::update_workspace_name)
         // Todos
         .get_async("/api/w/:slug/todos", routes::todos::list_todos)

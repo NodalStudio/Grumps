@@ -53,11 +53,17 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
     let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
+    // The SPA renders all timestamps in this timezone (never the browser's).
+    let timezone = ws_db.get_setting("timezone").await.ok().flatten()
+        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".into());
+    let timezone_source = ws_db.get_setting("timezone_source").await.ok().flatten().unwrap_or_default();
 
     middleware::with_cors(&req, Response::from_json(&serde_json::json!({
         "slug": ws.slug,
         "name": ws.name,
         "plan": ws.plan,
+        "timezone": timezone,
+        "timezone_source": timezone_source,
         "stats": {
             "open_todos": open,
             "done_this_week": done_week,
@@ -172,6 +178,63 @@ pub async fn update_locale(mut req: Request, ctx: RouteContext<()>) -> Result<Re
     middleware::with_cors(&req, Response::from_json(&serde_json::json!({
         "ok": true,
         "locale": resolved.code()
+    }))?)
+}
+
+// ── PATCH /api/w/:slug/settings/timezone ──────────────────────────────────────
+//
+// Two sources, tracked by the `timezone_source` setting (default → detected →
+// admin) so members in different timezones don't fight over the value:
+//   - source="detected" (browser auto-detect): writes ONLY if not yet set
+//     explicitly. Any member may trigger it; the first detection wins.
+//   - source="admin": admin-only, always wins and locks out auto-detect.
+pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let claims = match middleware::verify_session(&req, &ctx.env).await {
+        Ok(c) => c,
+        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
+    };
+    let ws = match resolve_workspace(&ctx).await {
+        Ok(w) => w,
+        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+    };
+    if !claims.workspaces.contains(&ws.slug) {
+        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Body { timezone: String, #[serde(default)] source: Option<String> }
+    let body: Body = match req.json().await {
+        Ok(b) => b,
+        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
+    };
+
+    // Validate: must be a real IANA timezone name.
+    if body.timezone.parse::<chrono_tz::Tz>().is_err() {
+        return middleware::error_with_cors(&req, 400, "bad_request", "unsupported timezone");
+    }
+    let source = body.source.as_deref().unwrap_or("detected");
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let current_source = ws_db.get_setting("timezone_source").await.ok().flatten().unwrap_or_default();
+
+    if source == "admin" {
+        let index_db = db::get_index_db(&ctx.env)?;
+        if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug).await.unwrap_or(false) {
+            return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
+        }
+        ws_db.set_setting("timezone", &body.timezone).await?;
+        ws_db.set_setting("timezone_source", "admin").await?;
+    } else if current_source.is_empty() || current_source == "default" {
+        // First browser detection — adopt it. Later detections are no-ops.
+        ws_db.set_setting("timezone", &body.timezone).await?;
+        ws_db.set_setting("timezone_source", "detected").await?;
+    }
+
+    let effective = ws_db.get_setting("timezone").await.ok().flatten().unwrap_or_else(|| "UTC".into());
+    middleware::with_cors(&req, Response::from_json(&serde_json::json!({
+        "ok": true,
+        "timezone": effective,
     }))?)
 }
 
