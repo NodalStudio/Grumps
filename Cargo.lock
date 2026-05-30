@@ -719,6 +719,8 @@ dependencies = [
 name = "grumps-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "chrono-tz",
  "serde",
  "serde_json",
 ]
@@ -774,6 +776,7 @@ name = "grumps-scheduler"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "chrono-tz",
  "grumps-core",
  "serde",
  "serde_json",
