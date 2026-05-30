@@ -42,7 +42,7 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                                     <div
                                         class="text-[11px] font-bold uppercase tracking-wider pb-2 mb-2 border-b-2 border-ink"
                                         style="color: var(--ink-70);"
-                                    >{date}</div>
+                                    >{let d = date.clone(); move || crate::datetime::format_civil_date(&d, crate::i18n::use_locale().code())}</div>
                                     <div class="flex flex-col gap-2">
                                         {day_items.into_iter().map(|item| view! {
                                             <CalItem item=item compact=false />

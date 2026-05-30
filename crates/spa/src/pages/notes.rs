@@ -50,7 +50,7 @@ pub fn NotesPage() -> impl IntoView {
                                             }</h3>
                                             <p class="text-[13px] line-clamp-3" style="color: var(--ink-70);">{let c = note.content.clone().unwrap_or_default(); move || tr(&c)}</p>
                                             <div class="flex items-center justify-between mt-3 pt-3 text-[11px] border-t" style="color: var(--ink-40); border-color: var(--ink-15);">
-                                                <span>{note.created_at.clone()}</span>
+                                                <span>{let t = note.created_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</span>
                                                 <span class="font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm" style="border-color: var(--ink-15);">{note.source.clone()}</span>
                                             </div>
                                         </a>

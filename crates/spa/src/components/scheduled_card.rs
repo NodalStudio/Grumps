@@ -49,7 +49,7 @@ pub fn ScheduledCard(
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">
                         <span class="font-medium">{let k = format!("schedule.type.{}", atype); move || tr(&k)}</span>
                         <span>"·"</span>
-                        <span>{item.trigger_at.clone()}</span>
+                        <span>{let t = item.trigger_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</span>
                         {item.recurrence.clone().map(|r| view! {
                             <span>"·"</span>
                             <span class="font-mono text-[10px]">{r}</span>

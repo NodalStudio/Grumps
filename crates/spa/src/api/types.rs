@@ -93,6 +93,12 @@ pub struct WorkspaceOverview {
     pub plan: String,
     #[serde(default)]
     pub stats: StatusCounts,
+    /// IANA timezone the SPA renders all timestamps in (never the browser's).
+    #[serde(default)]
+    pub timezone: Option<String>,
+    /// How the timezone was set: "" / "default" / "detected" / "admin".
+    #[serde(default)]
+    pub timezone_source: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

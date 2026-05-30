@@ -54,7 +54,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                     {let s = activity.source.clone(); move || tr(&s)}
                                                 </span>
                                             </div>
-                                            <div class="text-[11px] flex-shrink-0" style="color: var(--ink-40);">{activity.created_at.clone()}</div>
+                                            <div class="text-[11px] flex-shrink-0" style="color: var(--ink-40);">{let t = activity.created_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</div>
                                         </div>
                                     }
                                 }
