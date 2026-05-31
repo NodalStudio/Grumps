@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " @{name} के लिए",
   "agent.summarize.coming_soon": "सारांश जल्द आ रहा है!",
   "agent.reminder.default_title": "अनुस्मारक",
+  "agent.reminder.need_time": "मैं आपको कब याद दिलाऊँ? मुझे दिन और समय बताएँ, जैसे \"कल सुबह 9 बजे\"।",
   "agent.todo.completed": "✅ #{seq} «{title}» — पूरा।",
   "agent.todo.fuzzy_match_header": "🔍 «{item}» — {n} मेल:",
   "agent.todo.fuzzy_match_footer": "संख्या के साथ उत्तर दें।",

@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " @{name} に",
   "agent.summarize.coming_soon": "要約は近日公開！",
   "agent.reminder.default_title": "リマインダー",
+  "agent.reminder.need_time": "いつリマインドしますか？日付と時刻を教えてください。例：「明日の午前9時」。",
   "agent.todo.completed": "✅ #{seq} 「{title}」 — 完了。",
   "agent.todo.fuzzy_match_header": "🔍 「{item}」 — {n} 件の一致:",
   "agent.todo.fuzzy_match_footer": "番号で返信してください。",

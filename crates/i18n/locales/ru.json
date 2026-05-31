@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " для @{name}",
   "agent.summarize.coming_soon": "Сводка скоро будет!",
   "agent.reminder.default_title": "Напоминание",
+  "agent.reminder.need_time": "Когда тебе напомнить? Укажи день и время, напр. «завтра в 9:00».",
   "agent.todo.completed": "✅ #{seq} «{title}» — готово.",
   "agent.todo.fuzzy_match_header": "🔍 «{item}» — {n} совпадений:",
   "agent.todo.fuzzy_match_footer": "Ответьте номером.",

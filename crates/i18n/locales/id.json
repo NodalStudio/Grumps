@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " untuk @{name}",
   "agent.summarize.coming_soon": "Ringkasan segera hadir!",
   "agent.reminder.default_title": "Pengingat",
+  "agent.reminder.need_time": "Kapan saya harus mengingatkanmu? Beri tahu hari dan jamnya, mis. \"besok jam 9 pagi\".",
   "agent.todo.completed": "✅ #{seq} «{title}» — selesai.",
   "agent.todo.fuzzy_match_header": "🔍 «{item}» — {n} kecocokan:",
   "agent.todo.fuzzy_match_footer": "Balas dengan nomor.",

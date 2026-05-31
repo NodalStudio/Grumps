@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " 给 @{name}",
   "agent.summarize.coming_soon": "摘要功能即将推出！",
   "agent.reminder.default_title": "提醒",
+  "agent.reminder.need_time": "要我什么时候提醒你？告诉我日期和时间，例如\"明天上午 9 点\"。",
   "agent.todo.completed": "✅ #{seq} 「{title}」 — 完成。",
   "agent.todo.fuzzy_match_header": "🔍 「{item}」 — 找到 {n} 个匹配:",
   "agent.todo.fuzzy_match_footer": "回复编号即可。",

@@ -332,6 +332,7 @@
   "agent.reminder.target_for": " لـ @{name}",
   "agent.summarize.coming_soon": "التلخيص قريبًا!",
   "agent.reminder.default_title": "تذكير",
+  "agent.reminder.need_time": "متى أُذكّرك؟ أعطني يومًا ووقتًا، مثلاً «غدًا الساعة 9 صباحًا».",
   "agent.todo.completed": "✅ #{seq} «{title}» — تم.",
   "agent.todo.fuzzy_match_header": "🔍 «{item}» — {n} تطابقات:",
   "agent.todo.fuzzy_match_footer": "الرد بالرقم.",
