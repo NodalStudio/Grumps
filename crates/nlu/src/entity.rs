@@ -14,11 +14,37 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
 
     while i < words.len() {
         let w = words[i];
-        if !in_deadline && (w.eq_ignore_ascii_case("before") || w.eq_ignore_ascii_case("by") || w.eq_ignore_ascii_case("for")) {
+        if !in_deadline
+            && (w.eq_ignore_ascii_case("before")
+                || w.eq_ignore_ascii_case("by")
+                || w.eq_ignore_ascii_case("for"))
+        {
             if i + 1 < words.len() {
                 let next = words[i + 1].to_lowercase();
-                let is_date = matches!(next.as_str(), "monday"|"tuesday"|"wednesday"|"thursday"|"friday"|"saturday"|"sunday"|"tomorrow"|"today"|"tonight"|"next"|"end") || next.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false);
-                if is_date { in_deadline = true; i += 1; continue; }
+                let is_date = matches!(
+                    next.as_str(),
+                    "monday"
+                        | "tuesday"
+                        | "wednesday"
+                        | "thursday"
+                        | "friday"
+                        | "saturday"
+                        | "sunday"
+                        | "tomorrow"
+                        | "today"
+                        | "tonight"
+                        | "next"
+                        | "end"
+                ) || next
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_digit())
+                    .unwrap_or(false);
+                if is_date {
+                    in_deadline = true;
+                    i += 1;
+                    continue;
+                }
             }
             title_parts.push(w.to_string());
         } else if in_deadline {
@@ -30,24 +56,47 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
             }
             deadline_parts.push(w);
         } else if w.starts_with('@') && w.len() > 1 {
-            if assignee.is_none() { assignee = Some(w[1..].to_string()); }
-        } else if w == "!high" || w == "!!!" { priority = Priority::High; }
-        else if w == "!low" { priority = Priority::Low; }
-        else if w.starts_with('#') && w.len() > 1 { tags.push(w[1..].to_string()); }
-        else { title_parts.push(w.to_string()); }
+            if assignee.is_none() {
+                assignee = Some(w[1..].to_string());
+            }
+        } else if w == "!high" || w == "!!!" {
+            priority = Priority::High;
+        } else if w == "!low" {
+            priority = Priority::Low;
+        } else if w.starts_with('#') && w.len() > 1 {
+            tags.push(w[1..].to_string());
+        } else {
+            title_parts.push(w.to_string());
+        }
         i += 1;
     }
-    if !deadline_parts.is_empty() { deadline_text = Some(deadline_parts.join(" ")); }
-    ParsedTodo { title: title_parts.join(" "), assignee_mention: assignee, deadline_text, priority, tags }
+    if !deadline_parts.is_empty() {
+        deadline_text = Some(deadline_parts.join(" "));
+    }
+    ParsedTodo {
+        title: title_parts.join(" "),
+        assignee_mention: assignee,
+        deadline_text,
+        priority,
+        tags,
+    }
 }
 
 pub fn strip_mention(text: &str) -> String {
     let lower = text.to_lowercase();
-    if lower.starts_with("@grumps ") { return text[8..].trim().to_string(); }
-    if lower.starts_with("@grumps") { return text[7..].trim().to_string(); }
+    if lower.starts_with("@grumps ") {
+        return text[8..].trim().to_string();
+    }
+    if lower.starts_with("@grumps") {
+        return text[7..].trim().to_string();
+    }
     if let Some(pos) = lower.find("@grumps") {
         let before = &text[..pos];
-        let after = if pos + 7 < text.len() { &text[pos + 7..] } else { "" };
+        let after = if pos + 7 < text.len() {
+            &text[pos + 7..]
+        } else {
+            ""
+        };
         let before = before.trim_end();
         let after = after.trim_start();
         return if before.is_empty() || after.is_empty() {
@@ -148,17 +197,27 @@ mod tests {
     }
 
     #[test]
-    fn strip_mention_start() { assert_eq!(strip_mention("@grumps buy bread"), "buy bread"); }
+    fn strip_mention_start() {
+        assert_eq!(strip_mention("@grumps buy bread"), "buy bread");
+    }
 
     #[test]
-    fn strip_mention_case() { assert_eq!(strip_mention("@Grumps buy bread"), "buy bread"); }
+    fn strip_mention_case() {
+        assert_eq!(strip_mention("@Grumps buy bread"), "buy bread");
+    }
 
     #[test]
-    fn strip_mention_middle() { assert_eq!(strip_mention("hey @grumps buy bread"), "hey buy bread"); }
+    fn strip_mention_middle() {
+        assert_eq!(strip_mention("hey @grumps buy bread"), "hey buy bread");
+    }
 
     #[test]
-    fn strip_mention_none() { assert_eq!(strip_mention("hello world"), "hello world"); }
+    fn strip_mention_none() {
+        assert_eq!(strip_mention("hello world"), "hello world");
+    }
 
     #[test]
-    fn strip_mention_only() { assert_eq!(strip_mention("@grumps"), ""); }
+    fn strip_mention_only() {
+        assert_eq!(strip_mention("@grumps"), "");
+    }
 }

@@ -1,13 +1,12 @@
 use leptos::prelude::*;
 
-mod app;
 mod api;
+mod app;
 mod auth;
 mod datetime;
 mod demo;
 mod i18n;
 mod pages;
-mod components;
 
 fn main() {
     console_error_panic_hook::set_once();

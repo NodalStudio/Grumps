@@ -1,8 +1,8 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {

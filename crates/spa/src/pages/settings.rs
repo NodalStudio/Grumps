@@ -1,8 +1,8 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn SettingsPage() -> impl IntoView {
@@ -32,7 +32,10 @@ pub fn SettingsPage() -> impl IntoView {
                 set_persona.set(settings.persona.unwrap_or("grumps".to_string()));
                 set_workspace_locale.set(settings.language.unwrap_or("en".to_string()));
                 if let Some(token) = settings.ical_token {
-                    set_ical_url.set(format!("https://grumps.app/api/w/{}/calendar/ical/{}", s, token));
+                    set_ical_url.set(format!(
+                        "https://grumps.app/api/w/{}/calendar/ical/{}",
+                        s, token
+                    ));
                 }
             }
         }
@@ -46,11 +49,16 @@ pub fn SettingsPage() -> impl IntoView {
         let proactive_val = proactive.get();
         let auto_mem = auto_memory.get();
         leptos::task::spawn_local(async move {
-            let _ = api.update_settings(&s, &serde_json::json!({
-                "persona": persona_val,
-                "proactive_mode": proactive_val,
-                "auto_memory": auto_mem,
-            })).await;
+            let _ = api
+                .update_settings(
+                    &s,
+                    &serde_json::json!({
+                        "persona": persona_val,
+                        "proactive_mode": proactive_val,
+                        "auto_memory": auto_mem,
+                    }),
+                )
+                .await;
         });
     };
 
@@ -258,7 +266,13 @@ fn Toggle(
 #[component]
 fn QuotaRow(label_key: &'static str, used: i64, limit: i64) -> impl IntoView {
     let pct = ((used as f64 / limit as f64) * 100.0) as u32;
-    let bar_color = if pct > 80 { "var(--brick)" } else if pct > 60 { "var(--teal)" } else { "var(--ink-40)" };
+    let bar_color = if pct > 80 {
+        "var(--brick)"
+    } else if pct > 60 {
+        "var(--teal)"
+    } else {
+        "var(--ink-40)"
+    };
 
     view! {
         <div class="py-3 flex flex-col gap-1" style="border-bottom: 1px solid var(--ink-08);">

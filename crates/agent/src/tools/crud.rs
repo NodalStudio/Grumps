@@ -1,8 +1,8 @@
 //! Tool implementations: create_todo, create_note, create_event, create_reminder.
 
-use serde_json::Value;
-use grumps_calendar::{NewEvent, EventSource};
 use super::ToolContext;
+use grumps_calendar::{EventSource, NewEvent};
+use serde_json::Value;
 
 /// A civil date "YYYY-MM-DD" anchored at UTC midnight — the storage sentinel
 /// for all-day events (the DB layer writes back the bare date).
@@ -14,7 +14,9 @@ fn civil_date_to_utc(date_str: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 }
 
 pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let title = args.get("title").and_then(|v| v.as_str())
+    let title = args
+        .get("title")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_todo: missing 'title'".into()))?;
     let assignee = args.get("assignee").and_then(|v| v.as_str());
     // A deadline is a civil date in the workspace tz — normalized to YYYY-MM-DD,
@@ -23,7 +25,8 @@ pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<V
     let deadline = args.get("deadline").and_then(|v| v.as_str())
         .and_then(|d| super::parse_user_date(d, &tz));
     let priority = args.get("priority").and_then(|v| v.as_i64()).unwrap_or(3) as i32;
-    let tags: Vec<String> = args.get("tags")
+    let tags: Vec<String> = args
+        .get("tags")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
@@ -40,20 +43,29 @@ pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<V
 }
 
 pub async fn create_note(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let content = args.get("content").and_then(|v| v.as_str())
+    let content = args
+        .get("content")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_note: missing 'content'".into()))?;
     let title = args.get("title").and_then(|v| v.as_str());
 
-    let id = ctx.db.create_note_simple(title, content, Some(ctx.member_id)).await?;
+    let id = ctx
+        .db
+        .create_note_simple(title, content, Some(ctx.member_id))
+        .await?;
 
     Ok(serde_json::json!({ "id": id, "created": true }))
 }
 
 pub async fn create_event(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let title = args.get("title").and_then(|v| v.as_str())
+    let title = args
+        .get("title")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_event: missing 'title'".into()))?;
 
-    let starts_at_str = args.get("starts_at").and_then(|v| v.as_str())
+    let starts_at_str = args
+        .get("starts_at")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("create_event: missing 'starts_at'".into()))?;
 
     let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);

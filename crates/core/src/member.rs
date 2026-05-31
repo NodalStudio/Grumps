@@ -37,7 +37,9 @@ pub struct Member {
     pub locale: String,
 }
 
-fn default_locale() -> String { "en".to_string() }
+fn default_locale() -> String {
+    "en".to_string()
+}
 
 #[cfg(test)]
 mod tests {
@@ -74,7 +76,8 @@ mod tests {
 
     #[test]
     fn member_deserialize_missing_locale_defaults_to_en() {
-        let json = r#"{"id":"m-1","platform_user_id":"U12345","display_name":"Bob","role":"Member"}"#;
+        let json =
+            r#"{"id":"m-1","platform_user_id":"U12345","display_name":"Bob","role":"Member"}"#;
         let m: Member = serde_json::from_str(json).expect("deserialize");
         assert_eq!(m.locale, "en");
     }

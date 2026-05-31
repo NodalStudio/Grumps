@@ -1,18 +1,27 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
-#[allow(unused_imports)]
-use js_sys;
 use crate::api::{use_api, CalendarItem};
+use crate::components::calendar::agenda::AgendaView;
 use crate::components::calendar::month::MonthView;
 use crate::components::calendar::week::WeekView;
-use crate::components::calendar::agenda::AgendaView;
 use crate::i18n::tr;
+#[allow(unused_imports)]
+use js_sys;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 fn month_key(m: u32) -> &'static str {
     match m {
-        1=>"month.jan",2=>"month.feb",3=>"month.mar",4=>"month.apr",
-        5=>"month.may",6=>"month.jun",7=>"month.jul",8=>"month.aug",
-        9=>"month.sep",10=>"month.oct",11=>"month.nov",_=>"month.dec",
+        1 => "month.jan",
+        2 => "month.feb",
+        3 => "month.mar",
+        4 => "month.apr",
+        5 => "month.may",
+        6 => "month.jun",
+        7 => "month.jul",
+        8 => "month.aug",
+        9 => "month.sep",
+        10 => "month.oct",
+        11 => "month.nov",
+        _ => "month.dec",
     }
 }
 
@@ -22,13 +31,21 @@ fn today() -> (i32, u32, u32) {
     (d.get_full_year() as i32, d.get_month() + 1, d.get_date())
 }
 
-fn pad2(n: u32) -> String { format!("{:02}", n) }
+fn pad2(n: u32) -> String {
+    format!("{:02}", n)
+}
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
-        1|3|5|7|8|10|12 => 31,
-        4|6|9|11 => 30,
-        2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     }
 }
@@ -52,7 +69,7 @@ pub fn CalendarPage() -> impl IntoView {
         let m = month.get();
         let from = format!("{}-{}-01", y, pad2(m));
         let last = days_in_month(y, m);
-        let to   = format!("{}-{}-{}", y, pad2(m), pad2(last));
+        let to = format!("{}-{}-{}", y, pad2(m), pad2(last));
         async move { api.list_calendar(&s, &from, &to).await.unwrap_or_default() }
     });
 
@@ -67,18 +84,28 @@ pub fn CalendarPage() -> impl IntoView {
     let prev_month = move |_| {
         let m = month.get();
         let y = year.get();
-        if m == 1 { set_month.set(12); set_year.set(y - 1); }
-        else { set_month.set(m - 1); }
+        if m == 1 {
+            set_month.set(12);
+            set_year.set(y - 1);
+        } else {
+            set_month.set(m - 1);
+        }
     };
     let next_month = move |_| {
         let m = month.get();
         let y = year.get();
-        if m == 12 { set_month.set(1); set_year.set(y + 1); }
-        else { set_month.set(m + 1); }
+        if m == 12 {
+            set_month.set(1);
+            set_year.set(y + 1);
+        } else {
+            set_month.set(m + 1);
+        }
     };
 
     let view_tabs: Vec<(&'static str, &'static str)> = vec![
-        ("month", "calendar.view.month"), ("week", "calendar.view.week"), ("agenda", "calendar.view.agenda"),
+        ("month", "calendar.view.month"),
+        ("week", "calendar.view.week"),
+        ("agenda", "calendar.view.agenda"),
     ];
 
     view! {

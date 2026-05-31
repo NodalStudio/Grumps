@@ -1,10 +1,13 @@
 //! Cross-workspace observability dashboard — super admin only.
 //! Route: /admin/observability
 
+use crate::api::{
+    use_api, GlobalError, GlobalModelCostAgg, GlobalObservabilityData, GlobalWorkspaceStats,
+    QualitySignalCount,
+};
+use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::components::A;
-use crate::api::{use_api, GlobalObservabilityData, GlobalWorkspaceStats, GlobalModelCostAgg, QualitySignalCount, GlobalError};
-use crate::i18n::tr;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -15,20 +18,20 @@ fn fmt_usd(v: f64) -> String {
 fn provider_color(provider: &str) -> &'static str {
     match provider {
         "anthropic" => "var(--brick)",
-        "gemini"    => "var(--teal)",
-        _           => "var(--ink-40)",
+        "gemini" => "var(--teal)",
+        _ => "var(--ink-40)",
     }
 }
 
 fn signal_label(s: &str) -> (&'static str, &'static str) {
     match s {
-        "praise"          => ("Praise",     "var(--teal)"),
-        "thanks"          => ("Thanks",     "var(--teal)"),
-        "silence_request" => ("Silence",    "var(--brick)"),
-        "forget_request"  => ("Forget",     "var(--ochre)"),
-        "correction"      => ("Correction", "var(--brick)"),
-        "confusion"       => ("Confusion",  "var(--ochre)"),
-        _                 => ("Other",      "var(--ink-40)"),
+        "praise" => ("Praise", "var(--teal)"),
+        "thanks" => ("Thanks", "var(--teal)"),
+        "silence_request" => ("Silence", "var(--brick)"),
+        "forget_request" => ("Forget", "var(--ochre)"),
+        "correction" => ("Correction", "var(--brick)"),
+        "confusion" => ("Confusion", "var(--ochre)"),
+        _ => ("Other", "var(--ink-40)"),
     }
 }
 
@@ -65,11 +68,18 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
         return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_data")}</div> }.into_any();
     }
 
-    let segments: Vec<_> = rows.iter().map(|r| {
-        let pct = if total > 0.0 { (r.cost_usd / total * 100.0) as u32 } else { 0 };
-        let color = provider_color(&r.provider);
-        (pct, color, r.model.clone(), r.cost_usd, r.call_count)
-    }).collect();
+    let segments: Vec<_> = rows
+        .iter()
+        .map(|r| {
+            let pct = if total > 0.0 {
+                (r.cost_usd / total * 100.0) as u32
+            } else {
+                0
+            };
+            let color = provider_color(&r.provider);
+            (pct, color, r.model.clone(), r.cost_usd, r.call_count)
+        })
+        .collect();
 
     view! {
         <div>
@@ -250,7 +260,6 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
 
 #[component]
 pub fn GlobalObservabilityPage() -> impl IntoView {
-
     let api = use_api();
     let data = LocalResource::new(move || {
         let api = api.clone();

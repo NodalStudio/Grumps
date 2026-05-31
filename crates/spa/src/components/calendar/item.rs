@@ -1,6 +1,6 @@
-use leptos::prelude::*;
 use crate::api::CalendarItem;
 use crate::i18n::tr;
+use leptos::prelude::*;
 
 #[component]
 pub fn CalItem(item: CalendarItem, compact: bool) -> impl IntoView {

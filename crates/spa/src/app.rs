@@ -1,10 +1,10 @@
 use leptos::prelude::*;
-use leptos_router::components::{Router, Routes, Route, ParentRoute, Redirect};
+use leptos_router::components::{ParentRoute, Redirect, Route, Router, Routes};
 use leptos_router::path;
 
-use crate::pages;
 use crate::auth::gate::AuthGate;
 use crate::i18n::provide_locale;
+use crate::pages;
 
 #[component]
 pub fn App() -> impl IntoView {

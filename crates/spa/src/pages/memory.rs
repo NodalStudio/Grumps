@@ -1,9 +1,9 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 use crate::api::{use_api, MemoryItem};
 use crate::components::header::PageHeader;
-use crate::i18n::tr;
 use crate::components::memory_card::MemoryCard;
+use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn MemoryPage() -> impl IntoView {
@@ -34,11 +34,18 @@ pub fn MemoryPage() -> impl IntoView {
 
     // Filtered view
     let filtered = move || {
-        items.get().map(|data| {
-            let kf = kind_filter.get();
-            let all: Vec<MemoryItem> = (*data).clone();
-            if kf == "all" { all } else { all.into_iter().filter(|i| i.kind == kf).collect() }
-        }).unwrap_or_default()
+        items
+            .get()
+            .map(|data| {
+                let kf = kind_filter.get();
+                let all: Vec<MemoryItem> = (*data).clone();
+                if kf == "all" {
+                    all
+                } else {
+                    all.into_iter().filter(|i| i.kind == kf).collect()
+                }
+            })
+            .unwrap_or_default()
     };
 
     let open_create = move |_| {
@@ -73,7 +80,9 @@ pub fn MemoryPage() -> impl IntoView {
         let s = slug();
         leptos::task::spawn_local(async move {
             // We need to find the current pinned state — for simplicity, toggle via PATCH
-            let _ = api.update_memory(&s, &id, &serde_json::json!({"pinned": true})).await;
+            let _ = api
+                .update_memory(&s, &id, &serde_json::json!({"pinned": true}))
+                .await;
             set_refresh.update(|n| *n += 1);
         });
     });

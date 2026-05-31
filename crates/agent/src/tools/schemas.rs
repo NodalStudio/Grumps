@@ -234,8 +234,14 @@ mod tests {
     #[test]
     fn each_tool_has_name_and_input_schema() {
         for tool in all_tools() {
-            assert!(tool.get("name").and_then(|n| n.as_str()).is_some(), "missing name in {tool}");
-            assert!(tool.get("description").is_some(), "missing description in {tool}");
+            assert!(
+                tool.get("name").and_then(|n| n.as_str()).is_some(),
+                "missing name in {tool}"
+            );
+            assert!(
+                tool.get("description").is_some(),
+                "missing description in {tool}"
+            );
             let schema = tool.get("input_schema").expect("missing input_schema");
             assert_eq!(schema["type"], "object");
             assert!(schema.get("properties").is_some());
@@ -244,7 +250,8 @@ mod tests {
 
     #[test]
     fn tool_names_unique() {
-        let names: Vec<String> = all_tools().iter()
+        let names: Vec<String> = all_tools()
+            .iter()
             .map(|t| t["name"].as_str().unwrap().to_string())
             .collect();
         let unique: std::collections::HashSet<_> = names.iter().collect();

@@ -2,10 +2,11 @@
 //! Used by the cascade router to decide CRUD-direct vs Sonnet escalation.
 //! See spec § 8.2.
 
-use worker::*;
 use serde::{Deserialize, Serialize};
+use worker::*;
 
-const GEMINI_URL: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_URL: &str =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const CLASSIFIER_PROMPT: &str = r#"You classify a chat message addressed to an assistant in a group.
 Return ONLY JSON (no prose, no markdown fence) matching this schema:
@@ -38,7 +39,9 @@ pub struct ClassifiedIntent {
     pub args: serde_json::Value,
 }
 
-fn default_confidence() -> f32 { 0.0 }
+fn default_confidence() -> f32 {
+    0.0
+}
 
 impl ClassifiedIntent {
     pub fn is_complex(&self) -> bool {
@@ -142,7 +145,11 @@ pub async fn classify_intent_with_telemetry(
 /// Classify the intent of a chat message.
 /// Returns `complex_agent_task` with confidence 0.0 if the API fails or returns junk
 /// (caller will then escalate to Sonnet, which is the safe fallback).
-pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Result<ClassifiedIntent> {
+pub async fn classify_intent(
+    env: &Env,
+    message: &str,
+    members: &[String],
+) -> Result<ClassifiedIntent> {
     let api_key = env.secret("GEMINI_API_KEY")?.to_string();
     let url = format!("{GEMINI_URL}?key={api_key}");
 
@@ -152,7 +159,8 @@ pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Re
         members.join(", ")
     };
 
-    let system_text = format!("{CLASSIFIER_PROMPT}{members_str}\n\nMessage to classify:\n{message}");
+    let system_text =
+        format!("{CLASSIFIER_PROMPT}{members_str}\n\nMessage to classify:\n{message}");
 
     let req = GeminiRequest {
         contents: vec![GeminiContent {
@@ -172,10 +180,13 @@ pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Re
     let headers = Headers::new();
     headers.set("content-type", "application/json")?;
 
-    let request = Request::new_with_init(&url, RequestInit::new()
-        .with_method(Method::Post)
-        .with_headers(headers)
-        .with_body(Some(body.into())))?;
+    let request = Request::new_with_init(
+        &url,
+        RequestInit::new()
+            .with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.into())),
+    )?;
 
     let mut resp = match Fetch::Request(request).send().await {
         Ok(r) => r,
@@ -212,7 +223,9 @@ pub async fn classify_intent(env: &Env, message: &str, members: &[String]) -> Re
         }
     };
 
-    let text = parsed.candidates.first()
+    let text = parsed
+        .candidates
+        .first()
         .and_then(|c| c.content.as_ref())
         .and_then(|c| c.parts.first())
         .map(|p| p.text.as_str())
@@ -291,12 +304,16 @@ mod tests {
     #[test]
     fn extract_json_passes_clean_input_through() {
         let raw = "  {\"intent\":\"complex_agent_task\",\"confidence\":0.95,\"args\":null}  ";
-        let parsed: ClassifiedIntent = serde_json::from_str(extract_json_object(raw)).expect("must parse");
+        let parsed: ClassifiedIntent =
+            serde_json::from_str(extract_json_object(raw)).expect("must parse");
         assert_eq!(parsed.intent, "complex_agent_task");
     }
 
     #[test]
     fn extract_json_falls_back_when_no_braces() {
-        assert_eq!(extract_json_object("garbage no braces"), "garbage no braces");
+        assert_eq!(
+            extract_json_object("garbage no braces"),
+            "garbage no braces"
+        );
     }
 }

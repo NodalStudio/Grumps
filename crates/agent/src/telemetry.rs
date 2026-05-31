@@ -1,7 +1,7 @@
 //! LLM call telemetry. Wrappers record cost/latency/tokens to the workspace D1.
 
-use serde::{Deserialize, Serialize};
 use crate::db::AgentDb;
+use serde::{Deserialize, Serialize};
 
 /// Pricing in USD per 1M tokens. Update when model prices change.
 fn price_per_million(provider: &str, model: &str) -> (f64, f64) {
@@ -53,7 +53,8 @@ impl LlmCallRecord {
         tool_calls: Vec<serde_json::Value>,
     ) -> Self {
         let (in_price, out_price) = price_per_million(provider, model);
-        let cost = (input as f64 / 1_000_000.0) * in_price + (output as f64 / 1_000_000.0) * out_price;
+        let cost =
+            (input as f64 / 1_000_000.0) * in_price + (output as f64 / 1_000_000.0) * out_price;
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             member_id,
@@ -88,9 +89,19 @@ mod tests {
     #[test]
     fn cost_calculation_sonnet() {
         let rec = LlmCallRecord::build(
-            "agent_react", "anthropic", "claude-sonnet-4-6",
-            1_000_000, 1_000_000, 0, 0, 1000,
-            true, None, None, None, vec![],
+            "agent_react",
+            "anthropic",
+            "claude-sonnet-4-6",
+            1_000_000,
+            1_000_000,
+            0,
+            0,
+            1000,
+            true,
+            None,
+            None,
+            None,
+            vec![],
         );
         // 3.0 input + 15.0 output = 18.0 USD
         assert!((rec.cost_usd - 18.0).abs() < 0.001);
@@ -99,9 +110,19 @@ mod tests {
     #[test]
     fn cost_calculation_gemini_flash() {
         let rec = LlmCallRecord::build(
-            "classify", "gemini", "gemini-2.5-flash",
-            1_000_000, 1_000_000, 0, 0, 200,
-            true, None, None, None, vec![],
+            "classify",
+            "gemini",
+            "gemini-2.5-flash",
+            1_000_000,
+            1_000_000,
+            0,
+            0,
+            200,
+            true,
+            None,
+            None,
+            None,
+            vec![],
         );
         // 0.15 input + 0.60 output = 0.75 USD
         assert!((rec.cost_usd - 0.75).abs() < 0.001);
@@ -110,9 +131,19 @@ mod tests {
     #[test]
     fn cost_calculation_unknown_model() {
         let rec = LlmCallRecord::build(
-            "classify", "unknown", "unknown-model",
-            1_000_000, 1_000_000, 0, 0, 200,
-            true, None, None, None, vec![],
+            "classify",
+            "unknown",
+            "unknown-model",
+            1_000_000,
+            1_000_000,
+            0,
+            0,
+            200,
+            true,
+            None,
+            None,
+            None,
+            vec![],
         );
         assert_eq!(rec.cost_usd, 0.0);
     }

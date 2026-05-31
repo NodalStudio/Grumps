@@ -3,10 +3,10 @@
 //! corresponding adapter in `grumps_messaging` so request construction
 //! lives in one place.
 
-use worker::*;
+use crate::db::{get_index_db, lookup_platform_channel};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 use grumps_messaging::telegram::TelegramAdapter;
-use crate::db::{get_index_db, lookup_platform_channel};
+use worker::*;
 
 pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<()> {
     let index = get_index_db(env)?;

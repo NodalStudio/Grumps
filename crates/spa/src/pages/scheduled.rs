@@ -1,9 +1,9 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 use crate::api::{use_api, ScheduledActionItem};
 use crate::components::header::PageHeader;
-use crate::i18n::tr;
 use crate::components::scheduled_card::ScheduledCard;
+use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 #[component]
 pub fn ScheduledActionsPage() -> impl IntoView {
@@ -33,15 +33,19 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     });
 
     let filtered = move || {
-        items.get().map(|data| {
-            let tf = type_filter.get();
-            let sf = status_filter.get();
-            let all: Vec<ScheduledActionItem> = (*data).clone();
-            all.into_iter().filter(|i| {
-                (tf == "all" || i.action_type == tf) &&
-                (sf == "all" || i.status == sf)
-            }).collect()
-        }).unwrap_or_default()
+        items
+            .get()
+            .map(|data| {
+                let tf = type_filter.get();
+                let sf = status_filter.get();
+                let all: Vec<ScheduledActionItem> = (*data).clone();
+                all.into_iter()
+                    .filter(|i| {
+                        (tf == "all" || i.action_type == tf) && (sf == "all" || i.status == sf)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     };
 
     let open_create = move |_| {
@@ -72,8 +76,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let on_execute = Callback::new(move |id: String| {
         // TODO: POST /api/w/:slug/scheduled-actions/:id/execute
         let _ = (&api_exec, &id);
-        web_sys::window()
-            .and_then(|w| w.alert_with_message("Execute now — API endpoint TBD").ok());
+        web_sys::window().and_then(|w| w.alert_with_message("Execute now — API endpoint TBD").ok());
     });
 
     let api_save = use_api();

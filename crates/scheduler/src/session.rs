@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentSession {
@@ -16,7 +16,7 @@ pub struct AgentSession {
 /// `content` may be a plain string (simple turns) or a JSON array (tool_use / tool_result turns).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMessage {
-    pub role: String,           // "user" | "assistant"
+    pub role: String,               // "user" | "assistant"
     pub content: serde_json::Value, // String OR Vec of content blocks
 }
 
@@ -26,7 +26,10 @@ mod tests {
 
     #[test]
     fn message_serializes_role() {
-        let m = SessionMessage { role: "user".into(), content: serde_json::Value::String("hi".into()) };
+        let m = SessionMessage {
+            role: "user".into(),
+            content: serde_json::Value::String("hi".into()),
+        };
         let j = serde_json::to_value(&m).unwrap();
         assert_eq!(j["role"], "user");
         assert_eq!(j["content"], "hi");
@@ -34,8 +37,12 @@ mod tests {
 
     #[test]
     fn assistant_with_tool_array_roundtrips() {
-        let content = serde_json::json!([{"type": "tool_use", "id": "x", "name": "foo", "input": {}}]);
-        let m = SessionMessage { role: "assistant".into(), content: content.clone() };
+        let content =
+            serde_json::json!([{"type": "tool_use", "id": "x", "name": "foo", "input": {}}]);
+        let m = SessionMessage {
+            role: "assistant".into(),
+            content: content.clone(),
+        };
         let j = serde_json::to_string(&m).unwrap();
         let back: SessionMessage = serde_json::from_str(&j).unwrap();
         assert_eq!(back.role, "assistant");

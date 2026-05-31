@@ -1,10 +1,10 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
-#[allow(unused_imports)]
-use js_sys;
-use crate::api::{use_api, StatusCounts, CalendarItem, MemoryItem};
+use crate::api::{use_api, CalendarItem, MemoryItem, StatusCounts};
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
+#[allow(unused_imports)]
+use js_sys;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
 
 fn today_str() -> (i32, u32, u32) {
     let d = js_sys::Date::new_0();
@@ -17,14 +17,22 @@ fn parse_date_key(s: &str) -> String {
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
-        1|3|5|7|8|10|12 => 31,
-        4|6|9|11 => 30,
-        2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     }
 }
 
-fn pad2(n: u32) -> String { format!("{:02}", n) }
+fn pad2(n: u32) -> String {
+    format!("{:02}", n)
+}
 
 #[component]
 pub fn OverviewPage() -> impl IntoView {
@@ -50,7 +58,7 @@ pub fn OverviewPage() -> impl IntoView {
         let m = today_m;
         let last = days_in_month(y, m);
         let from = format!("{}-{}-01", y, pad2(m));
-        let to   = format!("{}-{}-{}", y, pad2(m), pad2(last));
+        let to = format!("{}-{}-{}", y, pad2(m), pad2(last));
         async move { api.list_calendar(&s, &from, &to).await.unwrap_or_default() }
     });
 

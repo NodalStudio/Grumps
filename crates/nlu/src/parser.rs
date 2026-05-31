@@ -37,22 +37,55 @@ pub struct ParsedNote {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ListFilter { Open, All, Mine, Done, Assignee(String), Tag(String) }
+pub enum ListFilter {
+    Open,
+    All,
+    Mine,
+    Done,
+    Assignee(String),
+    Tag(String),
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum CompletionTarget { BySeqNum(i64), ByText(String) }
+pub enum CompletionTarget {
+    BySeqNum(i64),
+    ByText(String),
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TaskCardAction { Done, Snooze(String), Edit(String), Reassign(String), ChangePriority(Priority), AddTag(String), Delete, ChangeStatus(String) }
+pub enum TaskCardAction {
+    Done,
+    Snooze(String),
+    Edit(String),
+    Reassign(String),
+    ChangePriority(Priority),
+    AddTag(String),
+    Delete,
+    ChangeStatus(String),
+}
 
-pub fn parse(text: &str, is_mention: bool, is_dm: bool, is_reply_to_bot: bool, has_quoted_message: bool) -> ParseResult {
+pub fn parse(
+    text: &str,
+    is_mention: bool,
+    is_dm: bool,
+    is_reply_to_bot: bool,
+    has_quoted_message: bool,
+) -> ParseResult {
     let trimmed = text.trim();
-    if is_reply_to_bot { return crate::reply_parser::parse_reply(trimmed); }
-    if has_quoted_message && is_mention {
-        if let Some(r) = crate::command_parser::try_parse_quoted_command(trimmed) { return r; }
+    if is_reply_to_bot {
+        return crate::reply_parser::parse_reply(trimmed);
     }
-    if let Some(r) = crate::block_parser::try_parse_block(trimmed) { return r; }
-    if is_mention || is_dm { return crate::command_parser::parse_mention(trimmed); }
+    if has_quoted_message && is_mention {
+        if let Some(r) = crate::command_parser::try_parse_quoted_command(trimmed) {
+            return r;
+        }
+    }
+    if let Some(r) = crate::block_parser::try_parse_block(trimmed) {
+        return r;
+    }
+    if is_mention || is_dm {
+        return crate::command_parser::parse_mention(trimmed);
+    }
     ParseResult::Ignore
 }
 
@@ -62,7 +95,10 @@ mod tests {
 
     #[test]
     fn plain_text_ignored() {
-        assert_eq!(parse("hello everyone", false, false, false, false), ParseResult::Ignore);
+        assert_eq!(
+            parse("hello everyone", false, false, false, false),
+            ParseResult::Ignore
+        );
     }
 
     #[test]
@@ -70,6 +106,9 @@ mod tests {
         // DM with no known command → default action (currently Ignore from stub)
         let r = parse("hello", false, true, false, false);
         // Once command_parser is implemented this will be AddSingleTodo, for now it's Ignore from stub
-        assert!(matches!(r, ParseResult::Ignore | ParseResult::AddSingleTodo(_)));
+        assert!(matches!(
+            r,
+            ParseResult::Ignore | ParseResult::AddSingleTodo(_)
+        ));
     }
 }

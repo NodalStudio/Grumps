@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use hmac::{Hmac, Mac};
-use sha2::{Sha256, Digest};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TelegramWidgetPayload {
@@ -18,13 +18,20 @@ pub struct TelegramWidgetPayload {
 impl TelegramWidgetPayload {
     /// Display name: "first last" trim → username → "telegram:<id>".
     pub fn display_name(&self) -> String {
-        let joined = format!("{} {}",
+        let joined = format!(
+            "{} {}",
             self.first_name.as_deref().unwrap_or(""),
             self.last_name.as_deref().unwrap_or("")
         );
         let trimmed = joined.trim();
-        if !trimmed.is_empty() { return trimmed.to_string(); }
-        if let Some(u) = &self.username { if !u.is_empty() { return u.clone(); } }
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+        if let Some(u) = &self.username {
+            if !u.is_empty() {
+                return u.clone();
+            }
+        }
         format!("telegram:{}", self.id)
     }
 }
@@ -33,11 +40,27 @@ impl TelegramWidgetPayload {
 fn data_check_string(p: &TelegramWidgetPayload) -> String {
     let mut parts: Vec<String> = Vec::with_capacity(6);
     parts.push(format!("auth_date={}", p.auth_date));
-    if let Some(v) = &p.first_name { if !v.is_empty() { parts.push(format!("first_name={}", v)); } }
+    if let Some(v) = &p.first_name {
+        if !v.is_empty() {
+            parts.push(format!("first_name={}", v));
+        }
+    }
     parts.push(format!("id={}", p.id));
-    if let Some(v) = &p.last_name   { if !v.is_empty() { parts.push(format!("last_name={}", v)); } }
-    if let Some(v) = &p.photo_url   { if !v.is_empty() { parts.push(format!("photo_url={}", v)); } }
-    if let Some(v) = &p.username    { if !v.is_empty() { parts.push(format!("username={}", v)); } }
+    if let Some(v) = &p.last_name {
+        if !v.is_empty() {
+            parts.push(format!("last_name={}", v));
+        }
+    }
+    if let Some(v) = &p.photo_url {
+        if !v.is_empty() {
+            parts.push(format!("photo_url={}", v));
+        }
+    }
+    if let Some(v) = &p.username {
+        if !v.is_empty() {
+            parts.push(format!("username={}", v));
+        }
+    }
     parts.sort();
     parts.join("\n")
 }
@@ -52,7 +75,8 @@ pub fn verify_widget_hash(payload: &TelegramWidgetPayload, bot_token: &str) -> b
         h.finalize()
     };
     let mut mac = match Hmac::<Sha256>::new_from_slice(&secret_key) {
-        Ok(m) => m, Err(_) => return false,
+        Ok(m) => m,
+        Err(_) => return false,
     };
     mac.update(data.as_bytes());
     let tag = mac.finalize().into_bytes();
@@ -61,9 +85,13 @@ pub fn verify_widget_hash(payload: &TelegramWidgetPayload, bot_token: &str) -> b
 }
 
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() { return false; }
+    if a.len() != b.len() {
+        return false;
+    }
     let mut r = 0u8;
-    for i in 0..a.len() { r |= a[i] ^ b[i]; }
+    for i in 0..a.len() {
+        r |= a[i] ^ b[i];
+    }
     r == 0
 }
 
@@ -73,7 +101,11 @@ mod tests {
 
     fn compute_hash(bot_token: &str, payload: &mut TelegramWidgetPayload) {
         let data = data_check_string(payload);
-        let secret_key = { let mut h = Sha256::new(); h.update(bot_token.as_bytes()); h.finalize() };
+        let secret_key = {
+            let mut h = Sha256::new();
+            h.update(bot_token.as_bytes());
+            h.finalize()
+        };
         let mut mac = Hmac::<Sha256>::new_from_slice(&secret_key).unwrap();
         mac.update(data.as_bytes());
         payload.hash = hex::encode(mac.finalize().into_bytes());
@@ -152,7 +184,9 @@ mod tests {
     #[test]
     fn display_name_falls_back_to_telegram_id() {
         let mut p = sample_payload();
-        p.first_name = None; p.last_name = None; p.username = None;
+        p.first_name = None;
+        p.last_name = None;
+        p.username = None;
         assert_eq!(p.display_name(), "telegram:1234567890");
     }
 }

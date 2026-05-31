@@ -1,8 +1,8 @@
+use crate::components::sidebar::Sidebar;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::components::Outlet;
 use leptos_router::hooks::use_params_map;
-use crate::components::sidebar::Sidebar;
 
 #[component]
 pub fn WorkspaceLayout() -> impl IntoView {

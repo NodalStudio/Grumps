@@ -18,7 +18,13 @@ pub fn t1(key: &str, lang: &str, arg: &str) -> String {
 }
 
 #[derive(Clone, Copy)]
-enum Lang { En, Fr, Es, De, Pt }
+enum Lang {
+    En,
+    Fr,
+    Es,
+    De,
+    Pt,
+}
 
 fn translate(key: &str, lang: Lang) -> Option<&'static str> {
     Some(match (key, lang) {
@@ -211,7 +217,10 @@ mod tests {
 
     #[test]
     fn substitution() {
-        assert_eq!(t1("reply.snoozed", "en", "tomorrow"), "Snoozed to tomorrow.");
+        assert_eq!(
+            t1("reply.snoozed", "en", "tomorrow"),
+            "Snoozed to tomorrow."
+        );
         assert_eq!(t1("reply.snoozed", "fr", "demain"), "Reporté à demain.");
     }
 
@@ -223,7 +232,12 @@ mod tests {
     #[test]
     fn all_languages_have_reply_done() {
         for lang in ["en", "fr", "es", "de", "pt"] {
-            assert_ne!(t("reply.done", lang), "reply.done", "missing translation for {}", lang);
+            assert_ne!(
+                t("reply.done", lang),
+                "reply.done",
+                "missing translation for {}",
+                lang
+            );
         }
     }
 }

@@ -22,7 +22,9 @@ pub fn use_locale() -> Locale {
 }
 
 /// Translate `key` in the current locale.
-pub fn tr(key: &str) -> String { grumps_i18n::t(use_locale(), key, &[]) }
+pub fn tr(key: &str) -> String {
+    grumps_i18n::t(use_locale(), key, &[])
+}
 
 /// Translate `key` with `{var}` substitutions.
 pub fn tr_p(key: &str, params: &[(&str, &str)]) -> String {

@@ -25,12 +25,12 @@ pub enum RruleError {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rrule {
     pub freq: Freq,
-    pub interval: u32,                      // default 1
-    pub by_day: Vec<Weekday>,               // for WEEKLY
-    pub by_month_day: Option<u32>,          // for MONTHLY/YEARLY
-    pub by_month: Option<u32>,              // for YEARLY
-    pub by_hour: Option<u32>,               // optional for any FREQ
-    pub by_minute: Option<u32>,             // optional for any FREQ
+    pub interval: u32,             // default 1
+    pub by_day: Vec<Weekday>,      // for WEEKLY
+    pub by_month_day: Option<u32>, // for MONTHLY/YEARLY
+    pub by_month: Option<u32>,     // for YEARLY
+    pub by_hour: Option<u32>,      // optional for any FREQ
+    pub by_minute: Option<u32>,    // optional for any FREQ
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,29 +52,51 @@ pub fn parse(rrule: &str) -> Result<Rrule, RruleError> {
 
     for part in rrule.split(';') {
         let mut kv = part.splitn(2, '=');
-        let k = kv.next().ok_or_else(|| RruleError::InvalidSyntax(rrule.into()))?;
-        let v = kv.next().ok_or_else(|| RruleError::InvalidSyntax(rrule.into()))?;
+        let k = kv
+            .next()
+            .ok_or_else(|| RruleError::InvalidSyntax(rrule.into()))?;
+        let v = kv
+            .next()
+            .ok_or_else(|| RruleError::InvalidSyntax(rrule.into()))?;
         match k {
-            "FREQ" => freq = Some(match v {
-                "DAILY" => Freq::Daily,
-                "WEEKLY" => Freq::Weekly,
-                "MONTHLY" => Freq::Monthly,
-                "YEARLY" => Freq::Yearly,
-                other => return Err(RruleError::UnsupportedFreq(other.into())),
-            }),
+            "FREQ" => {
+                freq = Some(match v {
+                    "DAILY" => Freq::Daily,
+                    "WEEKLY" => Freq::Weekly,
+                    "MONTHLY" => Freq::Monthly,
+                    "YEARLY" => Freq::Yearly,
+                    other => return Err(RruleError::UnsupportedFreq(other.into())),
+                })
+            }
             "INTERVAL" => interval = v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?,
-            "BYDAY" => by_day = v.split(',').map(parse_weekday).collect::<Result<Vec<_>, _>>()?,
-            "BYMONTHDAY" => by_month_day = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?),
-            "BYMONTH" => by_month = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?),
+            "BYDAY" => {
+                by_day = v
+                    .split(',')
+                    .map(parse_weekday)
+                    .collect::<Result<Vec<_>, _>>()?
+            }
+            "BYMONTHDAY" => {
+                by_month_day = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?)
+            }
+            "BYMONTH" => {
+                by_month = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?)
+            }
             "BYHOUR" => by_hour = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?),
-            "BYMINUTE" => by_minute = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?),
+            "BYMINUTE" => {
+                by_minute = Some(v.parse().map_err(|_| RruleError::InvalidSyntax(v.into()))?)
+            }
             _ => { /* ignore unknown */ }
         }
     }
 
     Ok(Rrule {
         freq: freq.ok_or_else(|| RruleError::MissingField("FREQ".into()))?,
-        interval, by_day, by_month_day, by_month, by_hour, by_minute,
+        interval,
+        by_day,
+        by_month_day,
+        by_month,
+        by_hour,
+        by_minute,
     })
 }
 
@@ -106,9 +128,12 @@ pub fn text_to_rrule(s: &str, weekday: Weekday) -> Option<String> {
 
 fn parse_weekday(s: &str) -> Result<Weekday, RruleError> {
     match s {
-        "MO" => Ok(Weekday::Mon), "TU" => Ok(Weekday::Tue),
-        "WE" => Ok(Weekday::Wed), "TH" => Ok(Weekday::Thu),
-        "FR" => Ok(Weekday::Fri), "SA" => Ok(Weekday::Sat),
+        "MO" => Ok(Weekday::Mon),
+        "TU" => Ok(Weekday::Tue),
+        "WE" => Ok(Weekday::Wed),
+        "TH" => Ok(Weekday::Thu),
+        "FR" => Ok(Weekday::Fri),
+        "SA" => Ok(Weekday::Sat),
         "SU" => Ok(Weekday::Sun),
         _ => Err(RruleError::InvalidSyntax(s.into())),
     }
@@ -131,7 +156,7 @@ pub fn next_occurrence(rule: &Rrule, from: DateTime<Utc>, tz: Tz) -> Option<Date
 
     let limit_days = match rule.freq {
         Freq::Daily => 31 * rule.interval as i64,
-        Freq::Weekly => 7 * rule.interval as i64 * 4,    // up to ~4 cycles
+        Freq::Weekly => 7 * rule.interval as i64 * 4, // up to ~4 cycles
         Freq::Monthly => 366,
         Freq::Yearly => 366 * 4,
     };

@@ -2,6 +2,7 @@
 use worker::*;
 use crate::{db, d1_rest::D1RestClient};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use worker::*;
 
 /// Called by Cloudflare Cron Trigger. Iterates over all workspaces, fires due reminders and recaps.
 pub async fn handle_cron(env: &Env) -> Result<()> {
@@ -59,7 +60,9 @@ async fn check_and_send_recaps(
             Ok(Some(v)) => v == "true",
             _ => true,
         };
-        if !enabled { continue; }
+        if !enabled {
+            continue;
+        }
 
         // KV dedup: at most one recap per local day per workspace.
         let recap_key = format!("recap:{}:{}", ws.slug, grumps_core::timeutil::tz_today_str(tz));
@@ -69,11 +72,22 @@ async fn check_and_send_recaps(
         let data = ws_db.get_recap_data(tz.name()).await?;
 
         // Only send if there's something to report
-        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 { continue; }
+        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+            continue;
+        }
 
         // Format message
-        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
-            .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+            .high_priority
+            .iter()
+            .map(|t| {
+                (
+                    t.seq_num,
+                    t.title.clone(),
+                    t.assigned_name.clone(),
+                    t.deadline.clone(),
+                )
+            })
             .collect();
         let text = grumps_messaging::formatter::recap_message(
             &ws.slug,
@@ -87,7 +101,10 @@ async fn check_and_send_recaps(
         );
 
         // Send to WhatsApp group
-        let msg = OutboundMessage { text, reply_to: None };
+        let msg = OutboundMessage {
+            text,
+            reply_to: None,
+        };
         let (url, body) = wa
             .build_send_request(&ws.platform_channel_id, &msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
@@ -104,7 +121,10 @@ async fn check_and_send_recaps(
         let _ = Fetch::Request(req).send().await;
 
         // Mark as sent (expires after 24h)
-        kv.put(&recap_key, "1")?.expiration_ttl(86400).execute().await?;
+        kv.put(&recap_key, "1")?
+            .expiration_ttl(86400)
+            .execute()
+            .await?;
         console_log!("Sent recap for workspace {}", ws.slug);
     }
 

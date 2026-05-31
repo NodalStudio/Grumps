@@ -14,7 +14,10 @@ impl AppError {
             Self::NotFound(m) => Response::error(m, 404),
             Self::BadRequest(m) => Response::error(m, 400),
             Self::Forbidden => Response::error("Forbidden", 403),
-            Self::Internal(m) => { worker::console_log!("Error: {}", m); Response::error("Internal error", 500) }
+            Self::Internal(m) => {
+                worker::console_log!("Error: {}", m);
+                Response::error("Internal error", 500)
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
-use grumps_core::todo::Priority;
 use crate::i18n;
+use grumps_core::todo::Priority;
 
 /// Format a single task card (sent as individual message so users can reply to it).
 pub fn task_card(
@@ -55,12 +55,7 @@ pub fn todos_added_summary(count: usize, workspace_slug: &str, lang: &str) -> St
     } else {
         i18n::t("todos.added", lang)
     };
-    format!(
-        "✅ {} {}\n🔗 grumps.app/w/{}",
-        count,
-        label,
-        workspace_slug
-    )
+    format!("✅ {} {}\n🔗 grumps.app/w/{}", count, label, workspace_slug)
 }
 
 /// Format todo list for @grumps list.
@@ -156,16 +151,19 @@ pub fn recap_message(
 ) -> String {
     use chrono::Utc;
     let today = Utc::now().format("%A %B %-d").to_string();
-    let mut lines = vec![
-        format!("📋 Grumps Recap — {}", today),
-        String::new(),
-    ];
+    let mut lines = vec![format!("📋 Grumps Recap — {}", today), String::new()];
 
     if !high_priority.is_empty() {
         lines.push(format!("🔴 High priority ({})", high_priority.len()));
         for (seq, title, assignee, deadline) in high_priority {
-            let a = assignee.as_ref().map(|a| format!(" — @{}", a)).unwrap_or_default();
-            let d = deadline.as_ref().map(|d| format!(" — ⏰ {}", d)).unwrap_or_default();
+            let a = assignee
+                .as_ref()
+                .map(|a| format!(" — @{}", a))
+                .unwrap_or_default();
+            let d = deadline
+                .as_ref()
+                .map(|d| format!(" — ⏰ {}", d))
+                .unwrap_or_default();
             lines.push(format!("  • #{} {}{}{}", seq, title, a, d));
         }
         lines.push(String::new());
@@ -305,8 +303,24 @@ mod tests {
     #[test]
     fn test_todo_list_with_items() {
         let todos = vec![
-            ("uuid-1".to_string(), 1i64, "Buy milk".to_string(), "open".to_string(), Some("Bob".to_string()), 2i32, String::new()),
-            ("uuid-2".to_string(), 2i64, "Write tests".to_string(), "open".to_string(), None, 2i32, String::new()),
+            (
+                "uuid-1".to_string(),
+                1i64,
+                "Buy milk".to_string(),
+                "open".to_string(),
+                Some("Bob".to_string()),
+                2i32,
+                String::new(),
+            ),
+            (
+                "uuid-2".to_string(),
+                2i64,
+                "Write tests".to_string(),
+                "open".to_string(),
+                None,
+                2i32,
+                String::new(),
+            ),
         ];
         let result = todo_list(&todos, "open", "en");
         assert!(result.contains("📋 2 todos (open):"));
@@ -317,9 +331,15 @@ mod tests {
     // 9. todo_list with done items shows ✅
     #[test]
     fn test_todo_list_done_items() {
-        let todos = vec![
-            ("uuid-7".to_string(), 7i64, "Deploy app".to_string(), "done".to_string(), None, 1i32, String::new()),
-        ];
+        let todos = vec![(
+            "uuid-7".to_string(),
+            7i64,
+            "Deploy app".to_string(),
+            "done".to_string(),
+            None,
+            1i32,
+            String::new(),
+        )];
         let result = todo_list(&todos, "done", "en");
         assert!(result.contains("✅ #7 Deploy app"));
         assert!(result.contains("🔴")); // priority 1 = high
@@ -336,8 +356,18 @@ mod tests {
     #[test]
     fn test_note_list_with_items() {
         let notes = vec![
-            ("abc123".to_string(), Some("WiFi password".to_string()), "chat".to_string(), "2026-04-01".to_string()),
-            ("def456".to_string(), None, "web".to_string(), "2026-04-02".to_string()),
+            (
+                "abc123".to_string(),
+                Some("WiFi password".to_string()),
+                "chat".to_string(),
+                "2026-04-01".to_string(),
+            ),
+            (
+                "def456".to_string(),
+                None,
+                "web".to_string(),
+                "2026-04-02".to_string(),
+            ),
         ];
         let result = note_list(&notes, "en");
         assert!(result.contains("📝 2 notes:"));
@@ -376,8 +406,18 @@ mod tests {
     #[test]
     fn test_recap_with_high_priority() {
         let high = vec![
-            (12i64, "Ship the project".to_string(), Some("Pierre".to_string()), Some("tomorrow".to_string())),
-            (15i64, "Fix the prod bug".to_string(), Some("Sarah".to_string()), None),
+            (
+                12i64,
+                "Ship the project".to_string(),
+                Some("Pierre".to_string()),
+                Some("tomorrow".to_string()),
+            ),
+            (
+                15i64,
+                "Fix the prod bug".to_string(),
+                Some("Sarah".to_string()),
+                None,
+            ),
         ];
         let result = recap_message("x7k9m2p4", 7, 3, 5, &high, 2, 1, "en");
         assert!(result.contains("📋 Grumps Recap —"));

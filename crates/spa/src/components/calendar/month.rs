@@ -1,11 +1,13 @@
-use leptos::prelude::*;
-use crate::api::CalendarItem;
 use super::item::CalItem;
+use crate::api::CalendarItem;
+use leptos::prelude::*;
 
 /// Returns (year, month, day) from an ISO date string "YYYY-MM-DD..."
 fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
     let parts: Vec<&str> = s.splitn(3, '-').collect();
-    if parts.len() < 3 { return None; }
+    if parts.len() < 3 {
+        return None;
+    }
     let y = parts[0].parse().ok()?;
     let m = parts[1].parse().ok()?;
     let d = parts[2][..2.min(parts[2].len())].parse().ok()?;
@@ -14,9 +16,15 @@ fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
-        1|3|5|7|8|10|12 => 31,
-        4|6|9|11 => 30,
-        2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     }
 }
@@ -28,7 +36,7 @@ fn first_weekday(year: i32, month: u32) -> u32 {
     let m = month;
     let d = 1u32;
     let t = [0u32, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
-    let dow = (y + y/4 - y/100 + y/400 + t[(m-1) as usize] + d) % 7;
+    let dow = (y + y / 4 - y / 100 + y / 400 + t[(m - 1) as usize] + d) % 7;
     // dow: 0=Sun, convert to Mon=0
     (dow + 6) % 7
 }
@@ -42,7 +50,9 @@ pub fn MonthView(
     today_month: u32,
     today_day: u32,
 ) -> impl IntoView {
-    const DAY_KEYS: [&str; 7] = ["dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun"];
+    const DAY_KEYS: [&str; 7] = [
+        "dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun",
+    ];
 
     view! {
         <div class="flex flex-col flex-1 overflow-hidden">

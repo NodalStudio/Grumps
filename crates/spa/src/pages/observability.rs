@@ -1,10 +1,12 @@
 //! Observability admin dashboard — LLM cost/latency/quality charts.
 //! Route: /w/:slug/admin/observability
 
+use crate::api::{
+    use_api, LlmCostByModel, LlmLatencyByModel, ObservabilityData, QualitySignalCount,
+};
 use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 use leptos_router::components::A;
-use crate::api::{use_api, ObservabilityData, LlmCostByModel, LlmLatencyByModel, QualitySignalCount};
+use leptos_router::hooks::use_params_map;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -13,27 +15,31 @@ fn fmt_usd(v: f64) -> String {
 }
 
 fn fmt_ms(ms: i64) -> String {
-    if ms >= 1000 { format!("{:.1}s", ms as f64 / 1000.0) } else { format!("{}ms", ms) }
+    if ms >= 1000 {
+        format!("{:.1}s", ms as f64 / 1000.0)
+    } else {
+        format!("{}ms", ms)
+    }
 }
 
 fn provider_color(provider: &str) -> &'static str {
     match provider {
         "anthropic" => "var(--brick)",
-        "gemini"    => "var(--teal)",
-        _           => "var(--ink-40)",
+        "gemini" => "var(--teal)",
+        _ => "var(--ink-40)",
     }
 }
 
 fn signal_label(s: &str) -> (&'static str, &'static str) {
     // (label, palette token)
     match s {
-        "praise"          => ("Praise",     "var(--teal)"),
-        "thanks"          => ("Thanks",     "var(--teal)"),
-        "silence_request" => ("Silence",    "var(--brick)"),
-        "forget_request"  => ("Forget",     "var(--ochre)"),
-        "correction"      => ("Correction", "var(--brick)"),
-        "confusion"       => ("Confusion",  "var(--ochre)"),
-        _                 => ("Other",      "var(--ink-40)"),
+        "praise" => ("Praise", "var(--teal)"),
+        "thanks" => ("Thanks", "var(--teal)"),
+        "silence_request" => ("Silence", "var(--brick)"),
+        "forget_request" => ("Forget", "var(--ochre)"),
+        "correction" => ("Correction", "var(--brick)"),
+        "confusion" => ("Confusion", "var(--ochre)"),
+        _ => ("Other", "var(--ink-40)"),
     }
 }
 
@@ -58,11 +64,18 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
         return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data yet."</div> }.into_any();
     }
 
-    let segments: Vec<_> = rows.iter().map(|r| {
-        let pct = if total > 0.0 { (r.cost_usd / total * 100.0) as u32 } else { 0 };
-        let color = provider_color(&r.provider);
-        (pct, color, r.model.clone(), r.cost_usd)
-    }).collect();
+    let segments: Vec<_> = rows
+        .iter()
+        .map(|r| {
+            let pct = if total > 0.0 {
+                (r.cost_usd / total * 100.0) as u32
+            } else {
+                0
+            };
+            let color = provider_color(&r.provider);
+            (pct, color, r.model.clone(), r.cost_usd)
+        })
+        .collect();
 
     view! {
         <div>
@@ -165,9 +178,7 @@ fn donut_path(start_deg: f64, end_deg: f64, cx: f64, cy: f64, r: f64) -> String 
     let x2 = cx + r * to_rad(end_deg).cos();
     let y2 = cy + r * to_rad(end_deg).sin();
     let large = if end_deg - start_deg > 180.0 { 1 } else { 0 };
-    format!(
-        "M {cx} {cy} L {x1:.2} {y1:.2} A {r} {r} 0 {large} 1 {x2:.2} {y2:.2} Z"
-    )
+    format!("M {cx} {cy} L {x1:.2} {y1:.2} A {r} {r} 0 {large} 1 {x2:.2} {y2:.2} Z")
 }
 
 #[component]
