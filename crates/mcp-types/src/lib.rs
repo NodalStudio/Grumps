@@ -275,8 +275,12 @@ pub fn schema_for_type<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
         }
         // Align to the official MCP JSON Schema dialect (2020-12). `nullable`
         // (an OpenAPI 3.0 extension) is intentionally not used so strict
-        // validators accept the output.
-        let settings = schemars::generate::SchemaSettings::draft2020_12();
+        // validators accept the output. `inline_subschemas` keeps the result
+        // self-contained — enum/struct fields are inlined rather than emitted as
+        // `$ref` into `$defs`, which is what LLM tool-use APIs (Anthropic,
+        // OpenAI) expect for an `input_schema`. (Safe for non-recursive types.)
+        let mut settings = schemars::generate::SchemaSettings::draft2020_12();
+        settings.inline_subschemas = true;
         let generator = settings.into_generator();
         let schema = generator.into_root_schema_for::<T>();
         let object = match serde_json::to_value(schema).expect("schema serializes") {
@@ -360,5 +364,27 @@ mod tests {
         // Second call returns the same cached Arc.
         let b = schema_for_type::<CreateTodoArgs>();
         assert!(Arc::ptr_eq(&a, &b));
+    }
+
+    #[cfg(feature = "schemars")]
+    #[test]
+    fn schema_inlines_enums_without_defs() {
+        #[derive(schemars::JsonSchema)]
+        #[allow(dead_code)]
+        struct WithEnum {
+            kind: Kind,
+        }
+        #[derive(schemars::JsonSchema)]
+        #[schemars(rename_all = "snake_case")]
+        #[allow(dead_code)]
+        enum Kind { Fact, Person }
+
+        let s = schema_for_type::<WithEnum>();
+        // Self-contained: no `$defs`, and the enum is inlined on the field.
+        assert!(s.get("$defs").is_none(), "should inline, not emit $defs: {s:?}");
+        let kind = s.get("properties").and_then(|p| p.get("kind")).expect("kind property");
+        let values = kind.get("enum").and_then(|e| e.as_array()).expect("inline enum values");
+        assert!(values.iter().any(|v| v == "fact"));
+        assert!(values.iter().any(|v| v == "person"));
     }
 }

@@ -7,7 +7,7 @@
 
 use serde_json::{json, Value};
 use grumps_nlu::matcher::{self, MatchResult};
-use super::ToolContext;
+use super::{args, parse_args, ToolContext};
 
 /// Resolve a `(seq_num | query)` argument pair against a `(id, title, seq)`
 /// list, returning the matched todo id+seq+title, or an outcome JSON otherwise.
@@ -16,17 +16,17 @@ enum Pick {
     Outcome(Value),
 }
 
-fn pick(args: &Value, todos: &[(String, String, i64)], empty_reason: &str) -> Pick {
+fn pick(seq_num: Option<i64>, query: Option<&str>, todos: &[(String, String, i64)], empty_reason: &str) -> Pick {
     if todos.is_empty() {
         return Pick::Outcome(json!({ "ok": false, "reason": empty_reason }));
     }
-    if let Some(seq) = args.get("seq_num").and_then(|v| v.as_i64()) {
+    if let Some(seq) = seq_num {
         return match todos.iter().find(|(_, _, n)| *n == seq) {
             Some((id, title, n)) => Pick::Hit { id: id.clone(), seq_num: *n, title: title.clone() },
             None => Pick::Outcome(json!({ "ok": false, "reason": "seq_not_found", "seq_num": seq })),
         };
     }
-    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("").trim();
+    let query = query.unwrap_or("").trim();
     if query.is_empty() {
         return Pick::Outcome(json!({ "ok": false, "reason": "missing_query" }));
     }
@@ -43,9 +43,10 @@ fn pick(args: &Value, todos: &[(String, String, i64)], empty_reason: &str) -> Pi
     }
 }
 
-pub async fn complete_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+pub async fn complete_todo(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
+    let a: args::CompleteTodoArgs = parse_args(raw, "complete_todo")?;
     let todos = ctx.db.list_open_todos().await?;
-    match pick(&args, &todos, "no_open_todos") {
+    match pick(a.seq_num, a.query.as_deref(), &todos, "no_open_todos") {
         Pick::Hit { id, seq_num, title } => {
             ctx.db.complete_todo(&id, ctx.member_id).await?;
             Ok(json!({ "ok": true, "completed": true, "seq_num": seq_num, "title": title }))
@@ -54,9 +55,10 @@ pub async fn complete_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result
     }
 }
 
-pub async fn reopen_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+pub async fn reopen_todo(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
+    let a: args::ReopenTodoArgs = parse_args(raw, "reopen_todo")?;
     let todos = ctx.db.list_done_todos().await?;
-    match pick(&args, &todos, "no_done_todos") {
+    match pick(a.seq_num, a.query.as_deref(), &todos, "no_done_todos") {
         Pick::Hit { id, seq_num, title } => {
             ctx.db.reopen_todo(&id).await?;
             Ok(json!({ "ok": true, "reopened": true, "seq_num": seq_num, "title": title }))

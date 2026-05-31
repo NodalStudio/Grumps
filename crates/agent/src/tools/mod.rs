@@ -1,6 +1,6 @@
 //! Tool registry + dispatch.
 
-pub mod schemas;
+pub mod args;
 pub mod memory;
 pub mod rag;
 pub mod rag_pipeline;
@@ -93,6 +93,13 @@ pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTi
 // above as `tools::dispatch` / `tools::anthropic_tools`). The registry is the
 // single source of truth: each tool's descriptor carries its MCP annotations,
 // which the proactive path consults to decide autonomous vs. propose-then-confirm.
+
+/// Deserialize a tool's JSON arguments into its typed [`args`] struct, mapping a
+/// shape mismatch to a tool-tagged error (fed back to the model as a tool_result).
+pub(crate) fn parse_args<T: serde::de::DeserializeOwned>(args: serde_json::Value, tool: &str) -> worker::Result<T> {
+    serde_json::from_value(args)
+        .map_err(|e| worker::Error::RustError(format!("{tool}: invalid arguments: {e}")))
+}
 
 /// Normalize a model-emitted deadline into a **civil date** `"YYYY-MM-DD"` in
 /// `tz`. A todo deadline is a calendar day, not an instant — so we never convert
