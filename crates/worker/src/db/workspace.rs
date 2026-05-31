@@ -686,9 +686,8 @@ impl<'a> WorkspaceDb<'a> {
         from: &str,
         to: &str,
     ) -> Result<Vec<serde_json::Value>> {
-        let resp = self
-            .q(
-                "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
+        let resp = self.q(
+            "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
              FROM reminders \
              WHERE status = 'active' AND datetime(remind_at) >= datetime(?1) AND datetime(remind_at) <= datetime(?2) \
              ORDER BY datetime(remind_at) ASC",

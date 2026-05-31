@@ -1,9 +1,8 @@
 use crate::{d1_rest::D1RestClient, db, handler, llm_client::LlmClient, provisioning};
-use crate::{d1_rest::D1RestClient, db, handler, llm_client::LlmClient, provisioning};
-use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::whatsapp::WhatsAppAdapter;
 use grumps_nlu::parser;
+use worker::*;
 
 pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let wa = build_adapter(&ctx)?;

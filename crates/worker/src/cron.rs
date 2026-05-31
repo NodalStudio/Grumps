@@ -2,7 +2,6 @@
 use crate::{d1_rest::D1RestClient, db};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 use worker::*;
-use worker::*;
 
 /// Called by Cloudflare Cron Trigger. Iterates over all workspaces, fires due reminders and recaps.
 pub async fn handle_cron(env: &Env) -> Result<()> {

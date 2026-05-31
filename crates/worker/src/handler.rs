@@ -1,6 +1,12 @@
 // crates/worker/src/handler.rs
 use crate::db::WorkspaceDb;
 use crate::llm_client::LlmClient;
+use grumps_messaging::adapter::OutboundMessage;
+use grumps_messaging::formatter;
+use grumps_nlu::entity;
+use grumps_nlu::llm::{NluIntent, NluResponse};
+use grumps_nlu::matcher;
+use grumps_nlu::parser::*;
 use worker::Env;
 
 pub struct HandlerResult {
