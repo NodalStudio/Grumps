@@ -299,6 +299,9 @@ pub async fn apply_analysis<'a>(
                             "args": staged.get("args"),
                             "member_id": member_id,
                             "summary": result.final_text,
+                            // Telegram message id of the proposal (with its
+                            // inline buttons), so a button tap can edit/clear it.
+                            "chat_message_id": result.staged_message_id,
                         });
                         kv.put(&format!("proactive:pending:{workspace_slug}"), &pending.to_string())
                             .map(|p| p.expiration_ttl(3600).execute()).ok();

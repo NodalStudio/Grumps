@@ -18,10 +18,15 @@ pub struct InboundMessage {
     pub quoted_message_text: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OutboundMessage {
     pub text: String,
     pub reply_to: Option<String>,
+    /// Optional platform-native interactive markup (e.g. a Telegram
+    /// `reply_markup` inline keyboard). Serialized verbatim into the send body
+    /// by the platform adapter; ignored by platforms that don't support it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply_markup: Option<serde_json::Value>,
 }
 
 pub trait MessagingPlatform {

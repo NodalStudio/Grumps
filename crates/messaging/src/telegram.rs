@@ -22,6 +22,29 @@ impl TelegramAdapter {
         });
         Ok((url, body.to_string()))
     }
+
+    /// Build an `answerCallbackQuery` request — acknowledges an inline-button tap
+    /// (dismisses the client's loading spinner). An optional `text` shows a toast.
+    pub fn build_answer_callback_request(&self, callback_query_id: &str, text: Option<&str>) -> (String, String) {
+        let url = format!("https://api.telegram.org/bot{}/answerCallbackQuery", self.bot_token);
+        let mut body = serde_json::json!({ "callback_query_id": callback_query_id });
+        if let Some(t) = text {
+            body["text"] = serde_json::json!(t);
+        }
+        (url, body.to_string())
+    }
+
+    /// Build an `editMessageReplyMarkup` request — swaps (or, with `markup: None`,
+    /// removes) the inline keyboard on an already-sent message.
+    pub fn build_edit_reply_markup_request(&self, chat_id: &str, message_id: i64, markup: Option<serde_json::Value>) -> (String, String) {
+        let url = format!("https://api.telegram.org/bot{}/editMessageReplyMarkup", self.bot_token);
+        let mut body = serde_json::json!({ "chat_id": chat_id, "message_id": message_id });
+        // Omitting reply_markup removes the keyboard.
+        if let Some(m) = markup {
+            body["reply_markup"] = m;
+        }
+        (url, body.to_string())
+    }
 }
 
 impl MessagingPlatform for TelegramAdapter {
@@ -112,6 +135,9 @@ impl MessagingPlatform for TelegramAdapter {
                 body["reply_to_message_id"] = serde_json::json!(id);
             }
         }
+        if let Some(ref markup) = message.reply_markup {
+            body["reply_markup"] = markup.clone();
+        }
         Ok((url, body.to_string()))
     }
 
@@ -128,6 +154,24 @@ pub struct TgUpdate {
     pub update_id: i64,
     pub message: Option<TgMessage>,
     pub my_chat_member: Option<TgChatMemberUpdated>,
+    /// Present when a user taps an inline keyboard button.
+    pub callback_query: Option<TgCallbackQuery>,
+}
+
+/// An inline-button tap. `data` is the opaque `callback_data` we set on the
+/// button; `message` is the bot message the keyboard was attached to.
+#[derive(Debug, Deserialize)]
+pub struct TgCallbackQuery {
+    pub id: String,
+    pub from: TgUser,
+    pub message: Option<TgCallbackMessage>,
+    pub data: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TgCallbackMessage {
+    pub message_id: i64,
+    pub chat: TgChat,
 }
 
 #[derive(Debug, Deserialize)]
@@ -264,7 +308,7 @@ mod tests {
 
     #[test]
     fn build_send_request_group() {
-        let msg = OutboundMessage { text: "Hello".into(), reply_to: None };
+        let msg = OutboundMessage { text: "Hello".into(), reply_to: None, reply_markup: None };
         let (url, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(url.contains("123:ABC"));
         assert!(body.contains("-100123"));
@@ -308,10 +352,65 @@ mod tests {
 
     #[test]
     fn build_send_request_with_reply() {
-        let msg = OutboundMessage { text: "Done.".into(), reply_to: Some("42".into()) };
+        let msg = OutboundMessage { text: "Done.".into(), reply_to: Some("42".into()), reply_markup: None };
         let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(body.contains("reply_to_message_id"));
         assert!(body.contains("42"));
+    }
+
+    #[test]
+    fn build_send_request_with_markup() {
+        let msg = OutboundMessage {
+            text: "Mark #4 done?".into(),
+            reply_to: None,
+            reply_markup: Some(serde_json::json!({
+                "inline_keyboard": [[{ "text": "✓ Yes", "callback_data": "pa:confirm" }]]
+            })),
+        };
+        let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
+        assert!(body.contains("inline_keyboard"));
+        assert!(body.contains("pa:confirm"));
+    }
+
+    #[test]
+    fn build_answer_and_edit_markup_requests() {
+        let (url, body) = adapter().build_answer_callback_request("cbq123", Some("Done"));
+        assert!(url.contains("answerCallbackQuery"));
+        assert!(body.contains("cbq123"));
+        assert!(body.contains("Done"));
+
+        let undo = serde_json::json!({ "inline_keyboard": [[{ "text": "↩️ Undo", "callback_data": "pa:undo" }]] });
+        let (url, body) = adapter().build_edit_reply_markup_request("-100123", 77, Some(undo));
+        assert!(url.contains("editMessageReplyMarkup"));
+        assert!(body.contains("\"message_id\":77"));
+        assert!(body.contains("pa:undo"));
+
+        // markup: None removes the keyboard (no reply_markup field emitted).
+        let (_, body) = adapter().build_edit_reply_markup_request("-100123", 77, None);
+        assert!(!body.contains("reply_markup"));
+    }
+
+    #[test]
+    fn parse_callback_query() {
+        let payload = serde_json::json!({
+            "update_id": 12,
+            "callback_query": {
+                "id": "cbq999",
+                "from": {"id": 123, "first_name": "Alice", "is_bot": false},
+                "message": {
+                    "message_id": 55,
+                    "chat": {"id": -100123, "type": "group"}
+                },
+                "data": "pa:confirm"
+            }
+        });
+        let update: TgUpdate = serde_json::from_value(payload).unwrap();
+        let cbq = update.callback_query.expect("callback_query parsed");
+        assert_eq!(cbq.id, "cbq999");
+        assert_eq!(cbq.data.as_deref(), Some("pa:confirm"));
+        let m = cbq.message.expect("message present");
+        assert_eq!(m.message_id, 55);
+        assert_eq!(m.chat.id, -100123);
     }
 
     #[test]

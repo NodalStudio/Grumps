@@ -21,6 +21,35 @@ pub struct LoopResult {
     /// captured instead of executed so a human can confirm it. `{tool, args}`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub staged_action: Option<serde_json::Value>,
+    /// When a proactive proposal was posted with confirm/cancel buttons, the
+    /// platform message id of that proposal — so the confirmation handler can
+    /// edit/clear its keyboard. `None` for reactive runs or text-only platforms.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staged_message_id: Option<String>,
+}
+
+/// Post the agent's final text. When an action was staged (a proactive
+/// proposal), attach confirm/cancel inline buttons and return the platform
+/// message id so the confirmation handler can later edit/clear the keyboard.
+/// Otherwise send plain text.
+async fn post_final(ctx: &ToolContext<'_>, text: &str, staged: bool) -> Option<String> {
+    if staged {
+        let locale = Locale::from_code(&ctx.language);
+        let buttons = [
+            crate::router::ProposalButton {
+                id: "pa:confirm".into(),
+                label: t(locale, "agent.proactive.btn_confirm", &[]),
+            },
+            crate::router::ProposalButton {
+                id: "pa:cancel".into(),
+                label: t(locale, "agent.proactive.btn_cancel", &[]),
+            },
+        ];
+        ctx.sink.send_with_buttons(text, &buttons).await.ok().flatten()
+    } else {
+        ctx.sink.send(text).await.ok();
+        None
+    }
 }
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
@@ -34,7 +63,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         let msg = t(locale, "agent.quota_exceeded",
             &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None });
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None, staged_message_id: None });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -106,6 +135,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
                 turns: turn,
                 total_tokens,
                 staged_action: None,
+                staged_message_id: None,
             });
         }
 
@@ -144,6 +174,7 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         turns: MAX_TURNS,
         total_tokens,
         staged_action: None,
+        staged_message_id: None,
     })
 }
 
@@ -159,7 +190,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         let msg = t(locale, "agent.quota_exceeded",
             &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None });
+        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None, staged_message_id: None });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -213,14 +244,16 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         });
 
         if resp.stop_reason == "end_turn" || tool_uses.is_empty() {
-            if let Some(ref text) = last_text {
-                ctx.sink.send(text).await.ok();
-            }
+            let staged_message_id = match &last_text {
+                Some(text) => post_final(ctx, text, staged_action.is_some()).await,
+                None => None,
+            };
             return Ok(LoopResult {
                 final_text: last_text,
                 turns: turn,
                 total_tokens,
                 staged_action,
+                staged_message_id,
             });
         }
 
@@ -268,6 +301,7 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         turns: MAX_TURNS,
         total_tokens,
         staged_action,
+        staged_message_id: None,
     })
 }
 

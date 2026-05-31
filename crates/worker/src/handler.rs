@@ -16,7 +16,7 @@ pub struct HandlerResult {
 impl HandlerResult {
     pub fn none() -> Self { Self { messages: vec![] } }
     pub fn one(text: String, reply_to: Option<String>) -> Self {
-        Self { messages: vec![OutboundMessage { text, reply_to }] }
+        Self { messages: vec![OutboundMessage { text, reply_to, reply_markup: None }] }
     }
     pub fn many(msgs: Vec<OutboundMessage>) -> Self { Self { messages: msgs } }
 }
@@ -39,7 +39,7 @@ pub async fn handle_message(
     let locale = grumps_i18n::Locale::from_code(ws_locale);
     if let Some(env) = env {
         // A short "oui"/"annuler" may confirm or undo a pending proactive proposal.
-        if let Some(result) = try_proactive_confirmation(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await? {
+        if let Some(result) = try_proactive_confirmation(env, ws_db, workspace_slug, raw_text, ws_locale).await? {
             return Ok(result);
         }
         // Agent fast-path: route @grumps mentions through the agent before structured parsing.
@@ -116,6 +116,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
     messages.push(OutboundMessage {
         text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
         reply_to: Some(msg_id.to_string()),
+        reply_markup: None,
     });
 
     // Individual task card per todo
@@ -142,7 +143,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
             &parsed.tags,
             locale.code(),
         );
-        messages.push(OutboundMessage { text: card, reply_to: None });
+        messages.push(OutboundMessage { text: card, reply_to: None, reply_markup: None });
     }
 
     Ok(HandlerResult::many(messages))
@@ -475,14 +476,108 @@ fn reactive_ctx<'a>(
     }
 }
 
-/// Before normal routing: does this short reply confirm/cancel a pending proactive
-/// proposal, or undo a just-executed one? The proposal/undo state is parked in KV
-/// (group-scoped, short TTL) by the ambient proactive path. Returns `Some` if handled.
+/// Outcome of acting on a parked proactive proposal — maps to an i18n result key.
+/// Shared by the text-reply path and the Telegram inline-button callback path.
+pub(crate) enum ProposalOutcome {
+    Confirmed,
+    Failed,
+    Cancelled,
+    Undone,
+    NothingToUndo,
+}
+
+impl ProposalOutcome {
+    fn i18n_key(&self) -> &'static str {
+        match self {
+            ProposalOutcome::Confirmed => "agent.proactive.confirmed",
+            ProposalOutcome::Failed => "agent.proactive.failed",
+            ProposalOutcome::Cancelled => "agent.proactive.cancelled",
+            ProposalOutcome::Undone => "agent.proactive.undone",
+            ProposalOutcome::NothingToUndo => "agent.proactive.nothing_to_undo",
+        }
+    }
+    /// The localized result string to show the group.
+    pub(crate) fn message(&self, ws_locale: &str) -> String {
+        grumps_i18n::t(grumps_i18n::Locale::from_code(ws_locale), self.i18n_key(), &[])
+    }
+}
+
+/// Execute a parked proactive proposal (`pending` is its JSON payload, already
+/// read and cleared from KV by the caller). Runs the staged tool reactively,
+/// attributed to the original actor (`member_id` in the payload), parks the
+/// inverse for a short undo window, and re-arms the workspace DO.
+pub(crate) async fn execute_pending_proposal(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    ws_locale: &str,
+    pending: &serde_json::Value,
+) -> ProposalOutcome {
+    let tool = pending.get("tool").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let args = pending.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
+    let member_id = pending.get("member_id").and_then(|v| v.as_str()).unwrap_or("system").to_string();
+    if tool.is_empty() {
+        return ProposalOutcome::Failed;
+    }
+    let tz = ws_db.get_setting("timezone").await.ok().flatten()
+        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let sink = crate::agent_sink::WorkerMessagingSink { env, ws_slug: ws_slug.to_string() };
+    let ctx = reactive_ctx(env, ws_db, ws_slug, &member_id, &sink, tz, ws_locale);
+    let result = grumps_agent::tools::dispatch(&ctx, &tool, args).await
+        .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        return ProposalOutcome::Failed;
+    }
+    // Park the inverse for a short undo window.
+    if let Some((inv_tool, inv_args)) = inverse_action(&tool, &result) {
+        if let Ok(kv) = env.kv("KV") {
+            let undo = serde_json::json!({ "tool": inv_tool, "args": inv_args });
+            kv.put(&format!("proactive:undo:{ws_slug}"), &undo.to_string())
+                .map(|p| p.expiration_ttl(900).execute()).ok();
+        }
+    }
+    let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
+    ProposalOutcome::Confirmed
+}
+
+/// Run the parked inverse action (undo). Reads and clears the undo KV key.
+pub(crate) async fn execute_undo(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    ws_locale: &str,
+) -> ProposalOutcome {
+    let kv = match env.kv("KV") { Ok(k) => k, Err(_) => return ProposalOutcome::NothingToUndo };
+    let undo_key = format!("proactive:undo:{ws_slug}");
+    let raw = match kv.get(&undo_key).text().await.ok().flatten() {
+        Some(r) => r,
+        None => return ProposalOutcome::NothingToUndo,
+    };
+    kv.delete(&undo_key).await.ok();
+    let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+    let tool = parsed.get("tool").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let args = parsed.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
+    if tool.is_empty() {
+        return ProposalOutcome::NothingToUndo;
+    }
+    let tz = ws_db.get_setting("timezone").await.ok().flatten()
+        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let member_id = "system".to_string();
+    let sink = crate::agent_sink::WorkerMessagingSink { env, ws_slug: ws_slug.to_string() };
+    let ctx = reactive_ctx(env, ws_db, ws_slug, &member_id, &sink, tz, ws_locale);
+    grumps_agent::tools::dispatch(&ctx, &tool, args).await.ok();
+    ProposalOutcome::Undone
+}
+
+/// Before normal routing: does this short *text* reply confirm/cancel a pending
+/// proactive proposal, or undo a just-executed one? This is the fallback for the
+/// inline-button path (a user typing "oui"/"annuler" instead of tapping). The
+/// proposal/undo state is parked in KV (group-scoped, short TTL) by the ambient
+/// proactive path. Returns `Some` if handled.
 async fn try_proactive_confirmation(
     env: &Env,
     ws_db: &WorkspaceDb<'_>,
     ws_slug: &str,
-    member_id: &str,
     text: &str,
     ws_locale: &str,
 ) -> worker::Result<Option<HandlerResult>> {
@@ -492,55 +587,25 @@ async fn try_proactive_confirmation(
         return Ok(None);
     }
     let kv = match env.kv("KV") { Ok(k) => k, Err(_) => return Ok(None) };
-    let locale = grumps_i18n::Locale::from_code(ws_locale);
     let pending_key = format!("proactive:pending:{ws_slug}");
-    let undo_key = format!("proactive:undo:{ws_slug}");
-    let tz = || async {
-        ws_db.get_setting("timezone").await.ok().flatten()
-            .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string())
-    };
 
     // 1. A pending proposal awaiting confirmation (single-shot: cleared either way).
     if let Some(raw) = kv.get(&pending_key).text().await.ok().flatten() {
         kv.delete(&pending_key).await.ok();
-        if cancel {
-            return Ok(Some(HandlerResult::one(grumps_i18n::t(locale, "agent.proactive.cancelled", &[]), None)));
-        }
-        let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
-        let tool = parsed.get("tool").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let args = parsed.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
-        if tool.is_empty() {
-            return Ok(Some(HandlerResult::none()));
-        }
-        let sink = crate::agent_sink::WorkerMessagingSink { env, ws_slug: ws_slug.to_string() };
-        let ctx = reactive_ctx(env, ws_db, ws_slug, member_id, &sink, tz().await, ws_locale);
-        let result = grumps_agent::tools::dispatch(&ctx, &tool, args).await
-            .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
-        if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
-            return Ok(Some(HandlerResult::one(grumps_i18n::t(locale, "agent.proactive.failed", &[]), None)));
-        }
-        // Park the inverse for a short undo window.
-        if let Some((inv_tool, inv_args)) = inverse_action(&tool, &result) {
-            let undo = serde_json::json!({ "tool": inv_tool, "args": inv_args });
-            kv.put(&undo_key, &undo.to_string()).map(|p| p.expiration_ttl(900).execute()).ok();
-        }
-        let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
-        return Ok(Some(HandlerResult::one(grumps_i18n::t(locale, "agent.proactive.confirmed", &[]), None)));
+        let outcome = if cancel {
+            ProposalOutcome::Cancelled
+        } else {
+            let pending: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+            execute_pending_proposal(env, ws_db, ws_slug, ws_locale, &pending).await
+        };
+        return Ok(Some(HandlerResult::one(outcome.message(ws_locale), None)));
     }
 
     // 2. An undo window after a just-confirmed action.
     if cancel {
-        if let Some(raw) = kv.get(&undo_key).text().await.ok().flatten() {
-            kv.delete(&undo_key).await.ok();
-            let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
-            let tool = parsed.get("tool").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            let args = parsed.get("args").cloned().unwrap_or_else(|| serde_json::json!({}));
-            if !tool.is_empty() {
-                let sink = crate::agent_sink::WorkerMessagingSink { env, ws_slug: ws_slug.to_string() };
-                let ctx = reactive_ctx(env, ws_db, ws_slug, member_id, &sink, tz().await, ws_locale);
-                grumps_agent::tools::dispatch(&ctx, &tool, args).await.ok();
-                return Ok(Some(HandlerResult::one(grumps_i18n::t(locale, "agent.proactive.undone", &[]), None)));
-            }
+        let outcome = execute_undo(env, ws_db, ws_slug, ws_locale).await;
+        if matches!(outcome, ProposalOutcome::Undone) {
+            return Ok(Some(HandlerResult::one(outcome.message(ws_locale), None)));
         }
     }
 

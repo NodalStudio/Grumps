@@ -168,7 +168,7 @@ async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
     use grumps_messaging::adapter::OutboundMessage;
-    let out = OutboundMessage { text: body.to_string(), reply_to: None };
+    let out = OutboundMessage { text: body.to_string(), reply_to: None, reply_markup: None };
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }
 

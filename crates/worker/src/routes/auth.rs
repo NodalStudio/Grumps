@@ -65,6 +65,7 @@ pub async fn handle_send_otp(mut req: Request, ctx: RouteContext<()>) -> Result<
     let msg = grumps_messaging::adapter::OutboundMessage {
         text: format!("Your Grumps verification code: {}\n\nExpires in 5 minutes.", code),
         reply_to: None,
+        reply_markup: None,
     };
     let (url, body_str) = wa.build_send_request(&phone, &msg)
         .map_err(|e| Error::RustError(format!("{:?}", e)))?;
