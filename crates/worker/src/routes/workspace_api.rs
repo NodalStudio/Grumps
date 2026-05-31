@@ -69,24 +69,37 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
     // The SPA renders all timestamps in this timezone (never the browser's);
     // it also anchors the "done this week" count to the workspace calendar.
-    let timezone = ws_db.get_setting("timezone").await.ok().flatten()
-        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".into());
+    let timezone = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".into());
     let (open, done_week, notes, files) = ws_db.get_status_counts(&timezone).await?;
-    let timezone_source = ws_db.get_setting("timezone_source").await.ok().flatten().unwrap_or_default();
+    let timezone_source = ws_db
+        .get_setting("timezone_source")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
-    middleware::with_cors(&req, Response::from_json(&serde_json::json!({
-        "slug": ws.slug,
-        "name": ws.name,
-        "plan": ws.plan,
-        "timezone": timezone,
-        "timezone_source": timezone_source,
-        "stats": {
-            "open_todos": open,
-            "done_this_week": done_week,
-            "notes": notes,
-            "files": files,
-        }
-    }))?)
+    middleware::with_cors(
+        &req,
+        Response::from_json(&serde_json::json!({
+            "slug": ws.slug,
+            "name": ws.name,
+            "plan": ws.plan,
+            "timezone": timezone,
+            "timezone_source": timezone_source,
+            "stats": {
+                "open_todos": open,
+                "done_this_week": done_week,
+                "notes": notes,
+                "files": files,
+            }
+        }))?,
+    )
 }
 
 // ── GET /api/w/:slug/history ──────────────────────────────────────────────────
@@ -263,14 +276,30 @@ pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
     #[derive(serde::Deserialize)]
-    struct Body { timezone: String, #[serde(default)] source: Option<String> }
+    struct Body {
+        timezone: String,
+        #[serde(default)]
+        source: Option<String>,
+    }
     let body: Body = match req.json().await {
         Ok(b) => b,
         Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
@@ -284,11 +313,19 @@ pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
-    let current_source = ws_db.get_setting("timezone_source").await.ok().flatten().unwrap_or_default();
+    let current_source = ws_db
+        .get_setting("timezone_source")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     if source == "admin" {
         let index_db = db::get_index_db(&ctx.env)?;
-        if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug).await.unwrap_or(false) {
+        if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+            .await
+            .unwrap_or(false)
+        {
             return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
         }
         ws_db.set_setting("timezone", &body.timezone).await?;
@@ -299,11 +336,19 @@ pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<
         ws_db.set_setting("timezone_source", "detected").await?;
     }
 
-    let effective = ws_db.get_setting("timezone").await.ok().flatten().unwrap_or_else(|| "UTC".into());
-    middleware::with_cors(&req, Response::from_json(&serde_json::json!({
-        "ok": true,
-        "timezone": effective,
-    }))?)
+    let effective = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "UTC".into());
+    middleware::with_cors(
+        &req,
+        Response::from_json(&serde_json::json!({
+            "ok": true,
+            "timezone": effective,
+        }))?,
+    )
 }
 
 fn build_tg_adapter(ctx: &RouteContext<()>) -> Result<TelegramAdapter> {

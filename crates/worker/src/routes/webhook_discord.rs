@@ -1,9 +1,9 @@
 use crate::{d1_rest::D1RestClient, db, handler, provisioning};
+use crate::{d1_rest::D1RestClient, db, handler, provisioning};
 use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
 use grumps_nlu::parser;
-use crate::{db, d1_rest::D1RestClient, provisioning, handler};
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let discord = build_adapter(&ctx)?;

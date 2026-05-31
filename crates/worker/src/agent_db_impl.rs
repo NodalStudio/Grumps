@@ -48,17 +48,19 @@ impl AgentDb for WorkspaceDb<'_> {
         created_by: Option<&str>,
     ) -> Result<String> {
         let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".into());
-        let (id, _seq) = self.insert_todo(
-            title,
-            priority,
-            &tags_json,
-            "", // assigned_to (member id — we only have name here, leave blank)
-            assignee_name.unwrap_or(""),
-            created_by.unwrap_or(""),
-            "agent",
-            "",
-            deadline, // already a civil "YYYY-MM-DD" (normalized in the tool layer)
-        ).await?;
+        let (id, _seq) = self
+            .insert_todo(
+                title,
+                priority,
+                &tags_json,
+                "", // assigned_to (member id — we only have name here, leave blank)
+                assignee_name.unwrap_or(""),
+                created_by.unwrap_or(""),
+                "agent",
+                "",
+                deadline, // already a civil "YYYY-MM-DD" (normalized in the tool layer)
+            )
+            .await?;
 
         Ok(id)
     }

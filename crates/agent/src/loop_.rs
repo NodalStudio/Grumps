@@ -311,7 +311,12 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     // One round-trip for the whole settings table, then read each value with a
     // sensible per-key default. `get` treats a missing OR empty value as absent.
     let settings = ctx.db.get_all_settings().await.unwrap_or_default();
-    let get = |k: &str| settings.get(k).map(String::as_str).filter(|s| !s.is_empty());
+    let get = |k: &str| {
+        settings
+            .get(k)
+            .map(String::as_str)
+            .filter(|s| !s.is_empty())
+    };
 
     // Render "now" in the workspace timezone so the model anchors relative
     // reasoning ("tomorrow 8pm") to the group's wall clock, not UTC. The same
@@ -326,16 +331,22 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
 
     // Quota : derive from plan, read counters from the same settings snapshot.
     let plan = Plan::from_str(get("plan").unwrap_or("free"));
-    let agent_calls_used = get("agent_quota_used_month").and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let agent_calls_used = get("agent_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let agent_quota = plan.agent_call_quota();
     let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
 
-    let web_used = get("web_search_quota_used_month").and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let web_used = get("web_search_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let web_quota = plan.web_search_quota();
     let web_remaining = web_quota.saturating_sub(web_used);
 
     Ok(PromptContext {
-        workspace_name: get("workspace_name").unwrap_or(ctx.workspace_slug).to_string(),
+        workspace_name: get("workspace_name")
+            .unwrap_or(ctx.workspace_slug)
+            .to_string(),
         platform: get("platform").unwrap_or("telegram").to_string(),
         member_count: members.len(),
         persona: get("persona").unwrap_or("default").to_string(),

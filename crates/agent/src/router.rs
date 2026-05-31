@@ -33,12 +33,28 @@ pub async fn route_message<'a>(
 ) -> Result<RouteResult> {
     // Locale is resolved by the caller from the canonical source (the workspace
     // member/meta locale in the index DB) — not a workspace-D1 setting.
-    let language = if locale.is_empty() { "en".to_string() } else { locale.to_string() };
+    let language = if locale.is_empty() {
+        "en".to_string()
+    } else {
+        locale.to_string()
+    };
     let timezone = {
         let t = db.get_setting("timezone").await.unwrap_or_default();
-        if t.is_empty() { "UTC".to_string() } else { t }
+        if t.is_empty() {
+            "UTC".to_string()
+        } else {
+            t
+        }
     };
-    let ctx = ToolContext { env, workspace_slug: ws_slug, member_id, sink, db, language, timezone };
+    let ctx = ToolContext {
+        env,
+        workspace_slug: ws_slug,
+        member_id,
+        sink,
+        db,
+        language,
+        timezone,
+    };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).
     if has_active_session {

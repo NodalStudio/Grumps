@@ -14,8 +14,9 @@ pub async fn schedule_action(ctx: &ToolContext<'_>, args: Value) -> worker::Resu
         .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("schedule_action: missing 'trigger_at'".into()))?;
     let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
-    let trigger_at = super::parse_user_datetime(trigger_at_str, &tz)
-        .ok_or_else(|| worker::Error::RustError("schedule_action: invalid 'trigger_at' datetime".into()))?;
+    let trigger_at = super::parse_user_datetime(trigger_at_str, &tz).ok_or_else(|| {
+        worker::Error::RustError("schedule_action: invalid 'trigger_at' datetime".into())
+    })?;
 
     let action_type_str = args
         .get("action_type")

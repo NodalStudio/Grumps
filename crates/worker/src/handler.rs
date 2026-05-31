@@ -39,7 +39,9 @@ pub async fn handle_message(
     let locale = grumps_i18n::Locale::from_code(ws_locale);
     // Agent fast-path: route @grumps mentions through the agent before structured parsing.
     if let Some(env) = env {
-        if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await? {
+        if let Some(result) =
+            try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await?
+        {
             return Ok(result);
         }
     }
@@ -79,16 +81,44 @@ pub async fn handle_message(
 
                 // Anchor the NLU's relative-date resolution to the workspace's
                 // local wall clock, so "tomorrow 9am" becomes a concrete time.
-                let timezone = ws_db.get_setting("timezone").await.ok().flatten()
+                let timezone = ws_db
+                    .get_setting("timezone")
+                    .await
+                    .ok()
+                    .flatten()
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "UTC".to_string());
                 let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
-                let now_local = chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%dT%H:%M:%S").to_string();
+                let now_local = chrono::Utc::now()
+                    .with_timezone(&tz)
+                    .format("%Y-%m-%dT%H:%M:%S")
+                    .to_string();
 
-                match llm.classify(original_text, sender_name, &todo_pairs, &now_local, &timezone).await {
+                match llm
+                    .classify(
+                        original_text,
+                        sender_name,
+                        &todo_pairs,
+                        &now_local,
+                        &timezone,
+                    )
+                    .await
+                {
                     Ok(nlu) => {
                         let _ = ws_db.increment_llm_calls().await;
-                        return handle_llm_result(nlu, todo, inbound_message_id, ws_db, member_id, workspace_slug, locale, &plan, &timezone, env).await;
+                        return handle_llm_result(
+                            nlu,
+                            todo,
+                            inbound_message_id,
+                            ws_db,
+                            member_id,
+                            workspace_slug,
+                            locale,
+                            &plan,
+                            &timezone,
+                            env,
+                        )
+                        .await;
                     }
                     Err(e) => {
                         worker::console_log!(
@@ -160,7 +190,15 @@ pub async fn handle_message(
     }
 }
 
-async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &WorkspaceDb<'_>, member_id: &str, slug: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_add_todos(
+    todos: Vec<ParsedTodo>,
+    msg_id: &str,
+    ws_db: &WorkspaceDb<'_>,
+    member_id: &str,
+    slug: &str,
+    locale: grumps_i18n::Locale,
+    plan: &crate::billing::Plan,
+) -> worker::Result<HandlerResult> {
     // Check todo quota before inserting. Only `open` is used here, so the
     // (tz-sensitive) "this week" count is irrelevant — pass UTC to skip a read.
     let (open_count, _, _, _) = ws_db.get_status_counts("UTC").await?;
@@ -186,12 +224,23 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
 
         // Persist the deadline only when it's a real civil date (the LLM path
         // normalizes to YYYY-MM-DD; raw regex hints like "friday" fall through).
-        let deadline = parsed.deadline_text.as_deref()
+        let deadline = parsed
+            .deadline_text
+            .as_deref()
             .filter(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
-        let (todo_id, seq) = ws_db.insert_todo(
-            &parsed.title, parsed.priority.as_int(), &tags_json,
-            assignee, assignee, member_id, "chat", msg_id, deadline,
-        ).await?;
+        let (todo_id, seq) = ws_db
+            .insert_todo(
+                &parsed.title,
+                parsed.priority.as_int(),
+                &tags_json,
+                assignee,
+                assignee,
+                member_id,
+                "chat",
+                msg_id,
+                deadline,
+            )
+            .await?;
 
         ws_db
             .log_activity(member_id, "todo.created", "todo", &todo_id, "chat")
@@ -351,7 +400,13 @@ async fn handle_delete(
     }
 }
 
-async fn handle_add_note(note: ParsedNote, ws_db: &WorkspaceDb<'_>, member_id: &str, locale: grumps_i18n::Locale, plan: &crate::billing::Plan) -> worker::Result<HandlerResult> {
+async fn handle_add_note(
+    note: ParsedNote,
+    ws_db: &WorkspaceDb<'_>,
+    member_id: &str,
+    locale: grumps_i18n::Locale,
+    plan: &crate::billing::Plan,
+) -> worker::Result<HandlerResult> {
     // Check note quota. Only `notes` is used → tz-irrelevant, pass UTC.
     let (_, _, note_count, _) = ws_db.get_status_counts("UTC").await?;
     if let Err(qe) = crate::billing::check_note_quota(plan, note_count) {
@@ -429,12 +484,24 @@ async fn handle_search_notes(
     }
 }
 
-async fn handle_status(ws_db: &WorkspaceDb<'_>, slug: &str, locale: grumps_i18n::Locale) -> worker::Result<HandlerResult> {
+async fn handle_status(
+    ws_db: &WorkspaceDb<'_>,
+    slug: &str,
+    locale: grumps_i18n::Locale,
+) -> worker::Result<HandlerResult> {
     // "Done this week" follows the workspace calendar.
-    let tz = ws_db.get_setting("timezone").await.ok().flatten()
-        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
     let (open, done_week, notes, files) = ws_db.get_status_counts(&tz).await?;
-    Ok(HandlerResult::one(formatter::status_summary(open, done_week, notes, files, slug, locale.code()), None))
+    Ok(HandlerResult::one(
+        formatter::status_summary(open, done_week, notes, files, slug, locale.code()),
+        None,
+    ))
 }
 
 async fn handle_quoted_todo(
@@ -850,18 +917,26 @@ async fn handle_llm_result(
             // Resolve the model's concrete local datetime to a UTC instant. If
             // it's missing or unparseable, ask for a time rather than store a
             // reminder that can never fire (datetime(NULL) never matches).
-            let remind_at_utc = match nlu.entities.deadline.as_deref()
+            let remind_at_utc = match nlu
+                .entities
+                .deadline
+                .as_deref()
                 .and_then(|d| grumps_agent::tools::parse_user_datetime(d, &tz))
             {
                 Some(dt) => dt,
-                None => return Ok(HandlerResult::one(
-                    grumps_i18n::t(locale, "agent.reminder.need_time", &[]),
-                    Some(msg_id.to_string()),
-                )),
+                None => {
+                    return Ok(HandlerResult::one(
+                        grumps_i18n::t(locale, "agent.reminder.need_time", &[]),
+                        Some(msg_id.to_string()),
+                    ))
+                }
             };
             // Store UTC (Z); display the local wall clock the user expects.
             let remind_at = remind_at_utc.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-            let remind_at_display = remind_at_utc.with_timezone(&tz).format("%Y-%m-%d %H:%M").to_string();
+            let remind_at_display = remind_at_utc
+                .with_timezone(&tz)
+                .format("%Y-%m-%d %H:%M")
+                .to_string();
 
             let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
             let title = nlu.entities.title.unwrap_or(default_title);
@@ -869,7 +944,10 @@ async fn handle_llm_result(
             // Free-text recurrence ("every monday") → RRULE; bare "weekly" uses
             // the trigger's local weekday.
             let local_weekday = chrono::Datelike::weekday(&remind_at_utc.with_timezone(&tz));
-            let recurrence = nlu.entities.recurrence.as_deref()
+            let recurrence = nlu
+                .entities
+                .recurrence
+                .as_deref()
                 .and_then(|r| grumps_scheduler::recurrence::text_to_rrule(r, local_weekday));
 
             // Unified path: a reminder is a `scheduled_actions` row fired by the
@@ -886,7 +964,9 @@ async fn handle_llm_result(
                 created_by: Some(member_id.to_string()),
             };
             let id = ws_db.create_scheduled_action(&action).await?;
-            ws_db.log_activity(member_id, "reminder.created", "reminder", &id, "chat").await?;
+            ws_db
+                .log_activity(member_id, "reminder.created", "reminder", &id, "chat")
+                .await?;
             if let Some(env) = env {
                 let _ = crate::routes::scheduled::arm_do_alarm(env, slug, &remind_at).await;
             }
@@ -903,12 +983,16 @@ async fn handle_llm_result(
             };
 
             Ok(HandlerResult::one(
-                grumps_i18n::t(locale, "agent.reminder.set", &[
-                    ("target", &target_text),
-                    ("title", &title),
-                    ("remind_at", &remind_at_display),
-                    ("rec", &rec_text),
-                ]),
+                grumps_i18n::t(
+                    locale,
+                    "agent.reminder.set",
+                    &[
+                        ("target", &target_text),
+                        ("title", &title),
+                        ("remind_at", &remind_at_display),
+                        ("rec", &rec_text),
+                    ],
+                ),
                 Some(msg_id.to_string()),
             ))
         }

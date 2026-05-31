@@ -24,7 +24,8 @@ impl LlmClient {
         now_local: &str,
         timezone: &str,
     ) -> Result<NluResponse> {
-        let user_prompt = build_user_prompt(message, sender_name, existing_todos, now_local, timezone);
+        let user_prompt =
+            build_user_prompt(message, sender_name, existing_todos, now_local, timezone);
 
         // Try Gemini first
         match self.call_gemini(&user_prompt).await {

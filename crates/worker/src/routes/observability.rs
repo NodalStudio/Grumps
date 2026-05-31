@@ -1,9 +1,9 @@
 //! Observability endpoint — aggregated LLM telemetry for admin dashboard.
 //! GET /api/w/:slug/admin/observability
 
-use worker::*;
+use crate::{d1_rest, db, middleware};
 use serde::Serialize;
-use crate::{db, middleware, d1_rest};
+use worker::*;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

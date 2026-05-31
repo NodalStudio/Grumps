@@ -1,10 +1,10 @@
 //! Calendar aggregation : union of todos+events+reminders+scheduled actions.
 //! See spec § 9.1.
 
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use crate::Event;
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde::{Deserialize, Serialize};
 
 /// Parse a stored date string into a UTC instant for calendar placement.
@@ -226,7 +226,9 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id, "todo:t9");
         assert!(items[0].all_day);
-        assert_eq!(items[0].starts_at.date_naive(),
-                   NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(
+            items[0].starts_at.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
     }
 }

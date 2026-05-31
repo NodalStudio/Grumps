@@ -161,7 +161,13 @@ mod tests {
     #[test]
     fn build_prompt_with_todos() {
         let todos = vec![(1, "Buy bread".into()), (2, "Call plumber".into())];
-        let prompt = build_user_prompt("remind bob to pay rent", "Alice", &todos, "2026-05-30T14:00:00", "Europe/Paris");
+        let prompt = build_user_prompt(
+            "remind bob to pay rent",
+            "Alice",
+            &todos,
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
         assert!(prompt.contains("Alice"));
         assert!(prompt.contains("remind bob to pay rent"));
         assert!(prompt.contains("#1 Buy bread"));
@@ -169,7 +175,13 @@ mod tests {
 
     #[test]
     fn build_prompt_includes_current_time() {
-        let prompt = build_user_prompt("remind me tomorrow", "Alice", &[], "2026-05-30T14:00:00", "Europe/Paris");
+        let prompt = build_user_prompt(
+            "remind me tomorrow",
+            "Alice",
+            &[],
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
         assert!(prompt.contains("2026-05-30T14:00:00"));
         assert!(prompt.contains("Europe/Paris"));
     }

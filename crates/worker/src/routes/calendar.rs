@@ -330,7 +330,12 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
         .collect();
 
     let workspace_name = ws.name.as_deref().unwrap_or(slug);
-    let tz = ws_db.get_setting("timezone").await.ok().flatten().filter(|s| !s.is_empty());
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty());
     let items = aggregate(events, todos_json, reminders_json, scheduled_json, slug);
     let ical_body = generate_ical(workspace_name, &items, tz.as_deref());
 

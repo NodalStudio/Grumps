@@ -296,17 +296,28 @@ pub async fn migrate_all(req: Request, ctx: RouteContext<()>) -> Result<Response
         Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
     };
     if !is_super_admin(&ctx.env, &claims) {
-        return middleware::error_with_cors(&req, 403, "auth.not_super_admin", "super admin required");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_super_admin",
+            "super admin required",
+        );
     }
 
     let index = get_index_db(&ctx.env)?;
     let client = D1RestClient::from_env(&ctx.env)?;
 
     #[derive(serde::Deserialize)]
-    struct WsRow { slug: String, d1_database_id: String }
-    let workspaces: Vec<WsRow> = index.prepare(
-        "SELECT slug, d1_database_id FROM workspaces_meta"
-    ).bind(&[])?.all().await?.results()?;
+    struct WsRow {
+        slug: String,
+        d1_database_id: String,
+    }
+    let workspaces: Vec<WsRow> = index
+        .prepare("SELECT slug, d1_database_id FROM workspaces_meta")
+        .bind(&[])?
+        .all()
+        .await?
+        .results()?;
 
     let mut applied_total = 0usize;
     let mut results: Vec<serde_json::Value> = vec![];

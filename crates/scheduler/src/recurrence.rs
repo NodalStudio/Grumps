@@ -7,7 +7,9 @@
 //!
 //! See spec § 7.6.
 
-use chrono::{DateTime, Utc, Datelike, Weekday, Duration, Timelike, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{
+    DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc, Weekday,
+};
 use chrono_tz::Tz;
 use grumps_core::timeutil::local_naive_to_utc;
 use thiserror::Error;
@@ -107,19 +109,37 @@ pub fn parse(rrule: &str) -> Result<Rrule, RruleError> {
 /// An input that is already an RRULE (`FREQ=...`) is passed through.
 pub fn text_to_rrule(s: &str, weekday: Weekday) -> Option<String> {
     let t = s.trim().to_lowercase();
-    if t.is_empty() { return None; }
-    if t.starts_with("freq=") { return Some(s.trim().to_uppercase()); }
-    if t.contains("every day") || t == "daily" { return Some("FREQ=DAILY".into()); }
+    if t.is_empty() {
+        return None;
+    }
+    if t.starts_with("freq=") {
+        return Some(s.trim().to_uppercase());
+    }
+    if t.contains("every day") || t == "daily" {
+        return Some("FREQ=DAILY".into());
+    }
     for (name, code) in [
-        ("monday", "MO"), ("tuesday", "TU"), ("wednesday", "WE"), ("thursday", "TH"),
-        ("friday", "FR"), ("saturday", "SA"), ("sunday", "SU"),
+        ("monday", "MO"),
+        ("tuesday", "TU"),
+        ("wednesday", "WE"),
+        ("thursday", "TH"),
+        ("friday", "FR"),
+        ("saturday", "SA"),
+        ("sunday", "SU"),
     ] {
-        if t.contains(name) { return Some(format!("FREQ=WEEKLY;BYDAY={code}")); }
+        if t.contains(name) {
+            return Some(format!("FREQ=WEEKLY;BYDAY={code}"));
+        }
     }
     if t.contains("weekly") || t.contains("every week") {
         let code = match weekday {
-            Weekday::Mon => "MO", Weekday::Tue => "TU", Weekday::Wed => "WE",
-            Weekday::Thu => "TH", Weekday::Fri => "FR", Weekday::Sat => "SA", Weekday::Sun => "SU",
+            Weekday::Mon => "MO",
+            Weekday::Tue => "TU",
+            Weekday::Wed => "WE",
+            Weekday::Thu => "TH",
+            Weekday::Fri => "FR",
+            Weekday::Sat => "SA",
+            Weekday::Sun => "SU",
         };
         return Some(format!("FREQ=WEEKLY;BYDAY={code}"));
     }
@@ -181,10 +201,16 @@ fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
             days > 0 && (days as u32) % rule.interval == 0
         }
         Freq::Weekly => {
-            if rule.by_day.is_empty() { return false; }
-            if !rule.by_day.contains(&date.weekday()) { return false; }
+            if rule.by_day.is_empty() {
+                return false;
+            }
+            if !rule.by_day.contains(&date.weekday()) {
+                return false;
+            }
             let days = (date - base).num_days();
-            if days <= 0 { return false; }
+            if days <= 0 {
+                return false;
+            }
             // INTERVAL applies to weeks.
             let weeks = (days / 7) as u32;
             weeks % rule.interval == 0
@@ -201,8 +227,8 @@ fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
 mod tests {
     use super::*;
     use chrono::TimeZone;
-    use chrono_tz::UTC;
     use chrono_tz::Europe::Paris;
+    use chrono_tz::UTC;
 
     fn dt(y: i32, m: u32, d: u32, h: u32, min: u32) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(y, m, d, h, min, 0).unwrap()
@@ -249,7 +275,10 @@ mod tests {
     fn next_daily_tomorrow() {
         let r = parse("FREQ=DAILY").unwrap();
         let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
-        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
     }
 
     #[test]
@@ -257,7 +286,10 @@ mod tests {
         let r = parse("FREQ=WEEKLY;BYDAY=FR").unwrap();
         // 2026-04-23 is a Thursday
         let n = next_occurrence(&r, dt(2026, 4, 23, 10, 0), UTC).unwrap();
-        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 24).unwrap());
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 24).unwrap()
+        );
     }
 
     #[test]
@@ -279,14 +311,20 @@ mod tests {
     fn next_yearly_birthday() {
         let r = parse("FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=15").unwrap();
         let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
-        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2027, 3, 15).unwrap());
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2027, 3, 15).unwrap()
+        );
     }
 
     #[test]
     fn weekly_with_byhour_snaps_time() {
         let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
-        let n = next_occurrence(&r, dt(2026, 4, 19, 18, 0), UTC).unwrap();  // dimanche 18h
-        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        let n = next_occurrence(&r, dt(2026, 4, 19, 18, 0), UTC).unwrap(); // dimanche 18h
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
         assert_eq!(n.hour(), 9);
     }
 
@@ -298,7 +336,10 @@ mod tests {
         // Next Monday 2026-04-20 09:00 *Paris* (CEST, +02:00) == 07:00 UTC.
         let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
         let n = next_occurrence(&r, dt(2026, 4, 19, 6, 0), Paris).unwrap();
-        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
         assert_eq!(n.hour(), 7); // 9am local == 7am UTC in summer
     }
 
@@ -306,13 +347,28 @@ mod tests {
     fn text_to_rrule_cases() {
         use Weekday::*;
         assert_eq!(text_to_rrule("daily", Mon).as_deref(), Some("FREQ=DAILY"));
-        assert_eq!(text_to_rrule("every day", Mon).as_deref(), Some("FREQ=DAILY"));
-        assert_eq!(text_to_rrule("every monday", Fri).as_deref(), Some("FREQ=WEEKLY;BYDAY=MO"));
-        assert_eq!(text_to_rrule("every friday", Mon).as_deref(), Some("FREQ=WEEKLY;BYDAY=FR"));
+        assert_eq!(
+            text_to_rrule("every day", Mon).as_deref(),
+            Some("FREQ=DAILY")
+        );
+        assert_eq!(
+            text_to_rrule("every monday", Fri).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=MO")
+        );
+        assert_eq!(
+            text_to_rrule("every friday", Mon).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=FR")
+        );
         // bare "weekly" derives the day from the trigger weekday
-        assert_eq!(text_to_rrule("weekly", Wed).as_deref(), Some("FREQ=WEEKLY;BYDAY=WE"));
+        assert_eq!(
+            text_to_rrule("weekly", Wed).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=WE")
+        );
         // already an RRULE → passed through (upper-cased)
-        assert_eq!(text_to_rrule("FREQ=WEEKLY;BYDAY=TU", Mon).as_deref(), Some("FREQ=WEEKLY;BYDAY=TU"));
+        assert_eq!(
+            text_to_rrule("FREQ=WEEKLY;BYDAY=TU", Mon).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=TU")
+        );
         // one-off / unknown → None
         assert_eq!(text_to_rrule("", Mon), None);
         assert_eq!(text_to_rrule("once in a while", Mon), None);
@@ -325,9 +381,15 @@ mod tests {
         // return the FOLLOWING Monday (2026-04-27) — not this one.
         let r = parse("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9").unwrap();
         let n_paris = next_occurrence(&r, dt(2026, 4, 19, 23, 0), Paris).unwrap();
-        assert_eq!(n_paris.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 27).unwrap());
+        assert_eq!(
+            n_paris.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
+        );
         // In UTC the base day is still Sunday, so the next Monday is 2026-04-20.
         let n_utc = next_occurrence(&r, dt(2026, 4, 19, 23, 0), UTC).unwrap();
-        assert_eq!(n_utc.date_naive(), NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(
+            n_utc.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
     }
 }

@@ -36,13 +36,20 @@ fn push_prop(out: &mut String, line: String) {
     out.push_str("\r\n");
 }
 
-pub fn generate_ical(workspace_name: &str, items: &[CalendarItem], workspace_tz: Option<&str>) -> String {
+pub fn generate_ical(
+    workspace_name: &str,
+    items: &[CalendarItem],
+    workspace_tz: Option<&str>,
+) -> String {
     let mut out = String::new();
     out.push_str("BEGIN:VCALENDAR\r\n");
     out.push_str("VERSION:2.0\r\n");
     out.push_str("PRODID:-//Grumps//Calendar 1.0//EN\r\n");
     push_prop(&mut out, format!("NAME:Grumps \u{2014} {workspace_name}"));
-    push_prop(&mut out, format!("X-WR-CALNAME:Grumps \u{2014} {workspace_name}"));
+    push_prop(
+        &mut out,
+        format!("X-WR-CALNAME:Grumps \u{2014} {workspace_name}"),
+    );
     // Default calendar timezone for the subscriber's client (helps all-day /
     // floating items render against the workspace's calendar).
     if let Some(tz) = workspace_tz.filter(|t| !t.is_empty()) {

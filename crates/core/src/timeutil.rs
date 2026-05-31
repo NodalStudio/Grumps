@@ -90,8 +90,8 @@ pub fn to_utc_z(dt: DateTime<Utc>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono_tz::Europe::Paris;
     use chrono_tz::Asia::Tokyo;
+    use chrono_tz::Europe::Paris;
 
     #[test]
     fn tz_or_utc_falls_back() {
@@ -102,7 +102,8 @@ mod tests {
     #[test]
     fn day_bounds_paris_summer() {
         // 2026-07-01 Paris is CEST (+02:00): local midnight = 22:00 prev-day UTC.
-        let (start, end) = local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 7, 1).unwrap());
+        let (start, end) =
+            local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 7, 1).unwrap());
         assert_eq!(to_utc_z(start), "2026-06-30T22:00:00Z");
         assert_eq!(to_utc_z(end), "2026-07-01T22:00:00Z");
     }
@@ -110,7 +111,8 @@ mod tests {
     #[test]
     fn day_bounds_paris_winter() {
         // 2026-01-15 Paris is CET (+01:00): local midnight = 23:00 prev-day UTC.
-        let (start, end) = local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 1, 15).unwrap());
+        let (start, end) =
+            local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 1, 15).unwrap());
         assert_eq!(to_utc_z(start), "2026-01-14T23:00:00Z");
         assert_eq!(to_utc_z(end), "2026-01-15T23:00:00Z");
     }
@@ -125,7 +127,8 @@ mod tests {
     #[test]
     fn spring_forward_day_does_not_panic() {
         // Paris springs forward 2026-03-29. The day bounds must still resolve.
-        let (start, end) = local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 3, 29).unwrap());
+        let (start, end) =
+            local_day_bounds_utc(Paris, NaiveDate::from_ymd_opt(2026, 3, 29).unwrap());
         assert!(end > start);
     }
 
@@ -135,7 +138,10 @@ mod tests {
         let instant = Utc.with_ymd_and_hms(2026, 5, 31, 23, 30, 0).unwrap();
         // Local civil date is the *next* day vs UTC.
         assert_ne!(date_of(instant, Paris), instant.date_naive());
-        assert_eq!(date_of(instant, Paris), NaiveDate::from_ymd_opt(2026, 6, 1).unwrap());
+        assert_eq!(
+            date_of(instant, Paris),
+            NaiveDate::from_ymd_opt(2026, 6, 1).unwrap()
+        );
         // And the weekday differs accordingly (the case the recap gate depends on).
         assert_ne!(weekday_of(instant, Paris), instant.weekday());
     }

@@ -1,11 +1,11 @@
-use worker::*;
-use grumps_messaging::adapter::MessagingPlatform;
-use grumps_messaging::telegram::{TelegramAdapter, TgUpdate, TgChatMemberUpdated};
-use grumps_nlu::parser;
 use grumps_i18n::{t, Locale};
 use grumps_messaging::adapter::MessagingPlatform;
+use grumps_messaging::adapter::MessagingPlatform;
+use grumps_messaging::telegram::{TelegramAdapter, TgChatMemberUpdated, TgUpdate};
 use grumps_messaging::telegram::{TelegramAdapter, TgChatMemberUpdated, TgUpdate};
 use grumps_nlu::parser;
+use grumps_nlu::parser;
+use worker::*;
 use worker::*;
 
 #[derive(Debug, PartialEq, Eq)]

@@ -130,10 +130,18 @@ impl<'a> WorkspaceDb<'a> {
     // --- Todos ---
 
     /// Insert todo with atomic seq_num. Returns (todo_id, seq_num).
-    pub async fn insert_todo(&self, title: &str, priority: i32, tags_json: &str,
-                              assigned_to: &str, assigned_name: &str,
-                              created_by: &str, source: &str, message_id: &str,
-                              deadline: Option<&str>) -> Result<(String, i64)> {
+    pub async fn insert_todo(
+        &self,
+        title: &str,
+        priority: i32,
+        tags_json: &str,
+        assigned_to: &str,
+        assigned_name: &str,
+        created_by: &str,
+        source: &str,
+        message_id: &str,
+        deadline: Option<&str>,
+    ) -> Result<(String, i64)> {
         let id = uuid::Uuid::new_v4().to_string();
         // `deadline` is a civil date "YYYY-MM-DD" (never a UTC instant). Empty/None → NULL.
         self.q(
@@ -633,7 +641,10 @@ impl<'a> WorkspaceDb<'a> {
     /// agent builds its prompt context.
     pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
         #[derive(Deserialize)]
-        struct Row { key: String, value: String }
+        struct Row {
+            key: String,
+            value: String,
+        }
         let resp = self.q("SELECT key, value FROM settings", vec![]).await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
         Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
@@ -737,7 +748,9 @@ impl<'a> WorkspaceDb<'a> {
     /// Get data needed for a recap.
     pub async fn get_recap_data(&self, tz: &str) -> Result<RecapData> {
         #[derive(Deserialize)]
-        struct Count { cnt: i64 }
+        struct Count {
+            cnt: i64,
+        }
         // "This week" = the last 7 *local* days, anchored to the workspace tz.
         let week_start = week_start_utc(tz);
 
@@ -763,7 +776,12 @@ impl<'a> WorkspaceDb<'a> {
         let high_priority: Vec<HighPrioTodo> = extract_rows(&r)?;
 
         // New notes this week
-        let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
+        let r = self
+            .q(
+                "SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)",
+                vec![week_start.clone().into()],
+            )
+            .await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Active reminders
@@ -815,7 +833,9 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn get_status_counts(&self, tz: &str) -> Result<(i64, i64, i64, i64)> {
         #[derive(Deserialize)]
-        struct Row { cnt: i64 }
+        struct Row {
+            cnt: i64,
+        }
         let week_start = week_start_utc(tz);
 
         let r1 = self
@@ -1145,10 +1165,15 @@ impl<'a> WorkspaceDb<'a> {
         // UTC instant. For all-day, starts_at/ends_at carry the date at UTC
         // midnight (set by the caller), so formatting %Y-%m-%d yields the date.
         let fmt_dt = |d: chrono::DateTime<chrono::Utc>| -> String {
-            if e.all_day { d.format("%Y-%m-%d").to_string() } else { d.to_rfc3339() }
+            if e.all_day {
+                d.format("%Y-%m-%d").to_string()
+            } else {
+                d.to_rfc3339()
+            }
         };
         let starts_at_val: serde_json::Value = fmt_dt(e.starts_at).into();
-        let ends_at: serde_json::Value = e.ends_at
+        let ends_at: serde_json::Value = e
+            .ends_at
             .map(|d| serde_json::Value::String(fmt_dt(d)))
             .unwrap_or(serde_json::Value::Null);
 
@@ -1206,21 +1231,30 @@ impl<'a> WorkspaceDb<'a> {
     ) -> Result<bool> {
         let mut sets = vec!["updated_at = datetime('now')".to_string()];
         let mut params: Vec<serde_json::Value> = vec![];
-        if let Some(v) = title { params.push(v.into()); sets.push(format!("title = ?{}", params.len())); }
+        if let Some(v) = title {
+            params.push(v.into());
+            sets.push(format!("title = ?{}", params.len()));
+        }
         // Accept a UTC instant (timed event) OR a bare civil date "YYYY-MM-DD"
         // (all-day event), matching what create_event stores.
-        let valid_dt = |v: &str| chrono::DateTime::parse_from_rfc3339(v).is_ok()
-            || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok();
+        let valid_dt = |v: &str| {
+            chrono::DateTime::parse_from_rfc3339(v).is_ok()
+                || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok()
+        };
         if let Some(v) = starts_at {
             if !valid_dt(v) {
-                return Err(worker::Error::RustError("invalid starts_at: expected RFC3339 or YYYY-MM-DD".into()));
+                return Err(worker::Error::RustError(
+                    "invalid starts_at: expected RFC3339 or YYYY-MM-DD".into(),
+                ));
             }
             params.push(v.into());
             sets.push(format!("starts_at = ?{}", params.len()));
         }
         if let Some(v) = ends_at {
             if !valid_dt(v) {
-                return Err(worker::Error::RustError("invalid ends_at: expected RFC3339 or YYYY-MM-DD".into()));
+                return Err(worker::Error::RustError(
+                    "invalid ends_at: expected RFC3339 or YYYY-MM-DD".into(),
+                ));
             }
             params.push(v.into());
             sets.push(format!("ends_at = ?{}", params.len()));
@@ -1269,20 +1303,25 @@ fn week_start_utc(tz: &str) -> String {
     let tz = grumps_core::timeutil::tz_or_utc(tz);
     let today = grumps_core::timeutil::today_in_tz(tz);
     let (start, _) = grumps_core::timeutil::local_window_bounds_utc(
-        tz, today - chrono::Duration::days(6), today,
+        tz,
+        today - chrono::Duration::days(6),
+        today,
     );
     grumps_core::timeutil::to_utc_z(start)
 }
 
 fn event_row_to_event(r: EventRow) -> Event {
-    use chrono::{DateTime, NaiveDate, Utc, TimeZone};
+    use chrono::{DateTime, NaiveDate, TimeZone, Utc};
     // Accept a UTC instant (timed event) or a bare civil date (all-day event,
     // placed at that day's UTC midnight). Epoch is the last-resort fallback.
     let parse_dt = |s: &str| -> DateTime<Utc> {
         if let Ok(d) = DateTime::parse_from_rfc3339(s) {
             return d.with_timezone(&Utc);
         }
-        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d").ok().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .ok()
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+        {
             return Utc.from_utc_datetime(&ndt);
         }
         Utc.timestamp_opt(0, 0).unwrap()

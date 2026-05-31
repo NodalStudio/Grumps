@@ -8,10 +8,10 @@ mod durable_objects;
 mod error;
 mod handler;
 mod llm_client;
-mod middleware;
-mod provisioning;
-mod migrations;
 mod llm_client;
+mod middleware;
+mod migrations;
+mod provisioning;
 // rag module moved to grumps_agent::tools::rag_pipeline
 mod agent_db_impl;
 mod agent_sink;
@@ -71,11 +71,26 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async("/api/workspaces", routes::workspace_api::list_my_workspaces)
         .patch_async("/api/me", routes::workspace_api::update_me)
         .get_async("/api/w/:slug", routes::workspace_api::workspace_info)
-        .get_async("/api/w/:slug/history", routes::workspace_api::workspace_history)
-        .get_async("/api/w/:slug/members", routes::workspace_api::workspace_members)
-        .patch_async("/api/w/:slug/settings/locale", routes::workspace_api::update_locale)
-        .patch_async("/api/w/:slug/settings/timezone", routes::workspace_api::update_timezone)
-        .patch_async("/api/w/:slug/settings/name", routes::workspace_api::update_workspace_name)
+        .get_async(
+            "/api/w/:slug/history",
+            routes::workspace_api::workspace_history,
+        )
+        .get_async(
+            "/api/w/:slug/members",
+            routes::workspace_api::workspace_members,
+        )
+        .patch_async(
+            "/api/w/:slug/settings/locale",
+            routes::workspace_api::update_locale,
+        )
+        .patch_async(
+            "/api/w/:slug/settings/timezone",
+            routes::workspace_api::update_timezone,
+        )
+        .patch_async(
+            "/api/w/:slug/settings/name",
+            routes::workspace_api::update_workspace_name,
+        )
         // Todos
         .get_async("/api/w/:slug/todos", routes::todos::list_todos)
         .post_async("/api/w/:slug/todos", routes::todos::create_todo)
@@ -129,7 +144,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::admin_global::observability,
         )
         .get_async("/api/admin/me", routes::admin_global::whoami)
-        .post_async("/api/admin/w/:slug/scheduled/:id/fire", routes::admin_global::force_fire_scheduled)
+        .post_async(
+            "/api/admin/w/:slug/scheduled/:id/fire",
+            routes::admin_global::force_fire_scheduled,
+        )
         .post_async("/api/admin/migrate-all", routes::admin_global::migrate_all)
         // Stripe webhook
         .post_async(

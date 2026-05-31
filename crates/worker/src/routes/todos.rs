@@ -158,28 +158,36 @@ pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
-    let tags_json = serde_json::to_string(&body.tags.unwrap_or_default()).unwrap_or_else(|_| "[]".into());
+    let tags_json =
+        serde_json::to_string(&body.tags.unwrap_or_default()).unwrap_or_else(|_| "[]".into());
     // Persist the deadline only when it's a civil date "YYYY-MM-DD".
-    let deadline = body.deadline.as_deref()
+    let deadline = body
+        .deadline
+        .as_deref()
         .filter(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
     let assigned_to = body.assigned_to.unwrap_or_default();
     let assigned_name = body.assigned_name.unwrap_or_default();
-    let (todo_id, seq_num) = ws_db.insert_todo(
-        &body.title,
-        body.priority.unwrap_or(2),
-        &tags_json,
-        &assigned_to,
-        &assigned_name,
-        &claims.sub,
-        "api",
-        "",
-        deadline,
-    ).await?;
+    let (todo_id, seq_num) = ws_db
+        .insert_todo(
+            &body.title,
+            body.priority.unwrap_or(2),
+            &tags_json,
+            &assigned_to,
+            &assigned_name,
+            &claims.sub,
+            "api",
+            "",
+            deadline,
+        )
+        .await?;
 
-    middleware::with_cors(&req, Response::from_json(&serde_json::json!({
-        "id": todo_id,
-        "seq_num": seq_num,
-    }))?)
+    middleware::with_cors(
+        &req,
+        Response::from_json(&serde_json::json!({
+            "id": todo_id,
+            "seq_num": seq_num,
+        }))?,
+    )
 }
 
 // ── PATCH /api/w/:slug/todos/:id ─────────────────────────────────────────────

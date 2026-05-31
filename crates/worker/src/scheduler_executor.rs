@@ -26,9 +26,15 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     // still validate the JSON shape so malformed payloads are surfaced.
     if let Some(cond_value) = &action.condition {
         if let Err(e) = serde_json::from_value::<grumps_scheduler::Condition>(cond_value.clone()) {
-            console_log!("execute_action {}: malformed condition JSON ({e}) — ignoring, executing", action.id);
+            console_log!(
+                "execute_action {}: malformed condition JSON ({e}) — ignoring, executing",
+                action.id
+            );
         } else {
-            console_log!("execute_action {}: condition present but not yet evaluated (stub) — executing", action.id);
+            console_log!(
+                "execute_action {}: condition present but not yet evaluated (stub) — executing",
+                action.id
+            );
         }
     }
 
@@ -55,8 +61,16 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
-            let language = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
-            let timezone = db.get_setting("timezone").await.ok().flatten()
+            let language = if ws.locale.is_empty() {
+                "en".to_string()
+            } else {
+                ws.locale.clone()
+            };
+            let timezone = db
+                .get_setting("timezone")
+                .await
+                .ok()
+                .flatten()
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "UTC".to_string());
             let ctx = grumps_agent::tools::ToolContext {
@@ -94,7 +108,11 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                     .map_err(|e| Error::RustError(format!("bad rrule: {e}")))?;
                 // Recurrence weekday/BYHOUR are evaluated in the workspace tz.
                 let tz = grumps_core::timeutil::tz_or_utc(
-                    &db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+                    &db.get_setting("timezone")
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default(),
                 );
                 if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at, tz) {
                     db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
@@ -154,19 +172,42 @@ async fn execute_event_notify(
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
+async fn execute_recap(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
+    _action: &ScheduledAction,
+) -> Result<()> {
     // Build the recap from live workspace data, same as the weekly cron path.
-    let tz = db.get_setting("timezone").await.ok().flatten()
-        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let tz = db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
     let data = db.get_recap_data(&tz).await?;
     // Nothing worth reporting → stay silent rather than send an empty recap.
     if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
         return Ok(());
     }
-    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
-        .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+        .high_priority
+        .iter()
+        .map(|t| {
+            (
+                t.seq_num,
+                t.title.clone(),
+                t.assigned_name.clone(),
+                t.deadline.clone(),
+            )
+        })
         .collect();
-    let locale = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
+    let locale = if ws.locale.is_empty() {
+        "en".to_string()
+    } else {
+        ws.locale.clone()
+    };
     let body = grumps_messaging::formatter::recap_message(
         &ws.slug,
         data.open,

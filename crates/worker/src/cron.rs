@@ -1,7 +1,7 @@
 // crates/worker/src/cron.rs
-use worker::*;
-use crate::{db, d1_rest::D1RestClient};
+use crate::{d1_rest::D1RestClient, db};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use worker::*;
 use worker::*;
 
 /// Called by Cloudflare Cron Trigger. Iterates over all workspaces, fires due reminders and recaps.
@@ -51,9 +51,16 @@ async fn check_and_send_recaps(
 
         // Recap fires on the workspace's *local* Monday.
         let tz = grumps_core::timeutil::tz_or_utc(
-            &ws_db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+            &ws_db
+                .get_setting("timezone")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_default(),
         );
-        if grumps_core::timeutil::tz_weekday(tz) != chrono::Weekday::Mon { continue; }
+        if grumps_core::timeutil::tz_weekday(tz) != chrono::Weekday::Mon {
+            continue;
+        }
 
         // Check settings: is recap enabled? (default: enabled)
         let enabled = match ws_db.get_setting("recap_enabled").await {
@@ -65,8 +72,14 @@ async fn check_and_send_recaps(
         }
 
         // KV dedup: at most one recap per local day per workspace.
-        let recap_key = format!("recap:{}:{}", ws.slug, grumps_core::timeutil::tz_today_str(tz));
-        if kv.get(&recap_key).text().await?.is_some() { continue; }
+        let recap_key = format!(
+            "recap:{}:{}",
+            ws.slug,
+            grumps_core::timeutil::tz_today_str(tz)
+        );
+        if kv.get(&recap_key).text().await?.is_some() {
+            continue;
+        }
 
         // Get recap data
         let data = ws_db.get_recap_data(tz.name()).await?;
