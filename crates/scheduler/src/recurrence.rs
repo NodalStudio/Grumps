@@ -115,9 +115,24 @@ pub fn text_to_rrule(s: &str, weekday: Weekday) -> Option<String> {
     if t.starts_with("freq=") {
         return Some(s.trim().to_uppercase());
     }
-    if t.contains("every day") || t == "daily" {
-        return Some("FREQ=DAILY".into());
+    // "every other X" / "biweekly" / "fortnightly" → every 2nd period.
+    let interval_suffix = if t.contains("every other")
+        || t.contains("biweekly")
+        || t.contains("bi-weekly")
+        || t.contains("fortnight")
+    {
+        ";INTERVAL=2"
+    } else {
+        ""
+    };
+
+    // Work-week ("every weekday" / "weekdays") → Mon–Fri. Checked before the
+    // bare-"weekly" branch because "every weekday" also contains "every week".
+    if t.contains("weekday") {
+        return Some(format!("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR{interval_suffix}"));
     }
+    // Named single weekday takes priority over the daily branch ("monday"
+    // contains "day"), so check it before "every (other) day".
     for (name, code) in [
         ("monday", "MO"),
         ("tuesday", "TU"),
@@ -128,22 +143,40 @@ pub fn text_to_rrule(s: &str, weekday: Weekday) -> Option<String> {
         ("sunday", "SU"),
     ] {
         if t.contains(name) {
-            return Some(format!("FREQ=WEEKLY;BYDAY={code}"));
+            return Some(format!("FREQ=WEEKLY;BYDAY={code}{interval_suffix}"));
         }
     }
+    if t.contains("every day")
+        || t == "daily"
+        || t.contains("everyday")
+        || t.contains("every other day")
+    {
+        return Some(format!("FREQ=DAILY{interval_suffix}"));
+    }
     if t.contains("weekly") || t.contains("every week") {
-        let code = match weekday {
-            Weekday::Mon => "MO",
-            Weekday::Tue => "TU",
-            Weekday::Wed => "WE",
-            Weekday::Thu => "TH",
-            Weekday::Fri => "FR",
-            Weekday::Sat => "SA",
-            Weekday::Sun => "SU",
-        };
-        return Some(format!("FREQ=WEEKLY;BYDAY={code}"));
+        let code = weekday_code(weekday);
+        return Some(format!("FREQ=WEEKLY;BYDAY={code}{interval_suffix}"));
     }
     None
+}
+
+/// The 2-letter RRULE code for a weekday.
+fn weekday_code(w: Weekday) -> &'static str {
+    match w {
+        Weekday::Mon => "MO",
+        Weekday::Tue => "TU",
+        Weekday::Wed => "WE",
+        Weekday::Thu => "TH",
+        Weekday::Fri => "FR",
+        Weekday::Sat => "SA",
+        Weekday::Sun => "SU",
+    }
+}
+
+/// Whole-month offset from `base` to `date` (e.g. Jan→Mar = 2). Negative if
+/// `date` precedes `base`.
+fn months_between(base: NaiveDate, date: NaiveDate) -> i64 {
+    (date.year() as i64 - base.year() as i64) * 12 + (date.month() as i64 - base.month() as i64)
 }
 
 fn parse_weekday(s: &str) -> Result<Weekday, RruleError> {
@@ -201,23 +234,36 @@ fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
             days > 0 && (days as u32) % rule.interval == 0
         }
         Freq::Weekly => {
-            if rule.by_day.is_empty() {
-                return false;
-            }
-            if !rule.by_day.contains(&date.weekday()) {
-                return false;
-            }
             let days = (date - base).num_days();
             if days <= 0 {
+                return false;
+            }
+            // Bare weekly (no BYDAY): recur on the base day's weekday, every
+            // `interval` weeks. Legacy "weekly" reminders normalized without a
+            // named day land here, so the weekday is the *local* base weekday
+            // (base is `from` seen in the workspace tz) — no UTC drift.
+            if rule.by_day.is_empty() {
+                return days % 7 == 0 && ((days / 7) as u32) % rule.interval == 0;
+            }
+            if !rule.by_day.contains(&date.weekday()) {
                 return false;
             }
             // INTERVAL applies to weeks.
             let weeks = (days / 7) as u32;
             weeks % rule.interval == 0
         }
-        Freq::Monthly => rule.by_month_day.is_some_and(|mday| date.day() == mday),
+        // For MONTHLY/YEARLY, INTERVAL counts from the base (DTSTART) period,
+        // so the base period itself (offset 0) is a valid occurrence.
+        Freq::Monthly => {
+            rule.by_month_day.is_some_and(|mday| date.day() == mday)
+                && months_between(base, date) % rule.interval as i64 == 0
+        }
         Freq::Yearly => match (rule.by_month, rule.by_month_day) {
-            (Some(m), Some(mday)) => date.month() == m && date.day() == mday,
+            (Some(m), Some(mday)) => {
+                date.month() == m
+                    && date.day() == mday
+                    && (date.year() - base.year()) as i64 % rule.interval as i64 == 0
+            }
             _ => false,
         },
     }
@@ -372,6 +418,68 @@ mod tests {
         // one-off / unknown → None
         assert_eq!(text_to_rrule("", Mon), None);
         assert_eq!(text_to_rrule("once in a while", Mon), None);
+        // work-week and cadence variants
+        assert_eq!(
+            text_to_rrule("every weekday", Mon).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR")
+        );
+        assert_eq!(
+            text_to_rrule("weekdays", Mon).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR")
+        );
+        assert_eq!(
+            text_to_rrule("every other monday", Mon).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=MO;INTERVAL=2")
+        );
+        assert_eq!(
+            text_to_rrule("biweekly", Wed).as_deref(),
+            Some("FREQ=WEEKLY;BYDAY=WE;INTERVAL=2")
+        );
+        assert_eq!(
+            text_to_rrule("every other day", Mon).as_deref(),
+            Some("FREQ=DAILY;INTERVAL=2")
+        );
+    }
+
+    #[test]
+    fn bare_weekly_repeats_on_base_weekday_in_local_tz() {
+        // "FREQ=WEEKLY" with no BYDAY: from Wed 2026-04-22 10:00, next is the
+        // following Wed 2026-04-29 (same weekday, +1 week).
+        let r = parse("FREQ=WEEKLY").unwrap();
+        let n = next_occurrence(&r, dt(2026, 4, 22, 10, 0), UTC).unwrap();
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 29).unwrap()
+        );
+    }
+
+    #[test]
+    fn weekly_interval_2_skips_a_week() {
+        let r = parse("FREQ=WEEKLY;BYDAY=MO;INTERVAL=2").unwrap();
+        // From Mon 2026-04-20 10:00, the next is 2026-05-04 (two weeks later),
+        // not 2026-04-27.
+        let n = next_occurrence(&r, dt(2026, 4, 20, 10, 0), UTC).unwrap();
+        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 5, 4).unwrap());
+    }
+
+    #[test]
+    fn monthly_interval_2_skips_a_month() {
+        let r = parse("FREQ=MONTHLY;BYMONTHDAY=1;INTERVAL=2").unwrap();
+        // From 2026-04-19, the next 1st two months out is 2026-06-01 (May 1 is
+        // only one month away → skipped).
+        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
+        assert_eq!(n.date_naive(), NaiveDate::from_ymd_opt(2026, 6, 1).unwrap());
+    }
+
+    #[test]
+    fn yearly_interval_2_skips_a_year() {
+        let r = parse("FREQ=YEARLY;BYMONTH=3;BYMONTHDAY=15;INTERVAL=2").unwrap();
+        // From 2026-04-19, next Mar 15 is 2027 (1yr, skipped) → 2028.
+        let n = next_occurrence(&r, dt(2026, 4, 19, 10, 0), UTC).unwrap();
+        assert_eq!(
+            n.date_naive(),
+            NaiveDate::from_ymd_opt(2028, 3, 15).unwrap()
+        );
     }
 
     #[test]
