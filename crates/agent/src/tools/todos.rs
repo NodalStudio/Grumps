@@ -66,3 +66,22 @@ pub async fn reopen_todo(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Va
         Pick::Outcome(v) => Ok(v),
     }
 }
+
+/// Read-only status lookup, so the agent can judge "only if not done"-style
+/// instructions at fire time without mutating anything.
+pub async fn get_todo_status(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
+    let a: args::GetTodoStatusArgs = parse_args(raw, "get_todo_status")?;
+    let open = ctx.db.list_open_todos().await?;
+    let done = ctx.db.list_done_todos().await?;
+    // Match across both lists; status is decided by which list the hit came from.
+    let mut all = open.clone();
+    all.extend(done.iter().cloned());
+    match pick(a.seq_num, a.query.as_deref(), &all, "no_todos") {
+        Pick::Hit { id, seq_num, title } => {
+            let status = if open.iter().any(|(i, _, _)| i == &id) { "open" } else { "done" };
+            Ok(json!({ "ok": true, "found": true, "status": status, "seq_num": seq_num, "title": title }))
+        }
+        // Not found or ambiguous — surface the outcome so the model can refine.
+        Pick::Outcome(v) => Ok(v),
+    }
+}

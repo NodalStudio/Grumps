@@ -16,7 +16,7 @@ pub struct HandlerResult {
 impl HandlerResult {
     pub fn none() -> Self { Self { messages: vec![] } }
     pub fn one(text: String, reply_to: Option<String>) -> Self {
-        Self { messages: vec![OutboundMessage { text, reply_to, reply_markup: None }] }
+        Self { messages: vec![OutboundMessage { text, reply_to, ..Default::default() }] }
     }
     pub fn many(msgs: Vec<OutboundMessage>) -> Self { Self { messages: msgs } }
 }
@@ -38,10 +38,8 @@ pub async fn handle_message(
 ) -> worker::Result<HandlerResult> {
     let locale = grumps_i18n::Locale::from_code(ws_locale);
     if let Some(env) = env {
-        // A short "oui"/"annuler" may confirm or undo a pending proactive proposal.
-        if let Some(result) = try_proactive_confirmation(env, ws_db, workspace_slug, raw_text, ws_locale).await? {
-            return Ok(result);
-        }
+        // Proactive proposals are confirmed/undone via Telegram inline buttons
+        // (handled in the webhook callback path), not by text replies.
         // Agent fast-path: route @grumps mentions through the agent before structured parsing.
         if let Some(result) = try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await? {
             return Ok(result);
@@ -116,7 +114,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
     messages.push(OutboundMessage {
         text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
         reply_to: Some(msg_id.to_string()),
-        reply_markup: None,
+        ..Default::default()
     });
 
     // Individual task card per todo
@@ -143,7 +141,7 @@ async fn handle_add_todos(todos: Vec<ParsedTodo>, msg_id: &str, ws_db: &Workspac
             &parsed.tags,
             locale.code(),
         );
-        messages.push(OutboundMessage { text: card, reply_to: None, reply_markup: None });
+        messages.push(OutboundMessage { text: card, ..Default::default() });
     }
 
     Ok(HandlerResult::many(messages))
@@ -156,16 +154,12 @@ async fn handle_complete_todos(items: Vec<String>, ws_db: &WorkspaceDb<'_>, memb
     for item in &items {
         match matcher::match_done(item, &open_todos) {
             matcher::MatchResult::Exact(m) => {
-                ws_db.complete_todo(&m.todo_id, member_id).await?;
-                ws_db.log_activity(member_id, "todo.completed", "todo", &m.todo_id, "chat").await?;
+                let recurred = ws_db.complete_todo_with_followups(&m.todo_id, member_id, "chat").await?;
                 let seq_str = m.seq_num.to_string();
                 let mut line = grumps_i18n::t(locale, "agent.todo.completed",
                     &[("seq", &seq_str), ("title", &m.title)]);
-                if let Ok(Some(rec)) = ws_db.get_todo_recurrence(&m.todo_id).await {
-                    if let Ok(Some(todo)) = ws_db.get_todo_by_seq(m.seq_num).await {
-                        let _ = ws_db.create_next_recurrence(&todo, &rec).await;
-                        line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
-                    }
+                if recurred {
+                    line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                 }
                 lines.push(line);
             }
@@ -193,15 +187,11 @@ async fn handle_complete_single(target: CompletionTarget, ws_db: &WorkspaceDb<'_
             let seq_str = seq.to_string();
             match ws_db.get_todo_by_seq(seq).await? {
                 Some(todo) => {
-                    ws_db.complete_todo(&todo.id, member_id).await?;
-                    ws_db.log_activity(member_id, "todo.completed", "todo", &todo.id, "chat").await?;
+                    let recurred = ws_db.complete_todo_with_followups(&todo.id, member_id, "chat").await?;
                     let mut text = grumps_i18n::t(locale, "agent.todo.completed",
                         &[("seq", &seq_str), ("title", &todo.title)]);
-                    if let Some(ref rec) = todo.recurrence {
-                        if !rec.is_empty() {
-                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
-                        }
+                    if recurred {
+                        text.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                     }
                     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
                 }
@@ -422,27 +412,6 @@ async fn try_route_via_agent(
     }
 }
 
-/// A short affirmative ("oui", "ok", 👍, …) — used to confirm a proactive proposal.
-fn is_affirmative(text: &str) -> bool {
-    let t = text.trim().to_lowercase();
-    matches!(
-        t.as_str(),
-        "oui" | "ok" | "okay" | "yes" | "yep" | "ouais" | "d'accord" | "daccord"
-            | "go" | "vas-y" | "vas y" | "confirme" | "confirmer" | "👍" | "✅" | "si"
-    ) || t.starts_with("oui ")
-        || t.starts_with("yes ")
-}
-
-/// A short refusal/cancel ("non", "annuler", …).
-fn is_cancel(text: &str) -> bool {
-    let t = text.trim().to_lowercase();
-    matches!(
-        t.as_str(),
-        "non" | "no" | "nope" | "annule" | "annuler" | "cancel" | "undo" | "stop" | "❌"
-    ) || t.starts_with("annul")
-        || t.starts_with("undo")
-}
-
 /// The inverse of a just-executed reversible action, for undo. Only the
 /// complete↔reopen pair is reversible today.
 fn inverse_action(tool: &str, result: &serde_json::Value) -> Option<(&'static str, serde_json::Value)> {
@@ -477,9 +446,12 @@ fn reactive_ctx<'a>(
 }
 
 /// Outcome of acting on a parked proactive proposal — maps to an i18n result key.
-/// Shared by the text-reply path and the Telegram inline-button callback path.
+/// Drives the Telegram inline-button callback path.
 pub(crate) enum ProposalOutcome {
     Confirmed,
+    /// Confirmed, and a reversible inverse was parked — the caller should offer
+    /// an Undo button (saves re-reading KV to discover this).
+    ConfirmedUndoable,
     Failed,
     Cancelled,
     Undone,
@@ -489,7 +461,7 @@ pub(crate) enum ProposalOutcome {
 impl ProposalOutcome {
     fn i18n_key(&self) -> &'static str {
         match self {
-            ProposalOutcome::Confirmed => "agent.proactive.confirmed",
+            ProposalOutcome::Confirmed | ProposalOutcome::ConfirmedUndoable => "agent.proactive.confirmed",
             ProposalOutcome::Failed => "agent.proactive.failed",
             ProposalOutcome::Cancelled => "agent.proactive.cancelled",
             ProposalOutcome::Undone => "agent.proactive.undone",
@@ -528,19 +500,25 @@ pub(crate) async fn execute_pending_proposal(
     if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
         return ProposalOutcome::Failed;
     }
-    // Park the inverse for a short undo window.
+    // Park the inverse for a short undo window (offered via an Undo button).
+    let mut undoable = false;
     if let Some((inv_tool, inv_args)) = inverse_action(&tool, &result) {
         if let Ok(kv) = env.kv("KV") {
             let undo = serde_json::json!({ "tool": inv_tool, "args": inv_args });
-            kv.put(&format!("proactive:undo:{ws_slug}"), &undo.to_string())
-                .map(|p| p.expiration_ttl(900).execute()).ok();
+            if let Ok(p) = kv.put(&format!("proactive:undo:{ws_slug}"), &undo.to_string()) {
+                undoable = p.expiration_ttl(900).execute().await.is_ok();
+            }
         }
     }
-    let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
-    ProposalOutcome::Confirmed
+    // Only re-arm the workspace DO when the tool actually changed the
+    // scheduled-action table; todo/note/memory mutations never affect it.
+    if matches!(tool.as_str(), "schedule_action" | "create_reminder") {
+        let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
+    }
+    if undoable { ProposalOutcome::ConfirmedUndoable } else { ProposalOutcome::Confirmed }
 }
 
-/// Run the parked inverse action (undo). Reads and clears the undo KV key.
+/// Run the parked inverse action (undo), triggered by the Undo button.
 pub(crate) async fn execute_undo(
     env: &Env,
     ws_db: &WorkspaceDb<'_>,
@@ -565,51 +543,15 @@ pub(crate) async fn execute_undo(
     let member_id = "system".to_string();
     let sink = crate::agent_sink::WorkerMessagingSink { env, ws_slug: ws_slug.to_string() };
     let ctx = reactive_ctx(env, ws_db, ws_slug, &member_id, &sink, tz, ws_locale);
-    grumps_agent::tools::dispatch(&ctx, &tool, args).await.ok();
+    // Only claim the revert succeeded if the inverse tool actually completed —
+    // mirror execute_pending_proposal so a concurrently re-completed/deleted
+    // todo doesn't surface a false "Reverted." to the group.
+    let result = grumps_agent::tools::dispatch(&ctx, &tool, args).await
+        .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        return ProposalOutcome::Failed;
+    }
     ProposalOutcome::Undone
-}
-
-/// Before normal routing: does this short *text* reply confirm/cancel a pending
-/// proactive proposal, or undo a just-executed one? This is the fallback for the
-/// inline-button path (a user typing "oui"/"annuler" instead of tapping). The
-/// proposal/undo state is parked in KV (group-scoped, short TTL) by the ambient
-/// proactive path. Returns `Some` if handled.
-async fn try_proactive_confirmation(
-    env: &Env,
-    ws_db: &WorkspaceDb<'_>,
-    ws_slug: &str,
-    text: &str,
-    ws_locale: &str,
-) -> worker::Result<Option<HandlerResult>> {
-    let affirmative = is_affirmative(text);
-    let cancel = is_cancel(text);
-    if !affirmative && !cancel {
-        return Ok(None);
-    }
-    let kv = match env.kv("KV") { Ok(k) => k, Err(_) => return Ok(None) };
-    let pending_key = format!("proactive:pending:{ws_slug}");
-
-    // 1. A pending proposal awaiting confirmation (single-shot: cleared either way).
-    if let Some(raw) = kv.get(&pending_key).text().await.ok().flatten() {
-        kv.delete(&pending_key).await.ok();
-        let outcome = if cancel {
-            ProposalOutcome::Cancelled
-        } else {
-            let pending: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
-            execute_pending_proposal(env, ws_db, ws_slug, ws_locale, &pending).await
-        };
-        return Ok(Some(HandlerResult::one(outcome.message(ws_locale), None)));
-    }
-
-    // 2. An undo window after a just-confirmed action.
-    if cancel {
-        let outcome = execute_undo(env, ws_db, ws_slug, ws_locale).await;
-        if matches!(outcome, ProposalOutcome::Undone) {
-            return Ok(Some(HandlerResult::one(outcome.message(ws_locale), None)));
-        }
-    }
-
-    Ok(None)
 }
 
 /// Fast-path for silence/unsilence/explicit-memory commands addressed to @grumps.
@@ -816,7 +758,6 @@ async fn handle_llm_result(
                 title: title.clone(),
                 trigger_at: remind_at_utc,
                 recurrence: recurrence.clone(),
-                condition: None,
                 payload: serde_json::json!({ "text": title }),
                 target_chat: Some("group".to_string()),
                 created_by: Some(member_id.to_string()),
@@ -879,23 +820,8 @@ async fn handle_llm_result(
 
 #[cfg(test)]
 mod proactive_tests {
-    use super::{is_affirmative, is_cancel, inverse_action};
+    use super::inverse_action;
     use serde_json::json;
-
-    #[test]
-    fn affirmatives_and_cancels() {
-        for y in ["oui", "OK", "yes", "👍", "d'accord", "vas-y", "oui merci"] {
-            assert!(is_affirmative(y), "{y} should be affirmative");
-            assert!(!is_cancel(y), "{y} should not be cancel");
-        }
-        for n in ["non", "annuler", "undo", "annule ça", "cancel", "❌"] {
-            assert!(is_cancel(n), "{n} should be cancel");
-            assert!(!is_affirmative(n), "{n} should not be affirmative");
-        }
-        // Ordinary chatter is neither.
-        assert!(!is_affirmative("on se voit demain ?"));
-        assert!(!is_cancel("on se voit demain ?"));
-    }
 
     #[test]
     fn complete_and_reopen_are_mutual_inverses() {

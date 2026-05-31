@@ -64,6 +64,9 @@ pub trait AgentDb {
 
     // --- members ---
     async fn list_active_members(&self) -> worker::Result<Vec<MemberShort>>;
+    /// Last time a member was seen active (None if never seen). Backs the
+    /// read-only `get_member_activity` tool for activity-based judgement.
+    async fn get_member_last_seen(&self, member_id: &str) -> worker::Result<Option<chrono::DateTime<chrono::Utc>>>;
 
     // --- todos / notes ---
     async fn create_todo_simple(

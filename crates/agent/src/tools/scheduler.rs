@@ -15,7 +15,6 @@ pub async fn schedule_action(ctx: &ToolContext<'_>, raw: Value) -> worker::Resul
         title: a.title.clone(),
         trigger_at,
         recurrence: a.recurrence,
-        condition: None,
         payload: Value::Object(a.payload),
         target_chat: Some("group".to_string()),
         created_by: Some(ctx.member_id.to_string()),

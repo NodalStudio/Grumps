@@ -13,11 +13,7 @@ pub struct WorkerMessagingSink<'a> {
 impl<'a> MessagingSink for WorkerMessagingSink<'a> {
     async fn send(&self, text: &str) -> Result<()> {
         use grumps_messaging::adapter::OutboundMessage;
-        let out = OutboundMessage {
-            text: text.to_string(),
-            reply_to: None,
-            reply_markup: None,
-        };
+        let out = OutboundMessage { text: text.to_string(), ..Default::default() };
         crate::messaging_dispatch::send_to_workspace(self.env, &self.ws_slug, &out).await
     }
 
@@ -30,8 +26,8 @@ impl<'a> MessagingSink for WorkerMessagingSink<'a> {
             .collect();
         let out = OutboundMessage {
             text: text.to_string(),
-            reply_to: None,
             reply_markup: Some(serde_json::json!({ "inline_keyboard": rows })),
+            ..Default::default()
         };
         crate::messaging_dispatch::send_to_workspace_with_markup(self.env, &self.ws_slug, &out).await
     }

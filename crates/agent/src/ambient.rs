@@ -303,8 +303,9 @@ pub async fn apply_analysis<'a>(
                             // inline buttons), so a button tap can edit/clear it.
                             "chat_message_id": result.staged_message_id,
                         });
-                        kv.put(&format!("proactive:pending:{workspace_slug}"), &pending.to_string())
-                            .map(|p| p.expiration_ttl(3600).execute()).ok();
+                        if let Ok(p) = kv.put(&format!("proactive:pending:{workspace_slug}"), &pending.to_string()) {
+                            p.expiration_ttl(3600).execute().await.ok();
+                        }
                     }
                     db.log_bot_action("bot.proactive_proposal", result.final_text.as_deref().unwrap_or(""), None).await.ok();
                 } else if said_something {
@@ -312,9 +313,13 @@ pub async fn apply_analysis<'a>(
                 }
                 if intervened {
                     if let Some(kv) = kv {
-                        kv.put(&cooldown_key, "1").map(|p| p.expiration_ttl(60).execute()).ok();
+                        if let Ok(p) = kv.put(&cooldown_key, "1") {
+                            p.expiration_ttl(60).execute().await.ok();
+                        }
                         let cnt: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
-                        kv.put(&hour_key, &(cnt + 1).to_string()).map(|p| p.expiration_ttl(7200).execute()).ok();
+                        if let Ok(p) = kv.put(&hour_key, &(cnt + 1).to_string()) {
+                            p.expiration_ttl(7200).execute().await.ok();
+                        }
                     }
                 }
             }

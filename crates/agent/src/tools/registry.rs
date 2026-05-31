@@ -22,13 +22,17 @@ use mcp_types::{Tool, ToolAnnotations};
 use serde_json::Value;
 
 use super::{args, ToolContext};
-use super::{crud, todos, scheduler, calendar, memory, rag, web, chat};
+use super::{crud, todos, members, scheduler, calendar, memory, rag, web, chat};
 
 /// An executable tool: its MCP descriptor plus its handler.
 #[async_trait::async_trait(?Send)]
 pub trait ToolHandler {
     /// The tool's invariant name (matches `descriptor().name`).
     fn name(&self) -> &'static str;
+    /// The behavioural annotations (read-only / destructive hints). Exposed
+    /// directly so the proactive gate can read them without building the full
+    /// `descriptor()` (which materializes the argument JSON-Schema).
+    fn annotations(&self) -> Option<ToolAnnotations>;
     /// The MCP descriptor (name, schema, annotations) for this tool.
     fn descriptor(&self) -> Tool;
     /// Execute the tool. The returned JSON becomes the `tool_result` content.
@@ -45,6 +49,9 @@ macro_rules! handler {
         impl ToolHandler for $ty {
             fn name(&self) -> &'static str {
                 $name
+            }
+            fn annotations(&self) -> Option<ToolAnnotations> {
+                Some($annotations)
             }
             fn descriptor(&self) -> Tool {
                 Tool::new($name, $desc, mcp_types::schema_for_type::<$args>())
@@ -67,6 +74,12 @@ handler!(QueryChatHistory, "query_chat_history",
 handler!(ListCalendar, "list_calendar",
     "Read upcoming todos, reminders, events for a date range.",
     args::ListCalendarArgs, ToolAnnotations::read_only(), calendar::list_calendar);
+handler!(GetTodoStatus, "get_todo_status",
+    "Check the current status (open/done) of a specific todo. Use this to judge a conditional instruction like 'remind them only if the trash todo isn't done yet' before acting. Provide its seq_num (#N) OR a natural-language `query`.",
+    args::GetTodoStatusArgs, ToolAnnotations::read_only(), todos::get_todo_status);
+handler!(GetMemberActivity, "get_member_activity",
+    "Look up when a group member was last active. Use this to judge a conditional instruction like 'ping Alice only if she's been silent since yesterday' before acting. Provide the member's name.",
+    args::MemberActivityArgs, ToolAnnotations::read_only(), members::get_member_activity);
 handler!(WebSearch, "web_search",
     "Search the web. Use for current information not in workspace memory (restaurants, addresses, news, prices, hours).",
     args::WebSearchArgs,
@@ -127,6 +140,8 @@ pub fn registry() -> Vec<Box<dyn ToolHandler>> {
         Box::new(CreateReminder),
         Box::new(ScheduleAction),
         Box::new(ListCalendar),
+        Box::new(GetTodoStatus),
+        Box::new(GetMemberActivity),
         Box::new(WebSearch),
         Box::new(SendMessage),
     ]
@@ -134,18 +149,30 @@ pub fn registry() -> Vec<Box<dyn ToolHandler>> {
 
 /// The tool list sent to the Anthropic API: `{ name, description, input_schema }`.
 /// Annotations stay internal (used for proactive gating, not sent to the model).
+///
+/// The list is immutable for the lifetime of the isolate, so it is built once
+/// and cached — every agent turn would otherwise re-derive 13 descriptors and
+/// their JSON-Schemas.
 pub fn anthropic_tools() -> Vec<Value> {
-    registry()
-        .iter()
-        .map(|h| {
-            let t = h.descriptor();
-            serde_json::json!({
-                "name": t.name,
-                "description": t.description,
-                "input_schema": t.input_schema,
-            })
+    thread_local! {
+        static CACHE: std::cell::OnceCell<Vec<Value>> = const { std::cell::OnceCell::new() };
+    }
+    CACHE.with(|c| {
+        c.get_or_init(|| {
+            registry()
+                .iter()
+                .map(|h| {
+                    let t = h.descriptor();
+                    serde_json::json!({
+                        "name": t.name,
+                        "description": t.description,
+                        "input_schema": t.input_schema,
+                    })
+                })
+                .collect()
         })
-        .collect()
+        .clone()
+    })
 }
 
 /// Dispatch a tool call to its handler.
@@ -167,7 +194,7 @@ pub fn annotations(tool_name: &str) -> Option<ToolAnnotations> {
     registry()
         .iter()
         .find(|h| h.name() == tool_name)
-        .and_then(|h| h.descriptor().annotations)
+        .and_then(|h| h.annotations())
 }
 
 #[cfg(test)]
@@ -177,7 +204,7 @@ mod tests {
     #[test]
     fn registry_covers_all_named_tools() {
         let names: Vec<&str> = registry().iter().map(|h| h.name()).collect();
-        assert_eq!(names.len(), 13);
+        assert_eq!(names.len(), 15);
         let unique: std::collections::HashSet<_> = names.iter().collect();
         assert_eq!(unique.len(), names.len(), "duplicate tool names");
     }

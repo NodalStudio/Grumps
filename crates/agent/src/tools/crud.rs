@@ -105,7 +105,6 @@ pub async fn create_reminder(ctx: &ToolContext<'_>, raw: Value) -> worker::Resul
         title: text.clone(),
         trigger_at: remind_at,
         recurrence,
-        condition: None,
         payload: serde_json::json!({ "text": text.clone() }),
         target_chat: Some("group".to_string()),
         created_by: Some(ctx.member_id.to_string()),

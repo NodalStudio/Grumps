@@ -32,6 +32,10 @@ impl AgentDb for WorkspaceDb<'_> {
         }).collect())
     }
 
+    async fn get_member_last_seen(&self, member_id: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+        self.get_member_last_seen(member_id).await
+    }
+
     async fn create_todo_simple(
         &self,
         title: &str,
@@ -80,7 +84,11 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> Result<()> {
-        self.complete_todo(todo_id, completed_by).await
+        // Run the same follow-ups (activity log + recurrence) as the chat path,
+        // so a recurring todo completed via the agent still spawns its next
+        // occurrence.
+        self.complete_todo_with_followups(todo_id, completed_by, "agent").await?;
+        Ok(())
     }
 
     async fn reopen_todo(&self, todo_id: &str) -> Result<()> {

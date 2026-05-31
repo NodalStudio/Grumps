@@ -108,7 +108,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                         let welcome = t(locale, "telegram.onboarding.dm_welcome",
                             &[("slug", &slug), ("bot", &tg.bot_username)]);
                         let _ = send_message(&tg, &chat_id, &grumps_messaging::adapter::OutboundMessage {
-                            text: welcome, reply_to: None, reply_markup: None,
+                            text: welcome, ..Default::default()
                         }).await;
 
                         return Response::ok("ok");
@@ -280,7 +280,7 @@ async fn handle_first_add(
     };
     let welcome = t(locale, welcome_key, &[("slug", &slug), ("bot", &tg.bot_username)]);
 
-    let msg = grumps_messaging::adapter::OutboundMessage { text: welcome, reply_to: None, reply_markup: None };
+    let msg = grumps_messaging::adapter::OutboundMessage { text: welcome, ..Default::default() };
     let _ = send_message(tg, &chat_id, &msg).await;
 
     // Link the TG user who added the bot to the workspace + register their identity.
@@ -323,7 +323,7 @@ async fn handle_promotion(
     };
     let text = t(locale, key, &[]);
 
-    let msg = grumps_messaging::adapter::OutboundMessage { text, reply_to: None, reply_markup: None };
+    let msg = grumps_messaging::adapter::OutboundMessage { text, ..Default::default() };
     let _ = send_message(tg, &chat_id, &msg).await;
 
     // The promoted user becomes workspace admin.
@@ -373,11 +373,15 @@ async fn handle_callback_query(
             };
             // Stale proposal (expired in KV) or a tap on an older proposal message
             // than the one currently pending → just clear the keyboard, no-op.
+            // Fail safe: only confirm if this tap is on the message that carries
+            // the *current* proposal. The id is parked as a JSON string, so
+            // compare stringly (tolerating a numeric encoding too); a missing id
+            // can't be matched and no-ops rather than confirming a stale action.
             let matches_msg = pending.as_ref()
                 .and_then(|p| p.get("chat_message_id"))
-                .and_then(|v| v.as_i64())
-                .map(|id| id == message_id)
-                .unwrap_or(true);
+                .and_then(|v| v.as_str().map(|s| s.to_string()).or_else(|| v.as_i64().map(|n| n.to_string())))
+                .map(|id| id == message_id.to_string())
+                .unwrap_or(false);
             if pending.is_none() || !matches_msg {
                 edit_remove_markup(tg, &chat_id, message_id).await;
                 answer_callback(tg, &cbq.id, None).await;
@@ -391,13 +395,9 @@ async fn handle_callback_query(
                 handler::execute_pending_proposal(&ctx.env, &ws_db, &ws.slug, &ws_locale, pending.as_ref().unwrap()).await
             };
 
-            // After a successful confirm, offer an Undo button iff an inverse was
-            // parked (reversible action); otherwise just remove the keyboard.
-            let undoable = matches!(outcome, handler::ProposalOutcome::Confirmed)
-                && match &kv {
-                    Some(kv) => kv.get(&format!("proactive:undo:{}", ws.slug)).text().await.ok().flatten().is_some(),
-                    None => false,
-                };
+            // Offer an Undo button iff the confirm parked a reversible inverse;
+            // execute_pending_proposal reports this directly (no KV re-read).
+            let undoable = matches!(outcome, handler::ProposalOutcome::ConfirmedUndoable);
             if undoable {
                 let label = t(Locale::from_code(&ws_locale), "agent.proactive.btn_undo", &[]);
                 let markup = serde_json::json!({ "inline_keyboard": [[{ "text": label, "callback_data": "pa:undo" }]] });

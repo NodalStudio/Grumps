@@ -183,10 +183,21 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
-    /// The current status of a todo (e.g. `open`, `done`), or None if it no
-    /// longer exists. Used by the scheduled-action condition gate.
-    pub async fn get_todo_status(&self, todo_id: &str) -> Result<Option<String>> {
-        Ok(self.get_todo_by_id(todo_id).await?.map(|t| t.status))
+    /// Complete a todo and run the standard follow-ups: log the activity and, if
+    /// the todo recurs, spawn its next occurrence. Returns whether a next
+    /// occurrence was created (so a caller can surface it). Shared by the chat
+    /// completion path and the agent `complete_todo` tool so completing a
+    /// recurring todo behaves identically regardless of which path completes it.
+    pub async fn complete_todo_with_followups(&self, todo_id: &str, completed_by: &str, source: &str) -> Result<bool> {
+        self.complete_todo(todo_id, completed_by).await?;
+        self.log_activity(completed_by, "todo.completed", "todo", todo_id, source).await?;
+        if let Some(rec) = self.get_todo_recurrence(todo_id).await? {
+            if let Some(todo) = self.get_todo_by_id(todo_id).await? {
+                self.create_next_recurrence(&todo, &rec).await?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Open/in-progress todos as `(id, title, seq_num)`, for fuzzy completion
@@ -214,7 +225,7 @@ impl<'a> WorkspaceDb<'a> {
     }
 
     /// The last time a member was seen active, as a UTC instant (None if never
-    /// seen or unparseable). Used by the condition gate.
+    /// seen or unparseable). Backs the agent's read-only `get_member_activity` tool.
     pub async fn get_member_last_seen(&self, member_id: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
         #[derive(Deserialize)]
         struct R { last_seen_at: Option<String> }
@@ -955,7 +966,6 @@ pub struct ScheduledActionRow {
     pub title: String,
     pub trigger_at: String,
     pub recurrence: Option<String>,
-    pub condition: Option<String>,
     pub payload: String,
     pub target_chat: String,
     pub status: String,
@@ -970,20 +980,18 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let action_type = enum_to_db_str(&a.action_type, "reminder");
-        let condition_json: serde_json::Value = a.condition.clone().unwrap_or(serde_json::Value::Null);
         let payload_str = serde_json::to_string(&a.payload).unwrap_or_else(|_| "{}".into());
         let target = a.target_chat.clone().unwrap_or_else(|| "group".into());
 
         self.q(
-            "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, created_by) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload, target_chat, created_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             vec![
                 id.clone().into(),
                 action_type.into(),
                 a.title.clone().into(),
                 a.trigger_at.to_rfc3339().into(),
                 a.recurrence.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
-                if condition_json.is_null() { serde_json::Value::Null } else { serde_json::Value::String(condition_json.to_string()) },
                 payload_str.into(),
                 target.into(),
                 a.created_by.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
@@ -999,7 +1007,7 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn get_scheduled_action(&self, id: &str) -> Result<Option<ScheduledAction>> {
         let resp = self.q(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions WHERE id = ?1",
             vec![id.into()],
         ).await?;
@@ -1009,7 +1017,7 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn list_scheduled_actions(&self, status_filter: Option<&str>, limit: i64, offset: i64) -> Result<Vec<ScheduledAction>> {
         let mut sql = String::from(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions"
         );
         let mut params: Vec<serde_json::Value> = vec![];
@@ -1029,7 +1037,7 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn list_due_actions(&self, now_iso: &str, limit: i64) -> Result<Vec<ScheduledAction>> {
         let resp = self.q(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions WHERE status = 'pending' AND trigger_at <= ?1 ORDER BY trigger_at ASC LIMIT ?2",
             vec![now_iso.into(), limit.into()],
         ).await?;
@@ -1094,7 +1102,6 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
         title: r.title,
         trigger_at: parse_dt(&r.trigger_at),
         recurrence: r.recurrence,
-        condition: r.condition.as_deref().and_then(|s| serde_json::from_str(s).ok()),
         payload: serde_json::from_str(&r.payload).unwrap_or(serde_json::Value::Null),
         target_chat: r.target_chat,
         status: db_str_to_enum(&r.status, ActionStatus::Pending, "scheduled_actions.status"),

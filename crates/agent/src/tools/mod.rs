@@ -6,6 +6,7 @@ pub mod rag;
 pub mod rag_pipeline;
 pub mod crud;
 pub mod todos;
+pub mod members;
 pub mod scheduler;
 pub mod calendar;
 pub mod web;

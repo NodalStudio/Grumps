@@ -16,36 +16,11 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
-    // Condition gate. If the action carries a condition, evaluate it against
-    // live workspace state before firing. The `ConditionContext` trait is sync
-    // and D1 is async, so we pre-fetch exactly the datum the condition names
-    // (one todo's status / one member's last activity), build a sync context,
-    // and evaluate. A condition that is NOT met means "skip the side effect this
-    // time" — we still advance any recurrence below, so a recurring action keeps
-    // its schedule. A malformed condition fails closed (skip, don't fire).
-    let condition_met = match &action.condition {
-        None => true,
-        Some(cond_value) => match serde_json::from_value::<grumps_scheduler::Condition>(cond_value.clone()) {
-            Ok(cond) => {
-                let cctx = prefetch_condition_context(&db, &cond).await?;
-                let met = grumps_scheduler::evaluate(&cond, &cctx);
-                if !met {
-                    console_log!("execute_action {}: condition not met — skipping side effect", action.id);
-                }
-                met
-            }
-            Err(e) => {
-                console_log!("execute_action {}: malformed condition JSON ({e}) — skipping (fail closed)", action.id);
-                false
-            }
-        },
-    };
-
-    let send_result = if !condition_met {
-        // Treat as a successful no-op: recurrence still advances, one-shots are
-        // marked done. The action simply produced no message this cycle.
-        Ok(())
-    } else { match action.action_type {
+    // No structured condition gate: any "only if …" guard lives in the task's
+    // natural-language instruction and is judged by the agent at fire time
+    // (FollowUp/AgentTask run the full tool loop, with read-only tools like
+    // get_todo_status / get_member_activity to inspect live state).
+    let send_result = match action.action_type {
         ActionType::Reminder => execute_reminder(env, &ws, action).await,
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
         ActionType::Recap => execute_recap(env, &ws, &db, action).await,
@@ -95,7 +70,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 }
             }
         }
-    } };
+    };
 
     // Mark done (or re-schedule if recurrent)
     match send_result {
@@ -168,47 +143,6 @@ async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
     use grumps_messaging::adapter::OutboundMessage;
-    let out = OutboundMessage { text: body.to_string(), reply_to: None, reply_markup: None };
+    let out = OutboundMessage { text: body.to_string(), ..Default::default() };
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
-}
-
-/// A sync [`grumps_scheduler::ConditionContext`] holding values pre-fetched from
-/// D1. Each condition references at most one todo and one member, so we resolve
-/// those up front (async) and hand the evaluator a plain snapshot.
-struct PrefetchedConditionContext {
-    last_active: Option<chrono::DateTime<chrono::Utc>>,
-    todo_status: Option<String>,
-    now: chrono::DateTime<chrono::Utc>,
-}
-
-impl grumps_scheduler::ConditionContext for PrefetchedConditionContext {
-    fn last_active_at(&self, _member_id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-        self.last_active
-    }
-    fn todo_status_now(&self, _todo_id: &str) -> Option<String> {
-        self.todo_status.clone()
-    }
-    fn now(&self) -> chrono::DateTime<chrono::Utc> {
-        self.now
-    }
-}
-
-/// Resolve the (single) datum a condition names so it can be evaluated sync.
-async fn prefetch_condition_context(
-    db: &WorkspaceDb<'_>,
-    cond: &grumps_scheduler::Condition,
-) -> Result<PrefetchedConditionContext> {
-    use grumps_scheduler::Condition;
-    let mut last_active = None;
-    let mut todo_status = None;
-    match cond {
-        Condition::TodoStatus { todo_id, .. } => {
-            todo_status = db.get_todo_status(todo_id).await?;
-        }
-        Condition::MemberActiveAfter { member_id, .. }
-        | Condition::MemberInactiveFor { member_id, .. } => {
-            last_active = db.get_member_last_seen(member_id).await?;
-        }
-    }
-    Ok(PrefetchedConditionContext { last_active, todo_status, now: chrono::Utc::now() })
 }

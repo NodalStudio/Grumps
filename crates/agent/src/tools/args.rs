@@ -155,6 +155,20 @@ pub struct ReopenTodoArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetTodoStatusArgs {
+    /// Natural-language description of the todo to look up
+    pub query: Option<String>,
+    /// The todo's number (#N), preferred when known
+    pub seq_num: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct MemberActivityArgs {
+    /// The member's name (or part of it) to look up
+    pub member: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct CreateNoteArgs {
     pub title: Option<String>,
     /// Markdown body
@@ -225,7 +239,7 @@ pub struct ListCalendarArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct WebSearchArgs {
     pub query: String,
-    #[schemars(extend("default" = 5, "maximum" = 10))]
+    #[schemars(extend("default" = 5, "minimum" = 1, "maximum" = 10))]
     pub count: Option<u64>,
     /// past day/week/month/year/all
     pub freshness: Option<Freshness>,
