@@ -329,8 +329,8 @@ pub fn ObservabilityPage() -> impl IntoView {
                     }.into_any(),
                     Some(None) => view! {
                         <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                            <div class="font-display text-xl font-extrabold text-brick">"Accès refusé ou erreur."</div>
-                            <p class="text-sm mt-2" style="color:var(--ink-70);">"Cette page est réservée aux super admins."</p>
+                            <div class="font-display text-xl font-extrabold text-brick">"Access denied or error."</div>
+                            <p class="text-sm mt-2" style="color:var(--ink-70);">"This page is for super admins only."</p>
                         </div>
                     }.into_any(),
                     Some(Some(d)) => {
@@ -342,12 +342,12 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 <div class="mb-4">
                                     <A href="/admin/observability"
                                        attr:class="text-sm font-medium"
-                                       attr:style="color: var(--teal);">"← Retour à la vue globale"</A>
+                                       attr:style="color: var(--teal);">"← Back to global view"</A>
                                 </div>
                                 // Header
                                 <div class="mb-8">
                                     <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
-                                        "Observabilité — "
+                                        "Observability — "
                                         {slug_label}
                                         <span class="text-brick">"."</span>
                                     </h1>
@@ -361,24 +361,24 @@ pub fn ObservabilityPage() -> impl IntoView {
 
                                 // Hero stats
                                 <div class="flex flex-wrap gap-4 mb-8">
-                                    <StatCard label="Coût total (30j)" value=fmt_usd(d.total_cost_usd) />
-                                    <StatCard label="Total d'appels" value=d.total_calls.to_string() />
-                                    <StatCard label="Latence médiane" value=fmt_ms(d.median_latency_ms) />
-                                    <StatCard label="Score qualité" value=format!("{:.0}%", d.quality_score * 100.0) />
+                                    <StatCard label="Total cost (30d)" value=fmt_usd(d.total_cost_usd) />
+                                    <StatCard label="Total calls" value=d.total_calls.to_string() />
+                                    <StatCard label="Median latency" value=fmt_ms(d.median_latency_ms) />
+                                    <StatCard label="Quality score" value=format!("{:.0}%", d.quality_score * 100.0) />
                                 </div>
 
                                 // Cost by model
-                                <Section title="Coût par modèle (30j)">
+                                <Section title="Cost per model (30d)">
                                     <CostBar rows=d.cost_by_model.clone() total=d.total_cost_usd />
                                 </Section>
 
                                 // Latency by model
-                                <Section title="Latence par modèle (7j)">
+                                <Section title="Latency per model (7d)">
                                     <LatencyTable rows=d.latency_by_model.clone() />
                                 </Section>
 
                                 // Cascade efficiency
-                                <Section title="Efficacité cascade Gemini → Sonnet">
+                                <Section title="Cascade efficiency Gemini → Sonnet">
                                     <CascadeDonut
                                         classifier=d.cascade_efficiency.classifier_resolved
                                         sonnet=d.cascade_efficiency.sonnet_escalated
@@ -387,9 +387,9 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 </Section>
 
                                 // Invocation types
-                                <Section title="Types d'invocations (30j)">
+                                <Section title="Invocation types (30d)">
                                     {if d.invocation_types.is_empty() {
-                                        view! { <div class="text-sm italic" style="color:var(--ink-40);">"Aucune donnée."</div> }.into_any()
+                                        view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data."</div> }.into_any()
                                     } else {
                                         let max_count = d.invocation_types.iter().map(|i| i.count).max().unwrap_or(1).max(1);
                                         view! {
@@ -414,14 +414,14 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 </Section>
 
                                 // Quality signals
-                                <Section title="Signaux qualité (30j)">
+                                <Section title="Quality signals (30d)">
                                     <QualitySignals signals=d.quality_signals.clone() />
                                 </Section>
 
                                 // Recent errors
-                                <Section title="Erreurs récentes">
+                                <Section title="Recent errors">
                                     {if d.recent_errors.is_empty() {
-                                        view! { <div class="text-sm font-medium" style="color:#1A6B5E;">"Aucune erreur. Parfait."</div> }.into_any()
+                                        view! { <div class="text-sm font-medium" style="color:#1A6B5E;">"No errors. Perfect."</div> }.into_any()
                                     } else {
                                         view! {
                                             <div class="overflow-x-auto">
@@ -432,7 +432,7 @@ pub fn ObservabilityPage() -> impl IntoView {
                                                             <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
                                                             <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Model"</th>
                                                             <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Type"</th>
-                                                            <th class="text-left font-bold py-1 uppercase tracking-wider">"Erreur"</th>
+                                                            <th class="text-left font-bold py-1 uppercase tracking-wider">"Error"</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
