@@ -1,0 +1,4 @@
+# Pin rustfmt to LF output on every platform so `cargo fmt --check` in CI
+# (Linux) agrees with `cargo fmt` run on Windows. Without this the default
+# "Auto" newline style emits CRLF on Windows and the check fails.
+newline_style = "Unix"

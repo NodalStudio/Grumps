@@ -1,7 +1,7 @@
 //! Tool implementation: send_message.
 
-use serde_json::Value;
 use super::{args, parse_args, ToolContext};
+use serde_json::Value;
 
 pub async fn send_message(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
     let a: args::SendMessageArgs = parse_args(raw, "send_message")?;

@@ -4,10 +4,10 @@
 // Tables: members, todos, notes, files, scheduled_actions,
 // agent_sessions, memory, bot_messages, activity_log, quality_signals.
 
-use worker::*;
-use crate::d1_rest::{D1RestClient, D1Response, extract_first, extract_rows};
-use serde::{Deserialize, Serialize};
+use crate::d1_rest::{extract_first, extract_rows, D1Response, D1RestClient};
 use grumps_memory::{MemoryEntry, MemoryKind, MemorySource, NewMemoryEntry};
+use serde::{Deserialize, Serialize};
+use worker::*;
 
 /// Serialize a serde-derived enum to its string variant for SQL storage.
 /// Returns `fallback` if serialization yields a non-string value.
@@ -53,7 +53,10 @@ pub struct WorkspaceDb<'a> {
 
 impl<'a> WorkspaceDb<'a> {
     pub fn new(client: &'a D1RestClient, database_id: String) -> Self {
-        Self { client, database_id }
+        Self {
+            client,
+            database_id,
+        }
     }
 
     async fn q(&self, sql: &str, params: Vec<serde_json::Value>) -> Result<D1Response> {
@@ -64,11 +67,19 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Upsert member. Returns (member_id, is_first_member).
     /// First member becomes admin automatically.
-    pub async fn upsert_member(&self, platform_user_id: &str, display_name: &str) -> Result<(String, bool)> {
+    pub async fn upsert_member(
+        &self,
+        platform_user_id: &str,
+        display_name: &str,
+    ) -> Result<(String, bool)> {
         // Check if any members exist
         #[derive(Deserialize)]
-        struct CountRow { cnt: i64 }
-        let resp = self.q("SELECT COUNT(*) as cnt FROM members", vec![]).await?;
+        struct CountRow {
+            cnt: i64,
+        }
+        let resp = self
+            .q("SELECT COUNT(*) as cnt FROM members", vec![])
+            .await?;
         let count: Option<CountRow> = extract_first(&resp)?;
         let is_first = count.map(|c| c.cnt == 0).unwrap_or(true);
         let role = if is_first { "admin" } else { "member" };
@@ -80,8 +91,15 @@ impl<'a> WorkspaceDb<'a> {
         ).await?;
 
         #[derive(Deserialize)]
-        struct IdRow { id: String }
-        let resp = self.q("SELECT id FROM members WHERE platform_user_id = ?1", vec![platform_user_id.into()]).await?;
+        struct IdRow {
+            id: String,
+        }
+        let resp = self
+            .q(
+                "SELECT id FROM members WHERE platform_user_id = ?1",
+                vec![platform_user_id.into()],
+            )
+            .await?;
         let row: Option<IdRow> = extract_first(&resp)?;
         Ok((row.map(|r| r.id).unwrap_or(id), is_first))
     }
@@ -89,31 +107,53 @@ impl<'a> WorkspaceDb<'a> {
     /// Get the role of a member by their ID (which is user_id / JWT sub).
     pub async fn get_member_role(&self, member_id: &str) -> Result<Option<String>> {
         #[derive(Deserialize)]
-        struct Row { role: String }
-        let resp = self.q("SELECT role FROM members WHERE id = ?1", vec![member_id.into()]).await?;
+        struct Row {
+            role: String,
+        }
+        let resp = self
+            .q(
+                "SELECT role FROM members WHERE id = ?1",
+                vec![member_id.into()],
+            )
+            .await?;
         Ok(extract_first::<Row>(&resp)?.map(|r| r.role))
     }
 
     /// Find a workspace member's id by their platform user id (e.g. Telegram
     /// numeric id). Used to translate a JWT Claims into the FK-valid
     /// `members.id` for `created_by` columns on web-originated rows.
-    pub async fn find_member_by_platform_id(&self, platform_user_id: &str) -> Result<Option<String>> {
+    pub async fn find_member_by_platform_id(
+        &self,
+        platform_user_id: &str,
+    ) -> Result<Option<String>> {
         #[derive(Deserialize)]
-        struct Row { id: String }
-        let resp = self.q(
-            "SELECT id FROM members WHERE platform_user_id = ?1",
-            vec![platform_user_id.into()],
-        ).await?;
+        struct Row {
+            id: String,
+        }
+        let resp = self
+            .q(
+                "SELECT id FROM members WHERE platform_user_id = ?1",
+                vec![platform_user_id.into()],
+            )
+            .await?;
         Ok(extract_first::<Row>(&resp)?.map(|r| r.id))
     }
 
     // --- Todos ---
 
     /// Insert todo with atomic seq_num. Returns (todo_id, seq_num).
-    pub async fn insert_todo(&self, title: &str, priority: i32, tags_json: &str,
-                              assigned_to: &str, assigned_name: &str,
-                              created_by: &str, source: &str, message_id: &str,
-                              deadline: Option<&str>) -> Result<(String, i64)> {
+    pub async fn insert_todo(
+        &self,
+        title: &str,
+        priority: i32,
+        tags_json: &str,
+        assigned_to: &str,
+        assigned_name: &str,
+        created_by: &str,
+        source: &str,
+        message_id: &str,
+        deadline: Option<&str>,
+    ) -> Result<(String, i64)> {
         let id = uuid::Uuid::new_v4().to_string();
         // `deadline` is a civil date "YYYY-MM-DD" (never a UTC instant). Empty/None → NULL.
         self.q(
@@ -122,8 +162,15 @@ impl<'a> WorkspaceDb<'a> {
         ).await?;
 
         #[derive(Deserialize)]
-        struct SeqRow { seq_num: i64 }
-        let resp = self.q("SELECT seq_num FROM todos WHERE id = ?1", vec![id.clone().into()]).await?;
+        struct SeqRow {
+            seq_num: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT seq_num FROM todos WHERE id = ?1",
+                vec![id.clone().into()],
+            )
+            .await?;
         let row: Option<SeqRow> = extract_first(&resp)?;
         Ok((id, row.map(|r| r.seq_num).unwrap_or(1)))
     }
@@ -131,16 +178,40 @@ impl<'a> WorkspaceDb<'a> {
     /// Get open todos for fuzzy matching. Returns (id, title, seq_num).
     pub async fn get_open_todos(&self) -> Result<Vec<(String, String, i64)>> {
         #[derive(Deserialize)]
-        struct Row { id: String, title: String, seq_num: i64 }
-        let resp = self.q("SELECT id, title, seq_num FROM todos WHERE status IN ('open', 'in_progress')", vec![]).await?;
+        struct Row {
+            id: String,
+            title: String,
+            seq_num: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT id, title, seq_num FROM todos WHERE status IN ('open', 'in_progress')",
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.title, r.seq_num))
+            .collect())
     }
 
     /// Get todos with filter. Returns (id, seq_num, title, status, assignee_name, priority, tags).
-    pub async fn get_todos_filtered(&self, filter: &str, member_id: Option<&str>) -> Result<Vec<(String, i64, String, String, Option<String>, i32, String)>> {
+    pub async fn get_todos_filtered(
+        &self,
+        filter: &str,
+        member_id: Option<&str>,
+    ) -> Result<Vec<(String, i64, String, String, Option<String>, i32, String)>> {
         #[derive(Deserialize)]
-        struct Row { id: String, seq_num: i64, title: String, status: String, assigned_name: Option<String>, priority: i32, tags: String }
+        struct Row {
+            id: String,
+            seq_num: i64,
+            title: String,
+            status: String,
+            assigned_name: Option<String>,
+            priority: i32,
+            tags: String,
+        }
 
         let (sql, params): (&str, Vec<serde_json::Value>) = match filter {
             "open" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC", vec![]),
@@ -154,18 +225,41 @@ impl<'a> WorkspaceDb<'a> {
 
         let resp = self.q(sql, params).await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| (r.id, r.seq_num, r.title, r.status, r.assigned_name, r.priority, r.tags)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                (
+                    r.id,
+                    r.seq_num,
+                    r.title,
+                    r.status,
+                    r.assigned_name,
+                    r.priority,
+                    r.tags,
+                )
+            })
+            .collect())
     }
 
     /// Get todo by sequence number.
     pub async fn get_todo_by_seq(&self, seq_num: i64) -> Result<Option<TodoRow>> {
-        let resp = self.q("SELECT id, seq_num, title, status, recurrence FROM todos WHERE seq_num = ?1", vec![seq_num.into()]).await?;
+        let resp = self
+            .q(
+                "SELECT id, seq_num, title, status, recurrence FROM todos WHERE seq_num = ?1",
+                vec![seq_num.into()],
+            )
+            .await?;
         extract_first(&resp)
     }
 
     /// Get todo by id.
     pub async fn get_todo_by_id(&self, todo_id: &str) -> Result<Option<TodoRow>> {
-        let resp = self.q("SELECT id, seq_num, title, status, recurrence FROM todos WHERE id = ?1", vec![todo_id.into()]).await?;
+        let resp = self
+            .q(
+                "SELECT id, seq_num, title, status, recurrence FROM todos WHERE id = ?1",
+                vec![todo_id.into()],
+            )
+            .await?;
         extract_first(&resp)
     }
 
@@ -188,9 +282,15 @@ impl<'a> WorkspaceDb<'a> {
     /// occurrence was created (so a caller can surface it). Shared by the chat
     /// completion path and the agent `complete_todo` tool so completing a
     /// recurring todo behaves identically regardless of which path completes it.
-    pub async fn complete_todo_with_followups(&self, todo_id: &str, completed_by: &str, source: &str) -> Result<bool> {
+    pub async fn complete_todo_with_followups(
+        &self,
+        todo_id: &str,
+        completed_by: &str,
+        source: &str,
+    ) -> Result<bool> {
         self.complete_todo(todo_id, completed_by).await?;
-        self.log_activity(completed_by, "todo.completed", "todo", todo_id, source).await?;
+        self.log_activity(completed_by, "todo.completed", "todo", todo_id, source)
+            .await?;
         if let Some(rec) = self.get_todo_recurrence(todo_id).await? {
             if let Some(todo) = self.get_todo_by_id(todo_id).await? {
                 self.create_next_recurrence(&todo, &rec).await?;
@@ -204,67 +304,120 @@ impl<'a> WorkspaceDb<'a> {
     /// matching by the `complete_todo` tool.
     pub async fn list_open_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
         #[derive(Deserialize)]
-        struct R { id: String, title: String, seq_num: i64 }
+        struct R {
+            id: String,
+            title: String,
+            seq_num: i64,
+        }
         let resp = self.q(
             "SELECT id, title, seq_num FROM todos WHERE status IN ('open','in_progress') ORDER BY seq_num",
             vec![],
         ).await?;
-        Ok(extract_rows::<R>(&resp)?.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
+        Ok(extract_rows::<R>(&resp)?
+            .into_iter()
+            .map(|r| (r.id, r.title, r.seq_num))
+            .collect())
     }
 
     /// Recently completed todos as `(id, title, seq_num)`, for fuzzy matching by
     /// the `reopen_todo` tool (most-recent first, capped).
     pub async fn list_done_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
         #[derive(Deserialize)]
-        struct R { id: String, title: String, seq_num: i64 }
+        struct R {
+            id: String,
+            title: String,
+            seq_num: i64,
+        }
         let resp = self.q(
             "SELECT id, title, seq_num FROM todos WHERE status = 'done' ORDER BY completed_at DESC LIMIT 25",
             vec![],
         ).await?;
-        Ok(extract_rows::<R>(&resp)?.into_iter().map(|r| (r.id, r.title, r.seq_num)).collect())
+        Ok(extract_rows::<R>(&resp)?
+            .into_iter()
+            .map(|r| (r.id, r.title, r.seq_num))
+            .collect())
     }
 
     /// The last time a member was seen active, as a UTC instant (None if never
     /// seen or unparseable). Backs the agent's read-only `get_member_activity` tool.
-    pub async fn get_member_last_seen(&self, member_id: &str) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+    pub async fn get_member_last_seen(
+        &self,
+        member_id: &str,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
         #[derive(Deserialize)]
-        struct R { last_seen_at: Option<String> }
-        let resp = self.q("SELECT last_seen_at FROM members WHERE id = ?1", vec![member_id.into()]).await?;
-        Ok(extract_first::<R>(&resp)?.and_then(|r| r.last_seen_at).and_then(|s| parse_db_instant(&s)))
+        struct R {
+            last_seen_at: Option<String>,
+        }
+        let resp = self
+            .q(
+                "SELECT last_seen_at FROM members WHERE id = ?1",
+                vec![member_id.into()],
+            )
+            .await?;
+        Ok(extract_first::<R>(&resp)?
+            .and_then(|r| r.last_seen_at)
+            .and_then(|s| parse_db_instant(&s)))
     }
 
     pub async fn delete_todo(&self, todo_id: &str) -> Result<()> {
-        self.q("UPDATE todos SET status = 'deleted', updated_at = datetime('now') WHERE id = ?1", vec![todo_id.into()]).await?;
+        self.q(
+            "UPDATE todos SET status = 'deleted', updated_at = datetime('now') WHERE id = ?1",
+            vec![todo_id.into()],
+        )
+        .await?;
         Ok(())
     }
 
     // --- Bot message tracking ---
 
     pub async fn track_bot_message(&self, message_id: &str, todo_id: Option<&str>) -> Result<()> {
-        self.q("INSERT OR IGNORE INTO bot_messages (message_id, todo_id) VALUES (?1, NULLIF(?2,''))",
-            vec![message_id.into(), todo_id.unwrap_or("").into()]).await?;
+        self.q(
+            "INSERT OR IGNORE INTO bot_messages (message_id, todo_id) VALUES (?1, NULLIF(?2,''))",
+            vec![message_id.into(), todo_id.unwrap_or("").into()],
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn is_bot_message(&self, message_id: &str) -> Result<bool> {
         #[derive(Deserialize)]
-        struct Row { message_id: String }
-        let resp = self.q("SELECT message_id FROM bot_messages WHERE message_id = ?1", vec![message_id.into()]).await?;
+        struct Row {
+            message_id: String,
+        }
+        let resp = self
+            .q(
+                "SELECT message_id FROM bot_messages WHERE message_id = ?1",
+                vec![message_id.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.is_some())
     }
 
     pub async fn get_todo_for_bot_message(&self, message_id: &str) -> Result<Option<String>> {
         #[derive(Deserialize)]
-        struct Row { todo_id: Option<String> }
-        let resp = self.q("SELECT todo_id FROM bot_messages WHERE message_id = ?1", vec![message_id.into()]).await?;
+        struct Row {
+            todo_id: Option<String>,
+        }
+        let resp = self
+            .q(
+                "SELECT todo_id FROM bot_messages WHERE message_id = ?1",
+                vec![message_id.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.and_then(|r| r.todo_id))
     }
 
     // --- Notes ---
 
-    pub async fn insert_note(&self, title: &str, content: &str, source: &str, created_by: &str) -> Result<String> {
+    pub async fn insert_note(
+        &self,
+        title: &str,
+        content: &str,
+        source: &str,
+        created_by: &str,
+    ) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         self.q("INSERT INTO notes (id, title, content, source, created_by, created_at, updated_at) VALUES (?1, NULLIF(?2,''), ?3, ?4, ?5, datetime('now'), datetime('now'))",
             vec![id.clone().into(), title.into(), content.into(), source.into(), created_by.into()]).await?;
@@ -274,26 +427,57 @@ impl<'a> WorkspaceDb<'a> {
     /// Get all notes. Returns (id, title, source, created_at).
     pub async fn get_notes(&self) -> Result<Vec<(String, Option<String>, String, String)>> {
         #[derive(Deserialize)]
-        struct Row { id: String, title: Option<String>, source: String, created_at: String }
-        let resp = self.q("SELECT id, title, source, created_at FROM notes ORDER BY created_at DESC", vec![]).await?;
+        struct Row {
+            id: String,
+            title: Option<String>,
+            source: String,
+            created_at: String,
+        }
+        let resp = self
+            .q(
+                "SELECT id, title, source, created_at FROM notes ORDER BY created_at DESC",
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| (r.id, r.title, r.source, r.created_at)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.title, r.source, r.created_at))
+            .collect())
     }
 
     /// Search notes (basic LIKE search — FTS5 requires native binding).
-    pub async fn search_notes(&self, query: &str) -> Result<Vec<(String, Option<String>, String, String)>> {
+    pub async fn search_notes(
+        &self,
+        query: &str,
+    ) -> Result<Vec<(String, Option<String>, String, String)>> {
         #[derive(Deserialize)]
-        struct Row { id: String, title: Option<String>, source: String, created_at: String }
+        struct Row {
+            id: String,
+            title: Option<String>,
+            source: String,
+            created_at: String,
+        }
         let pattern = format!("%{}%", query);
         let resp = self.q("SELECT id, title, source, created_at FROM notes WHERE title LIKE ?1 OR content LIKE ?1 ORDER BY created_at DESC",
             vec![pattern.into()]).await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| (r.id, r.title, r.source, r.created_at)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.title, r.source, r.created_at))
+            .collect())
     }
 
     // --- Activity log ---
 
-    pub async fn log_activity(&self, actor: &str, action: &str, target_type: &str, target_id: &str, source: &str) -> Result<()> {
+    pub async fn log_activity(
+        &self,
+        actor: &str,
+        action: &str,
+        target_type: &str,
+        target_id: &str,
+        source: &str,
+    ) -> Result<()> {
         let id = uuid::Uuid::new_v4().to_string();
         self.q("INSERT INTO activity_log (id, actor, action, target_type, target_id, source, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
             vec![id.into(), actor.into(), action.into(), target_type.into(), target_id.into(), source.into()]).await?;
@@ -307,20 +491,35 @@ impl<'a> WorkspaceDb<'a> {
         extract_first(&resp)
     }
 
-    pub async fn update_note(&self, note_id: &str, title: &str, content: &str, _editor_id: &str) -> Result<()> {
+    pub async fn update_note(
+        &self,
+        note_id: &str,
+        title: &str,
+        content: &str,
+        _editor_id: &str,
+    ) -> Result<()> {
         self.q("UPDATE notes SET title = NULLIF(?1,''), content = ?2, updated_at = datetime('now') WHERE id = ?3",
             vec![title.into(), content.into(), note_id.into()]).await?;
         Ok(())
     }
 
     pub async fn delete_note(&self, note_id: &str) -> Result<()> {
-        self.q("DELETE FROM notes WHERE id = ?1", vec![note_id.into()]).await?;
+        self.q("DELETE FROM notes WHERE id = ?1", vec![note_id.into()])
+            .await?;
         Ok(())
     }
 
     // --- Todos (extended) ---
 
-    pub async fn update_todo(&self, todo_id: &str, title: Option<&str>, status: Option<&str>, priority: Option<i32>, assigned_to: Option<&str>, assigned_name: Option<&str>) -> Result<()> {
+    pub async fn update_todo(
+        &self,
+        todo_id: &str,
+        title: Option<&str>,
+        status: Option<&str>,
+        priority: Option<i32>,
+        assigned_to: Option<&str>,
+        assigned_name: Option<&str>,
+    ) -> Result<()> {
         // Build dynamic update — use COALESCE to keep existing values when None passed as empty string sentinel
         let title_val = title.unwrap_or("");
         let status_val = status.unwrap_or("");
@@ -335,8 +534,16 @@ impl<'a> WorkspaceDb<'a> {
              assigned_to = CASE WHEN ?5 != '' THEN NULLIF(?5,'') ELSE assigned_to END, \
              assigned_name = CASE WHEN ?6 != '' THEN NULLIF(?6,'') ELSE assigned_name END, \
              updated_at = datetime('now') WHERE id = ?1",
-            vec![todo_id.into(), title_val.into(), status_val.into(), priority_val.into(), assigned_to_val.into(), assigned_name_val.into()],
-        ).await?;
+            vec![
+                todo_id.into(),
+                title_val.into(),
+                status_val.into(),
+                priority_val.into(),
+                assigned_to_val.into(),
+                assigned_name_val.into(),
+            ],
+        )
+        .await?;
         Ok(())
     }
 
@@ -365,7 +572,10 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn increment_llm_calls(&self) -> Result<i64> {
         let month_key = {
             use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let secs = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             // Approximate year/month from epoch seconds (good enough for monthly bucketing)
             let days = secs / 86400;
             let year = 1970 + days / 365;
@@ -382,8 +592,15 @@ impl<'a> WorkspaceDb<'a> {
 
         // Get current count
         #[derive(serde::Deserialize)]
-        struct Row { value: String }
-        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![month_key.into()]).await?;
+        struct Row {
+            value: String,
+        }
+        let resp = self
+            .q(
+                "SELECT value FROM settings WHERE key = ?1",
+                vec![month_key.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.and_then(|r| r.value.parse().ok()).unwrap_or(1))
     }
@@ -392,7 +609,10 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn get_llm_calls_this_month(&self) -> Result<i64> {
         let month_key = {
             use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let secs = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
             let days = secs / 86400;
             let year = 1970 + days / 365;
             let day_of_year = days % 365;
@@ -400,8 +620,15 @@ impl<'a> WorkspaceDb<'a> {
             format!("llm_calls_{}_{:02}", year, month.min(12))
         };
         #[derive(serde::Deserialize)]
-        struct Row { value: String }
-        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![month_key.into()]).await?;
+        struct Row {
+            value: String,
+        }
+        let resp = self
+            .q(
+                "SELECT value FROM settings WHERE key = ?1",
+                vec![month_key.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.and_then(|r| r.value.parse().ok()).unwrap_or(0))
     }
@@ -411,8 +638,15 @@ impl<'a> WorkspaceDb<'a> {
     /// Get a setting value by key, returns None if missing.
     pub async fn get_setting(&self, key: &str) -> Result<Option<String>> {
         #[derive(Deserialize)]
-        struct Row { value: String }
-        let resp = self.q("SELECT value FROM settings WHERE key = ?1", vec![key.into()]).await?;
+        struct Row {
+            value: String,
+        }
+        let resp = self
+            .q(
+                "SELECT value FROM settings WHERE key = ?1",
+                vec![key.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.map(|r| r.value))
     }
@@ -422,7 +656,10 @@ impl<'a> WorkspaceDb<'a> {
     /// agent builds its prompt context.
     pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
         #[derive(Deserialize)]
-        struct Row { key: String, value: String }
+        struct Row {
+            key: String,
+            value: String,
+        }
         let resp = self.q("SELECT key, value FROM settings", vec![]).await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
         Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
@@ -439,7 +676,8 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Delete a setting by key.
     pub async fn delete_setting(&self, key: &str) -> Result<()> {
-        self.q("DELETE FROM settings WHERE key = ?1", vec![key.into()]).await?;
+        self.q("DELETE FROM settings WHERE key = ?1", vec![key.into()])
+            .await?;
         Ok(())
     }
 
@@ -450,14 +688,19 @@ impl<'a> WorkspaceDb<'a> {
             "INSERT INTO settings (key, value) VALUES (?1, ?2) \
              ON CONFLICT(key) DO UPDATE SET value = CAST((CAST(value AS INTEGER) + ?3) AS TEXT)",
             vec![key.into(), delta.to_string().into(), delta.into()],
-        ).await?;
+        )
+        .await?;
         // Read back the new value
         let row: Option<String> = self.get_setting(key).await?;
         Ok(row.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0))
     }
 
     /// List pending scheduled actions in a [from, to] trigger_at range (SQL-filtered).
-    pub async fn list_scheduled_active_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+    pub async fn list_scheduled_active_in_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<serde_json::Value>> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, status, fire_count, created_by \
              FROM scheduled_actions \
@@ -475,12 +718,17 @@ impl<'a> WorkspaceDb<'a> {
         self.q(
             "UPDATE todos SET deadline = NULLIF(?1,''), updated_at = datetime('now') WHERE id = ?2",
             vec![deadline.into(), todo_id.into()],
-        ).await?;
+        )
+        .await?;
         Ok(())
     }
 
     /// List todos with a deadline in [from, to] range (non-done only).
-    pub async fn list_todos_with_deadline_in_range(&self, from: &str, to: &str) -> Result<Vec<TodoBrief>> {
+    pub async fn list_todos_with_deadline_in_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<TodoBrief>> {
         let resp = self.q(
             // Civil-date comparison: date() normalizes both a bare 'YYYY-MM-DD'
             // deadline and the range bounds (which may arrive as instants), so a
@@ -498,12 +746,19 @@ impl<'a> WorkspaceDb<'a> {
     /// Get data needed for a recap.
     pub async fn get_recap_data(&self, tz: &str) -> Result<RecapData> {
         #[derive(Deserialize)]
-        struct Count { cnt: i64 }
+        struct Count {
+            cnt: i64,
+        }
         // "This week" = the last 7 *local* days, anchored to the workspace tz.
         let week_start = week_start_utc(tz);
 
         // Open todos
-        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')", vec![]).await?;
+        let r = self
+            .q(
+                "SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')",
+                vec![],
+            )
+            .await?;
         let open: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Assigned open todos
@@ -519,14 +774,26 @@ impl<'a> WorkspaceDb<'a> {
         let high_priority: Vec<HighPrioTodo> = extract_rows(&r)?;
 
         // New notes this week
-        let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
+        let r = self
+            .q(
+                "SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)",
+                vec![week_start.clone().into()],
+            )
+            .await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Upcoming reminders (reminders are scheduled_actions of that type).
         let r = self.q("SELECT COUNT(*) as cnt FROM scheduled_actions WHERE action_type = 'reminder' AND status = 'pending'", vec![]).await?;
         let reminders: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
-        Ok(RecapData { open, assigned, done_week, high_priority, new_notes, reminders })
+        Ok(RecapData {
+            open,
+            assigned,
+            done_week,
+            high_priority,
+            new_notes,
+            reminders,
+        })
     }
 
     /// Create the next occurrence of a recurring todo when the current one is completed.
@@ -542,8 +809,15 @@ impl<'a> WorkspaceDb<'a> {
     /// Get recurrence string for a todo.
     pub async fn get_todo_recurrence(&self, todo_id: &str) -> Result<Option<String>> {
         #[derive(serde::Deserialize)]
-        struct Row { recurrence: Option<String> }
-        let resp = self.q("SELECT recurrence FROM todos WHERE id = ?1", vec![todo_id.into()]).await?;
+        struct Row {
+            recurrence: Option<String>,
+        }
+        let resp = self
+            .q(
+                "SELECT recurrence FROM todos WHERE id = ?1",
+                vec![todo_id.into()],
+            )
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.and_then(|r| r.recurrence).filter(|s| !s.is_empty()))
     }
@@ -552,10 +826,17 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn get_status_counts(&self, tz: &str) -> Result<(i64, i64, i64, i64)> {
         #[derive(Deserialize)]
-        struct Row { cnt: i64 }
+        struct Row {
+            cnt: i64,
+        }
         let week_start = week_start_utc(tz);
 
-        let r1 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')", vec![]).await?;
+        let r1 = self
+            .q(
+                "SELECT COUNT(*) as cnt FROM todos WHERE status IN ('open','in_progress')",
+                vec![],
+            )
+            .await?;
         let open: i64 = extract_first::<Row>(&r1)?.map(|r| r.cnt).unwrap_or(0);
 
         let r2 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
@@ -649,7 +930,7 @@ pub struct MemoryRow {
     pub value: String,
     pub kind: String,
     pub related_member: Option<String>,
-    pub tags: String,             // JSON array as TEXT
+    pub tags: String, // JSON array as TEXT
     pub source: String,
     pub confidence: f64,
     pub pinned: i64,
@@ -667,7 +948,8 @@ impl<'a> WorkspaceDb<'a> {
         let tags_json = serde_json::to_string(&entry.tags).unwrap_or_else(|_| "[]".into());
         let pinned = if entry.pinned.unwrap_or(false) { 1 } else { 0 };
         let confidence = entry.confidence.unwrap_or(1.0);
-        let expires_at_json: serde_json::Value = entry.expires_at
+        let expires_at_json: serde_json::Value = entry
+            .expires_at
             .map(|d| serde_json::Value::String(d.to_rfc3339()))
             .unwrap_or(serde_json::Value::Null);
 
@@ -701,7 +983,13 @@ impl<'a> WorkspaceDb<'a> {
         Ok(row.map(memory_row_to_entry))
     }
 
-    pub async fn list_memory(&self, kind_filter: Option<&str>, source_filter: Option<&str>, limit: i64, offset: i64) -> Result<Vec<MemoryEntry>> {
+    pub async fn list_memory(
+        &self,
+        kind_filter: Option<&str>,
+        source_filter: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<MemoryEntry>> {
         let mut sql = String::from(
             "SELECT id, key, value, kind, related_member, tags, source, confidence, pinned, expires_at, created_by, created_at, updated_at \
              FROM memory_entries WHERE (expires_at IS NULL OR expires_at > datetime('now'))"
@@ -737,7 +1025,13 @@ impl<'a> WorkspaceDb<'a> {
         Ok(rows.into_iter().map(memory_row_to_entry).collect())
     }
 
-    pub async fn update_memory(&self, id: &str, value: Option<&str>, pinned: Option<bool>, expires_at: Option<&str>) -> Result<bool> {
+    pub async fn update_memory(
+        &self,
+        id: &str,
+        value: Option<&str>,
+        pinned: Option<bool>,
+        expires_at: Option<&str>,
+    ) -> Result<bool> {
         // Coalesce-style update : only set non-None fields
         let mut sets = vec!["updated_at = datetime('now')".to_string()];
         let mut params: Vec<serde_json::Value> = vec![];
@@ -751,21 +1045,43 @@ impl<'a> WorkspaceDb<'a> {
         }
         if let Some(e) = expires_at {
             if chrono::DateTime::parse_from_rfc3339(e).is_err() {
-                return Err(worker::Error::RustError("invalid expires_at format, expected RFC3339".into()));
+                return Err(worker::Error::RustError(
+                    "invalid expires_at format, expected RFC3339".into(),
+                ));
             }
             params.push(e.into());
             sets.push(format!("expires_at = ?{}", params.len()));
         }
-        if sets.len() == 1 { return Ok(false); }
+        if sets.len() == 1 {
+            return Ok(false);
+        }
         params.push(id.into());
-        let sql = format!("UPDATE memory_entries SET {} WHERE id = ?{}", sets.join(", "), params.len());
+        let sql = format!(
+            "UPDATE memory_entries SET {} WHERE id = ?{}",
+            sets.join(", "),
+            params.len()
+        );
         let resp = self.q(&sql, params).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 
     pub async fn delete_memory(&self, id: &str) -> Result<bool> {
-        let resp = self.q("DELETE FROM memory_entries WHERE id = ?1", vec![id.into()]).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        let resp = self
+            .q("DELETE FROM memory_entries WHERE id = ?1", vec![id.into()])
+            .await?;
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 
     pub async fn search_memory_fts(&self, query: &str, limit: i64) -> Result<Vec<MemoryEntry>> {
@@ -783,8 +1099,12 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn count_memory(&self) -> Result<i64> {
         #[derive(Deserialize)]
-        struct Row { cnt: i64 }
-        let resp = self.q("SELECT COUNT(*) as cnt FROM memory_entries", vec![]).await?;
+        struct Row {
+            cnt: i64,
+        }
+        let resp = self
+            .q("SELECT COUNT(*) as cnt FROM memory_entries", vec![])
+            .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.map(|r| r.cnt).unwrap_or(0))
     }
@@ -795,7 +1115,9 @@ impl<'a> WorkspaceDb<'a> {
 // =============================================
 
 use grumps_calendar::{Event, EventSource, NewEvent};
-use grumps_scheduler::{ScheduledAction, ActionType, ActionStatus, NewScheduledAction, AgentSession, SessionMessage};
+use grumps_scheduler::{
+    ActionStatus, ActionType, AgentSession, NewScheduledAction, ScheduledAction, SessionMessage,
+};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct EventRow {
@@ -826,10 +1148,15 @@ impl<'a> WorkspaceDb<'a> {
         // UTC instant. For all-day, starts_at/ends_at carry the date at UTC
         // midnight (set by the caller), so formatting %Y-%m-%d yields the date.
         let fmt_dt = |d: chrono::DateTime<chrono::Utc>| -> String {
-            if e.all_day { d.format("%Y-%m-%d").to_string() } else { d.to_rfc3339() }
+            if e.all_day {
+                d.format("%Y-%m-%d").to_string()
+            } else {
+                d.to_rfc3339()
+            }
         };
         let starts_at_val: serde_json::Value = fmt_dt(e.starts_at).into();
-        let ends_at: serde_json::Value = e.ends_at
+        let ends_at: serde_json::Value = e
+            .ends_at
             .map(|d| serde_json::Value::String(fmt_dt(d)))
             .unwrap_or(serde_json::Value::Null);
 
@@ -877,37 +1204,78 @@ impl<'a> WorkspaceDb<'a> {
         Ok(rows.into_iter().map(event_row_to_event).collect())
     }
 
-    pub async fn update_event(&self, id: &str, title: Option<&str>, starts_at: Option<&str>, ends_at: Option<&str>, location: Option<&str>) -> Result<bool> {
+    pub async fn update_event(
+        &self,
+        id: &str,
+        title: Option<&str>,
+        starts_at: Option<&str>,
+        ends_at: Option<&str>,
+        location: Option<&str>,
+    ) -> Result<bool> {
         let mut sets = vec!["updated_at = datetime('now')".to_string()];
         let mut params: Vec<serde_json::Value> = vec![];
-        if let Some(v) = title { params.push(v.into()); sets.push(format!("title = ?{}", params.len())); }
+        if let Some(v) = title {
+            params.push(v.into());
+            sets.push(format!("title = ?{}", params.len()));
+        }
         // Accept a UTC instant (timed event) OR a bare civil date "YYYY-MM-DD"
         // (all-day event), matching what create_event stores.
-        let valid_dt = |v: &str| chrono::DateTime::parse_from_rfc3339(v).is_ok()
-            || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok();
+        let valid_dt = |v: &str| {
+            chrono::DateTime::parse_from_rfc3339(v).is_ok()
+                || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok()
+        };
         if let Some(v) = starts_at {
             if !valid_dt(v) {
-                return Err(worker::Error::RustError("invalid starts_at: expected RFC3339 or YYYY-MM-DD".into()));
+                return Err(worker::Error::RustError(
+                    "invalid starts_at: expected RFC3339 or YYYY-MM-DD".into(),
+                ));
             }
-            params.push(v.into()); sets.push(format!("starts_at = ?{}", params.len()));
+            params.push(v.into());
+            sets.push(format!("starts_at = ?{}", params.len()));
         }
         if let Some(v) = ends_at {
             if !valid_dt(v) {
-                return Err(worker::Error::RustError("invalid ends_at: expected RFC3339 or YYYY-MM-DD".into()));
+                return Err(worker::Error::RustError(
+                    "invalid ends_at: expected RFC3339 or YYYY-MM-DD".into(),
+                ));
             }
-            params.push(v.into()); sets.push(format!("ends_at = ?{}", params.len()));
+            params.push(v.into());
+            sets.push(format!("ends_at = ?{}", params.len()));
         }
-        if let Some(v) = location { params.push(v.into()); sets.push(format!("location = ?{}", params.len())); }
-        if sets.len() == 1 { return Ok(false); }
+        if let Some(v) = location {
+            params.push(v.into());
+            sets.push(format!("location = ?{}", params.len()));
+        }
+        if sets.len() == 1 {
+            return Ok(false);
+        }
         params.push(id.into());
-        let sql = format!("UPDATE events SET {} WHERE id = ?{}", sets.join(", "), params.len());
+        let sql = format!(
+            "UPDATE events SET {} WHERE id = ?{}",
+            sets.join(", "),
+            params.len()
+        );
         let resp = self.q(&sql, params).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 
     pub async fn delete_event(&self, id: &str) -> Result<bool> {
-        let resp = self.q("DELETE FROM events WHERE id = ?1", vec![id.into()]).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        let resp = self
+            .q("DELETE FROM events WHERE id = ?1", vec![id.into()])
+            .await?;
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 }
 
@@ -918,20 +1286,25 @@ fn week_start_utc(tz: &str) -> String {
     let tz = grumps_core::timeutil::tz_or_utc(tz);
     let today = grumps_core::timeutil::today_in_tz(tz);
     let (start, _) = grumps_core::timeutil::local_window_bounds_utc(
-        tz, today - chrono::Duration::days(6), today,
+        tz,
+        today - chrono::Duration::days(6),
+        today,
     );
     grumps_core::timeutil::to_utc_z(start)
 }
 
 fn event_row_to_event(r: EventRow) -> Event {
-    use chrono::{DateTime, NaiveDate, Utc, TimeZone};
+    use chrono::{DateTime, NaiveDate, TimeZone, Utc};
     // Accept a UTC instant (timed event) or a bare civil date (all-day event,
     // placed at that day's UTC midnight). Epoch is the last-resort fallback.
     let parse_dt = |s: &str| -> DateTime<Utc> {
         if let Ok(d) = DateTime::parse_from_rfc3339(s) {
             return d.with_timezone(&Utc);
         }
-        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d").ok().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .ok()
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+        {
             return Utc.from_utc_datetime(&ndt);
         }
         Utc.timestamp_opt(0, 0).unwrap()
@@ -1001,8 +1374,19 @@ impl<'a> WorkspaceDb<'a> {
     }
 
     pub async fn delete_scheduled_action(&self, id: &str) -> Result<bool> {
-        let resp = self.q("DELETE FROM scheduled_actions WHERE id = ?1", vec![id.into()]).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        let resp = self
+            .q(
+                "DELETE FROM scheduled_actions WHERE id = ?1",
+                vec![id.into()],
+            )
+            .await?;
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 
     pub async fn get_scheduled_action(&self, id: &str) -> Result<Option<ScheduledAction>> {
@@ -1015,7 +1399,12 @@ impl<'a> WorkspaceDb<'a> {
         Ok(row.map(scheduled_row_to_action))
     }
 
-    pub async fn list_scheduled_actions(&self, status_filter: Option<&str>, limit: i64, offset: i64) -> Result<Vec<ScheduledAction>> {
+    pub async fn list_scheduled_actions(
+        &self,
+        status_filter: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ScheduledAction>> {
         let mut sql = String::from(
             "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions"
@@ -1035,7 +1424,11 @@ impl<'a> WorkspaceDb<'a> {
         Ok(rows.into_iter().map(scheduled_row_to_action).collect())
     }
 
-    pub async fn list_due_actions(&self, now_iso: &str, limit: i64) -> Result<Vec<ScheduledAction>> {
+    pub async fn list_due_actions(
+        &self,
+        now_iso: &str,
+        limit: i64,
+    ) -> Result<Vec<ScheduledAction>> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions WHERE status = 'pending' AND trigger_at <= ?1 ORDER BY trigger_at ASC LIMIT ?2",
@@ -1047,7 +1440,9 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn next_pending_trigger_at(&self) -> Result<Option<String>> {
         #[derive(Deserialize)]
-        struct Row { trigger_at: String }
+        struct Row {
+            trigger_at: String,
+        }
         let resp = self.q(
             "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY trigger_at ASC LIMIT 1",
             vec![],
@@ -1057,11 +1452,19 @@ impl<'a> WorkspaceDb<'a> {
     }
 
     pub async fn mark_action_firing(&self, id: &str) -> Result<bool> {
-        let resp = self.q(
-            "UPDATE scheduled_actions SET status='firing' WHERE id=?1 AND status='pending'",
-            vec![id.into()],
-        ).await?;
-        Ok(resp.result.first().and_then(|rs| rs.meta.as_ref()).and_then(|m| m.changes).unwrap_or(0) > 0)
+        let resp = self
+            .q(
+                "UPDATE scheduled_actions SET status='firing' WHERE id=?1 AND status='pending'",
+                vec![id.into()],
+            )
+            .await?;
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
     }
 
     pub async fn mark_action_done(&self, id: &str) -> Result<()> {
@@ -1090,7 +1493,7 @@ impl<'a> WorkspaceDb<'a> {
 }
 
 fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
-    use chrono::{DateTime, Utc, TimeZone};
+    use chrono::{DateTime, TimeZone, Utc};
     let parse_dt = |s: &str| -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(s)
             .map(|d| d.with_timezone(&Utc))
@@ -1098,7 +1501,11 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
     };
     ScheduledAction {
         id: r.id,
-        action_type: db_str_to_enum(&r.action_type, ActionType::Reminder, "scheduled_actions.action_type"),
+        action_type: db_str_to_enum(
+            &r.action_type,
+            ActionType::Reminder,
+            "scheduled_actions.action_type",
+        ),
         title: r.title,
         trigger_at: parse_dt(&r.trigger_at),
         recurrence: r.recurrence,
@@ -1118,10 +1525,17 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
 // =============================================
 
 impl<'a> WorkspaceDb<'a> {
-    pub async fn upsert_agent_session(&self, member_id: &str, messages: &[SessionMessage], pending: Option<&serde_json::Value>) -> Result<String> {
+    pub async fn upsert_agent_session(
+        &self,
+        member_id: &str,
+        messages: &[SessionMessage],
+        pending: Option<&serde_json::Value>,
+    ) -> Result<String> {
         // Look up active session for member
         #[derive(Deserialize)]
-        struct Row { id: String }
+        struct Row {
+            id: String,
+        }
         let row: Option<Row> = extract_first(&self.q(
             "SELECT id FROM agent_sessions WHERE member_id=?1 AND expires_at > datetime('now') LIMIT 1",
             vec![member_id.into()],
@@ -1153,8 +1567,13 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn get_active_agent_session(&self, member_id: &str) -> Result<Option<AgentSession>> {
         #[derive(Deserialize)]
         struct Row {
-            id: String, member_id: String, last_message_at: String, expires_at: String,
-            messages: String, pending_action: Option<String>, created_at: String,
+            id: String,
+            member_id: String,
+            last_message_at: String,
+            expires_at: String,
+            messages: String,
+            pending_action: Option<String>,
+            created_at: String,
         }
         let resp = self.q(
             "SELECT id, member_id, last_message_at, expires_at, messages, pending_action, created_at FROM agent_sessions \
@@ -1163,17 +1582,22 @@ impl<'a> WorkspaceDb<'a> {
         ).await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.map(|r| {
-            use chrono::{DateTime, Utc, TimeZone};
-            let parse_dt = |s: &str| DateTime::parse_from_rfc3339(s)
-                .map(|d| d.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap());
+            use chrono::{DateTime, TimeZone, Utc};
+            let parse_dt = |s: &str| {
+                DateTime::parse_from_rfc3339(s)
+                    .map(|d| d.with_timezone(&Utc))
+                    .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+            };
             AgentSession {
                 id: r.id,
                 member_id: r.member_id,
                 last_message_at: parse_dt(&r.last_message_at),
                 expires_at: parse_dt(&r.expires_at),
                 messages: serde_json::from_str(&r.messages).unwrap_or_default(),
-                pending_action: r.pending_action.as_deref().and_then(|s| serde_json::from_str(s).ok()),
+                pending_action: r
+                    .pending_action
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str(s).ok()),
                 created_at: parse_dt(&r.created_at),
             }
         }))
@@ -1187,7 +1611,12 @@ impl<'a> WorkspaceDb<'a> {
 impl<'a> WorkspaceDb<'a> {
     /// Insert a bot action into activity_log (actor=NULL). Returns the new id.
     /// Maps: action=kind (e.g. "bot.proactive_intervention"), target_type=summary, target_id=optional ref.
-    pub async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> Result<Option<String>> {
+    pub async fn log_bot_action(
+        &self,
+        kind: &str,
+        summary: &str,
+        target_id: Option<&str>,
+    ) -> Result<Option<String>> {
         let id = uuid::Uuid::new_v4().to_string();
         self.q(
             "INSERT INTO activity_log (id, actor, action, target_type, target_id, source, created_at) \
@@ -1203,7 +1632,11 @@ impl<'a> WorkspaceDb<'a> {
     }
 
     /// List recent bot actions (action LIKE 'bot.%') for ambient classifier context.
-    pub async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
+    pub async fn list_recent_bot_actions(
+        &self,
+        max_age_seconds: i64,
+        limit: i64,
+    ) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
         #[derive(serde::Deserialize)]
         struct Row {
             id: String,
@@ -1211,28 +1644,30 @@ impl<'a> WorkspaceDb<'a> {
             target_type: Option<String>,
             created_at: String,
         }
-        let resp = self.q(
-            "SELECT id, action, target_type, created_at FROM activity_log \
+        let resp = self
+            .q(
+                "SELECT id, action, target_type, created_at FROM activity_log \
              WHERE source = 'bot' AND created_at >= datetime('now', ?1) \
              ORDER BY created_at DESC LIMIT ?2",
-            vec![
-                format!("-{max_age_seconds} seconds").into(),
-                limit.into(),
-            ],
-        ).await?;
+                vec![format!("-{max_age_seconds} seconds").into(), limit.into()],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
         let now = chrono::Utc::now();
-        Ok(rows.into_iter().map(|r| {
-            let age = chrono::DateTime::parse_from_rfc3339(&r.created_at)
-                .map(|dt| (now - dt.with_timezone(&chrono::Utc)).num_seconds())
-                .unwrap_or(0);
-            grumps_agent::ambient::RecentBotAction {
-                activity_id: r.id,
-                activity_type: r.action.clone(),
-                age_seconds: age,
-                summary: r.target_type.unwrap_or_else(|| r.action.clone()),
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let age = chrono::DateTime::parse_from_rfc3339(&r.created_at)
+                    .map(|dt| (now - dt.with_timezone(&chrono::Utc)).num_seconds())
+                    .unwrap_or(0);
+                grumps_agent::ambient::RecentBotAction {
+                    activity_id: r.id,
+                    activity_type: r.action.clone(),
+                    age_seconds: age,
+                    summary: r.target_type.unwrap_or_else(|| r.action.clone()),
+                }
+            })
+            .collect())
     }
 
     /// Insert a quality signal.
@@ -1268,8 +1703,12 @@ impl<'a> WorkspaceDb<'a> {
     // LLM call telemetry
     // =============================================
 
-    pub async fn log_llm_call(&self, record: &grumps_agent::telemetry::LlmCallRecord) -> Result<()> {
-        let tool_calls_json = serde_json::to_string(&record.tool_calls).unwrap_or_else(|_| "[]".into());
+    pub async fn log_llm_call(
+        &self,
+        record: &grumps_agent::telemetry::LlmCallRecord,
+    ) -> Result<()> {
+        let tool_calls_json =
+            serde_json::to_string(&record.tool_calls).unwrap_or_else(|_| "[]".into());
         self.q(
             "INSERT INTO llm_calls \
              (id, member_id, invocation_type, parent_call_id, provider, model, \
@@ -1299,114 +1738,176 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn aggregate_llm_costs_30d(&self) -> Result<Vec<grumps_agent::db::LlmCostByModel>> {
         #[derive(serde::Deserialize)]
-        struct Row { provider: String, model: String, cost_usd: f64, call_count: i64 }
-        let resp = self.q(
-            "SELECT provider, model, SUM(cost_usd) as cost_usd, COUNT(*) as call_count \
+        struct Row {
+            provider: String,
+            model: String,
+            cost_usd: f64,
+            call_count: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT provider, model, SUM(cost_usd) as cost_usd, COUNT(*) as call_count \
              FROM llm_calls WHERE created_at > date('now', '-30 days') \
              GROUP BY provider, model ORDER BY cost_usd DESC",
-            vec![],
-        ).await?;
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmCostByModel {
-            provider: r.provider,
-            model: r.model,
-            cost_usd: r.cost_usd,
-            call_count: r.call_count,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| grumps_agent::db::LlmCostByModel {
+                provider: r.provider,
+                model: r.model,
+                cost_usd: r.cost_usd,
+                call_count: r.call_count,
+            })
+            .collect())
     }
 
-    pub async fn aggregate_llm_latency_by_model(&self) -> Result<Vec<grumps_agent::db::LlmLatencyByModel>> {
+    pub async fn aggregate_llm_latency_by_model(
+        &self,
+    ) -> Result<Vec<grumps_agent::db::LlmLatencyByModel>> {
         // Fetch latency rows sorted per (provider, model) and compute percentiles in Rust
         // because SQLite has no PERCENTILE_CONT.
         #[derive(serde::Deserialize)]
-        struct Row { provider: String, model: String, latency_ms: i64 }
-        let resp = self.q(
-            "SELECT provider, model, latency_ms FROM llm_calls \
+        struct Row {
+            provider: String,
+            model: String,
+            latency_ms: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT provider, model, latency_ms FROM llm_calls \
              WHERE created_at > date('now', '-7 days') AND latency_ms IS NOT NULL \
              ORDER BY provider, model, latency_ms ASC",
-            vec![],
-        ).await?;
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
 
         // Group by (provider, model)
         use std::collections::BTreeMap;
         let mut groups: BTreeMap<(String, String), Vec<i64>> = BTreeMap::new();
         for r in rows {
-            groups.entry((r.provider, r.model)).or_default().push(r.latency_ms);
+            groups
+                .entry((r.provider, r.model))
+                .or_default()
+                .push(r.latency_ms);
         }
 
         let percentile = |sorted: &[i64], pct: f64| -> i64 {
-            if sorted.is_empty() { return 0; }
-            let idx = ((sorted.len() as f64 * pct / 100.0).ceil() as usize).saturating_sub(1).min(sorted.len() - 1);
+            if sorted.is_empty() {
+                return 0;
+            }
+            let idx = ((sorted.len() as f64 * pct / 100.0).ceil() as usize)
+                .saturating_sub(1)
+                .min(sorted.len() - 1);
             sorted[idx]
         };
 
-        Ok(groups.into_iter().map(|((provider, model), vals)| {
-            grumps_agent::db::LlmLatencyByModel {
-                count: vals.len() as i64,
-                p50_ms: percentile(&vals, 50.0),
-                p95_ms: percentile(&vals, 95.0),
-                p99_ms: percentile(&vals, 99.0),
-                provider,
-                model,
-            }
-        }).collect())
+        Ok(groups
+            .into_iter()
+            .map(
+                |((provider, model), vals)| grumps_agent::db::LlmLatencyByModel {
+                    count: vals.len() as i64,
+                    p50_ms: percentile(&vals, 50.0),
+                    p95_ms: percentile(&vals, 95.0),
+                    p99_ms: percentile(&vals, 99.0),
+                    provider,
+                    model,
+                },
+            )
+            .collect())
     }
 
-    pub async fn aggregate_llm_invocation_types(&self) -> Result<Vec<grumps_agent::db::LlmInvocationCount>> {
+    pub async fn aggregate_llm_invocation_types(
+        &self,
+    ) -> Result<Vec<grumps_agent::db::LlmInvocationCount>> {
         #[derive(serde::Deserialize)]
-        struct Row { invocation_type: String, count: i64 }
-        let resp = self.q(
-            "SELECT invocation_type, COUNT(*) as count FROM llm_calls \
+        struct Row {
+            invocation_type: String,
+            count: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT invocation_type, COUNT(*) as count FROM llm_calls \
              WHERE created_at > date('now', '-30 days') \
              GROUP BY invocation_type ORDER BY count DESC",
-            vec![],
-        ).await?;
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmInvocationCount {
-            invocation_type: r.invocation_type,
-            count: r.count,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| grumps_agent::db::LlmInvocationCount {
+                invocation_type: r.invocation_type,
+                count: r.count,
+            })
+            .collect())
     }
 
-    pub async fn list_recent_llm_errors(&self, limit: i64) -> Result<Vec<grumps_agent::db::LlmErrorEntry>> {
+    pub async fn list_recent_llm_errors(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<grumps_agent::db::LlmErrorEntry>> {
         #[derive(serde::Deserialize)]
-        struct Row { created_at: String, provider: String, model: String, error: String, invocation_type: String }
-        let resp = self.q(
-            "SELECT created_at, provider, model, error, invocation_type \
+        struct Row {
+            created_at: String,
+            provider: String,
+            model: String,
+            error: String,
+            invocation_type: String,
+        }
+        let resp = self
+            .q(
+                "SELECT created_at, provider, model, error, invocation_type \
              FROM llm_calls WHERE success = 0 AND error IS NOT NULL \
              ORDER BY created_at DESC LIMIT ?1",
-            vec![limit.into()],
-        ).await?;
+                vec![limit.into()],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| grumps_agent::db::LlmErrorEntry {
-            created_at: r.created_at,
-            provider: r.provider,
-            model: r.model,
-            error: r.error,
-            invocation_type: r.invocation_type,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| grumps_agent::db::LlmErrorEntry {
+                created_at: r.created_at,
+                provider: r.provider,
+                model: r.model,
+                error: r.error,
+                invocation_type: r.invocation_type,
+            })
+            .collect())
     }
 
-    pub async fn aggregate_quality_signals_30d(&self) -> Result<Vec<grumps_agent::db::QualitySignalCount>> {
+    pub async fn aggregate_quality_signals_30d(
+        &self,
+    ) -> Result<Vec<grumps_agent::db::QualitySignalCount>> {
         #[derive(serde::Deserialize)]
-        struct Row { signal_type: String, count: i64 }
-        let resp = self.q(
-            "SELECT signal_type, COUNT(*) as count FROM quality_signals \
+        struct Row {
+            signal_type: String,
+            count: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT signal_type, COUNT(*) as count FROM quality_signals \
              WHERE created_at > date('now', '-30 days') \
              GROUP BY signal_type ORDER BY count DESC",
-            vec![],
-        ).await?;
+                vec![],
+            )
+            .await?;
         let rows: Vec<Row> = extract_rows(&resp)?;
-        Ok(rows.into_iter().map(|r| grumps_agent::db::QualitySignalCount {
-            signal_type: r.signal_type,
-            count: r.count,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| grumps_agent::db::QualitySignalCount {
+                signal_type: r.signal_type,
+                count: r.count,
+            })
+            .collect())
     }
 }
 
 fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
-    use chrono::{DateTime, Utc, TimeZone};
+    use chrono::{DateTime, TimeZone, Utc};
     let parse_dt = |s: &str| -> DateTime<Utc> {
         DateTime::parse_from_rfc3339(s)
             .map(|d| d.with_timezone(&Utc))
@@ -1428,4 +1929,3 @@ fn memory_row_to_entry(r: MemoryRow) -> MemoryEntry {
         updated_at: parse_dt(&r.updated_at),
     }
 }
-

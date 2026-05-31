@@ -91,6 +91,118 @@ pub fn date_key_in_tz(utc_iso: &str, tz: &str) -> String {
     render(&date, "en-CA", &opts, &fallback)
 }
 
+/// The workspace-calendar-day key "YYYY-MM-DD" for a calendar item, applying the
+/// single project convention: **all-day items are floating civil dates** (their
+/// bare date, never tz-shifted) while **timed instants are bucketed in the
+/// workspace tz**. Every calendar view groups/filters through this so month,
+/// week, agenda and overview always agree.
+pub fn item_day_key(starts_at: &str, all_day: bool, tz: &str) -> String {
+    if all_day {
+        starts_at.get(..10).unwrap_or(starts_at).to_string()
+    } else {
+        date_key_in_tz(starts_at, tz)
+    }
+}
+
+/// Today's civil date `(year, month, day)` in the workspace `tz` — never the
+/// browser's. Use for "is this cell today?" highlighting and default views.
+pub fn today_in_tz(tz: &str) -> (i32, u32, u32) {
+    let now_iso = js_sys::Date::new_0()
+        .to_iso_string()
+        .as_string()
+        .unwrap_or_default();
+    let key = date_key_in_tz(&now_iso, tz); // "YYYY-MM-DD"
+    let mut it = key.split('-');
+    let y = it.next().and_then(|s| s.parse().ok()).unwrap_or(1970);
+    let m = it.next().and_then(|s| s.parse().ok()).unwrap_or(1);
+    let d = it.next().and_then(|s| s.parse().ok()).unwrap_or(1);
+    (y, m, d)
+}
+
+/// The wall-clock time of a UTC instant in `tz`, "HH:MM" (or "HH:MM:SS"), 24h.
+/// Composed with [`date_key_in_tz`] rather than relying on a locale's
+/// date+time separator.
+fn time_in_tz(date: &js_sys::Date, tz: &str, with_seconds: bool) -> String {
+    let opts = js_sys::Object::new();
+    set_opt(&opts, "timeZone", tz);
+    set_opt(&opts, "hour", "2-digit");
+    set_opt(&opts, "minute", "2-digit");
+    if with_seconds {
+        set_opt(&opts, "second", "2-digit");
+    }
+    set_opt(&opts, "hourCycle", "h23");
+    let opts_val: JsValue = opts.into();
+    date.to_locale_string("en-GB", &opts_val)
+        .as_string()
+        .unwrap_or_else(|| {
+            if with_seconds {
+                "00:00:00".into()
+            } else {
+                "00:00".into()
+            }
+        })
+}
+
+/// The wall-clock hour (0–23) of a UTC instant as seen in `tz`. `None` if the
+/// instant doesn't parse. Used to place timed events in the week-view grid.
+pub fn hour_in_tz(utc_iso: &str, tz: &str) -> Option<u32> {
+    let date = js_sys::Date::new(&JsValue::from_str(utc_iso));
+    if date.get_time().is_nan() {
+        return None;
+    }
+    time_in_tz(&date, tz, false).get(..2)?.parse().ok()
+}
+
+/// Render the wall clock of a UTC instant in `tz` as a `datetime-local` input
+/// value, "YYYY-MM-DDTHH:MM". Inverse of [`input_local_to_utc`].
+pub fn to_input_local(utc_iso: &str, tz: &str) -> String {
+    let date = js_sys::Date::new(&JsValue::from_str(utc_iso));
+    if date.get_time().is_nan() {
+        return utc_iso.get(..16).unwrap_or(utc_iso).to_string();
+    }
+    format!(
+        "{}T{}",
+        date_key_in_tz(utc_iso, tz),
+        time_in_tz(&date, tz, false)
+    )
+}
+
+/// The wall clock of `date` rendered in `tz`, then reinterpreted as UTC ms — used
+/// to derive the tz's UTC offset at a given instant.
+fn wall_as_utc_ms(tz: &str, date: &js_sys::Date) -> f64 {
+    let utc_iso = date.to_iso_string().as_string().unwrap_or_default();
+    let iso = format!(
+        "{}T{}Z",
+        date_key_in_tz(&utc_iso, tz),
+        time_in_tz(date, tz, true)
+    );
+    js_sys::Date::new(&JsValue::from_str(&iso)).get_time()
+}
+
+/// Interpret a `datetime-local` value "YYYY-MM-DDTHH:MM" as a wall clock in `tz`
+/// and convert it to a UTC instant "YYYY-MM-DDTHH:MM:SSZ". Inverse of
+/// [`to_input_local`]. (The tz offset is sampled at the entered wall time, so a
+/// time inside a DST transition can be off by the transition amount — the usual
+/// ~1h ambiguity twice a year.)
+pub fn input_local_to_utc(local: &str, tz: &str) -> String {
+    if local.is_empty() {
+        return String::new();
+    }
+    let provisional = js_sys::Date::new(&JsValue::from_str(&format!("{local}:00Z")));
+    if provisional.get_time().is_nan() {
+        return local.to_string();
+    }
+    let offset = wall_as_utc_ms(tz, &provisional) - provisional.get_time();
+    let real = js_sys::Date::new_0();
+    real.set_time(provisional.get_time() - offset);
+    let iso = real.to_iso_string().as_string().unwrap_or_default();
+    if iso.len() >= 19 {
+        format!("{}Z", &iso[..19])
+    } else {
+        local.to_string()
+    }
+}
+
 /// Format a **civil date** (all-day item / deadline) — NO timezone shift. A day
 /// is a day; we format the stored calendar date as-is (anchored in UTC so the
 /// displayed day always equals the stored day).

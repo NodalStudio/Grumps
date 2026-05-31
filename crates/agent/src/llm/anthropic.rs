@@ -1,8 +1,8 @@
 //! Anthropic Sonnet 4.6 client (HTTP via Fetch).
 //! Used by the agent loop for tool use + reasoning.
 
-use worker::*;
 use serde::{Deserialize, Serialize};
+use worker::*;
 
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-sonnet-4-6";
@@ -38,8 +38,8 @@ impl Default for AnthropicRequest {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Message {
-    pub role: String,                    // "user" or "assistant"
-    pub content: serde_json::Value,      // string OR array of content blocks
+    pub role: String,               // "user" or "assistant"
+    pub content: serde_json::Value, // string OR array of content blocks
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -48,15 +48,21 @@ pub struct AnthropicResponse {
     pub model: String,
     pub role: String,
     pub content: Vec<ContentBlock>,
-    pub stop_reason: String,             // "end_turn" | "tool_use" | "max_tokens"
+    pub stop_reason: String, // "end_turn" | "tool_use" | "max_tokens"
     pub usage: Usage,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: serde_json::Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -137,18 +143,25 @@ pub async fn call(env: &Env, req: &AnthropicRequest) -> Result<AnthropicResponse
     headers.set("content-type", "application/json")?;
     headers.set("anthropic-beta", "prompt-caching-2024-07-31")?;
 
-    let request = Request::new_with_init(ANTHROPIC_URL, RequestInit::new()
-        .with_method(Method::Post)
-        .with_headers(headers)
-        .with_body(Some(body.into())))?;
+    let request = Request::new_with_init(
+        ANTHROPIC_URL,
+        RequestInit::new()
+            .with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.into())),
+    )?;
 
     let mut response = Fetch::Request(request).send().await?;
     let status = response.status_code();
     if status >= 400 {
         let err_body = response.text().await.unwrap_or_default();
-        return Err(Error::RustError(format!("anthropic API {status}: {err_body}")));
+        return Err(Error::RustError(format!(
+            "anthropic API {status}: {err_body}"
+        )));
     }
-    response.json::<AnthropicResponse>().await
+    response
+        .json::<AnthropicResponse>()
+        .await
         .map_err(|e| Error::RustError(format!("anthropic response parse: {e}")))
 }
 
@@ -171,7 +184,13 @@ mod tests {
         let json = serde_json::to_value(&req).unwrap();
         assert_eq!(json["model"], "claude-sonnet-4-6");
         assert_eq!(json["system"], "You are helpful.");
-        assert!(json.get("tools").is_none() || json["tools"].as_array().map(|a| a.is_empty()).unwrap_or(false));
+        assert!(
+            json.get("tools").is_none()
+                || json["tools"]
+                    .as_array()
+                    .map(|a| a.is_empty())
+                    .unwrap_or(false)
+        );
         assert!(json.get("tool_choice").is_none());
     }
 

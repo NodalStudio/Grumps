@@ -4,13 +4,17 @@ use std::collections::HashMap;
 
 pub struct TelegramAdapter {
     pub bot_token: String,
-    pub bot_username: String,  // without @
+    pub bot_username: String, // without @
     pub webhook_secret: String,
 }
 
 impl TelegramAdapter {
     pub fn new(bot_token: String, bot_username: String, webhook_secret: String) -> Self {
-        Self { bot_token, bot_username, webhook_secret }
+        Self {
+            bot_token,
+            bot_username,
+            webhook_secret,
+        }
     }
 
     /// The Bot API endpoint URL for a given method (single source of the base URL
@@ -20,7 +24,11 @@ impl TelegramAdapter {
     }
 
     /// Build request to set group description via Telegram Bot API.
-    pub fn build_set_description_request(&self, chat_id: &str, description: &str) -> Result<(String, String), MessagingError> {
+    pub fn build_set_description_request(
+        &self,
+        chat_id: &str,
+        description: &str,
+    ) -> Result<(String, String), MessagingError> {
         let url = self.api_url("setChatDescription");
         let body = serde_json::json!({
             "chat_id": chat_id,
@@ -31,7 +39,11 @@ impl TelegramAdapter {
 
     /// Build an `answerCallbackQuery` request — acknowledges an inline-button tap
     /// (dismisses the client's loading spinner). An optional `text` shows a toast.
-    pub fn build_answer_callback_request(&self, callback_query_id: &str, text: Option<&str>) -> (String, String) {
+    pub fn build_answer_callback_request(
+        &self,
+        callback_query_id: &str,
+        text: Option<&str>,
+    ) -> (String, String) {
         let url = self.api_url("answerCallbackQuery");
         let mut body = serde_json::json!({ "callback_query_id": callback_query_id });
         if let Some(t) = text {
@@ -42,7 +54,12 @@ impl TelegramAdapter {
 
     /// Build an `editMessageReplyMarkup` request — swaps (or, with `markup: None`,
     /// removes) the inline keyboard on an already-sent message.
-    pub fn build_edit_reply_markup_request(&self, chat_id: &str, message_id: i64, markup: Option<serde_json::Value>) -> (String, String) {
+    pub fn build_edit_reply_markup_request(
+        &self,
+        chat_id: &str,
+        message_id: i64,
+        markup: Option<serde_json::Value>,
+    ) -> (String, String) {
         let url = self.api_url("editMessageReplyMarkup");
         let mut body = serde_json::json!({ "chat_id": chat_id, "message_id": message_id });
         // Omitting reply_markup removes the keyboard.
@@ -54,7 +71,9 @@ impl TelegramAdapter {
 }
 
 impl MessagingPlatform for TelegramAdapter {
-    fn platform_id(&self) -> &str { "telegram" }
+    fn platform_id(&self) -> &str {
+        "telegram"
+    }
 
     fn verify_signature(&self, _payload: &[u8], secret: &str) -> Result<(), MessagingError> {
         // Telegram uses X-Telegram-Bot-Api-Secret-Token header
@@ -75,7 +94,9 @@ impl MessagingPlatform for TelegramAdapter {
         };
 
         let text = msg.text.clone();
-        let sender_name = msg.from.as_ref()
+        let sender_name = msg
+            .from
+            .as_ref()
             .map(|u| {
                 let mut name = u.first_name.clone();
                 if let Some(ref last) = u.last_name {
@@ -86,7 +107,9 @@ impl MessagingPlatform for TelegramAdapter {
             })
             .unwrap_or_else(|| "Unknown".into());
 
-        let sender_id = msg.from.as_ref()
+        let sender_id = msg
+            .from
+            .as_ref()
             .map(|u| u.id.to_string())
             .unwrap_or_default();
 
@@ -94,25 +117,27 @@ impl MessagingPlatform for TelegramAdapter {
 
         // Detect @bot mention
         let bot_mention = format!("@{}", self.bot_username);
-        let is_mention = text.as_ref()
+        let is_mention = text
+            .as_ref()
             .map(|t| t.to_lowercase().contains(&bot_mention.to_lowercase()))
             .unwrap_or(false);
 
         // Check if reply to bot
-        let is_reply_to_bot = msg.reply_to_message.as_ref()
+        let is_reply_to_bot = msg
+            .reply_to_message
+            .as_ref()
             .and_then(|r| r.from.as_ref())
             .map(|u| u.is_bot.unwrap_or(false))
             .unwrap_or(false);
 
-        let (quoted_id, quoted_text) = msg.reply_to_message.as_ref()
-            .map(|r| (
-                Some(r.message_id.to_string()),
-                r.text.clone(),
-            ))
+        let (quoted_id, quoted_text) = msg
+            .reply_to_message
+            .as_ref()
+            .map(|r| (Some(r.message_id.to_string()), r.text.clone()))
             .unwrap_or((None, None));
 
-        let timestamp = chrono::DateTime::from_timestamp(msg.date, 0)
-            .unwrap_or_else(chrono::Utc::now);
+        let timestamp =
+            chrono::DateTime::from_timestamp(msg.date, 0).unwrap_or_else(chrono::Utc::now);
 
         Ok(Some(InboundMessage {
             platform: "telegram".into(),
@@ -129,7 +154,11 @@ impl MessagingPlatform for TelegramAdapter {
         }))
     }
 
-    fn build_send_request(&self, chat_id: &str, message: &OutboundMessage) -> Result<(String, String), MessagingError> {
+    fn build_send_request(
+        &self,
+        chat_id: &str,
+        message: &OutboundMessage,
+    ) -> Result<(String, String), MessagingError> {
         let url = self.api_url("sendMessage");
         let mut body = serde_json::json!({
             "chat_id": chat_id,
@@ -147,10 +176,15 @@ impl MessagingPlatform for TelegramAdapter {
         Ok((url, body.to_string()))
     }
 
-    fn handle_verification_challenge(&self, _params: &HashMap<String, String>) -> Result<String, MessagingError> {
+    fn handle_verification_challenge(
+        &self,
+        _params: &HashMap<String, String>,
+    ) -> Result<String, MessagingError> {
         // Telegram doesn't have a verification challenge like WhatsApp
         // The webhook is set via the Bot API setWebhook method
-        Err(MessagingError::VerificationFailed("Telegram doesn't use verification challenges".into()))
+        Err(MessagingError::VerificationFailed(
+            "Telegram doesn't use verification challenges".into(),
+        ))
     }
 }
 
@@ -259,7 +293,10 @@ mod tests {
                 "text": "@grumps_bot list"
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert_eq!(msg.platform, "telegram");
         assert_eq!(msg.sender_name, "Alice Martin");
         assert_eq!(msg.channel_id, "-100123");
@@ -279,7 +316,10 @@ mod tests {
                 "text": "list"
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert!(msg.is_direct_message);
         assert!(msg.is_mention_to_bot); // DM always counts as mention
     }
@@ -301,7 +341,10 @@ mod tests {
                 }
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert!(msg.is_mention_to_bot); // reply to bot counts
         assert_eq!(msg.quoted_message_id, Some("40".into()));
     }
@@ -309,12 +352,19 @@ mod tests {
     #[test]
     fn parse_no_message() {
         let payload = serde_json::json!({"update_id": 4});
-        assert!(adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().is_none());
+        assert!(adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .is_none());
     }
 
     #[test]
     fn build_send_request_group() {
-        let msg = OutboundMessage { text: "Hello".into(), reply_to: None, reply_markup: None };
+        let msg = OutboundMessage {
+            text: "Hello".into(),
+            reply_to: None,
+            reply_markup: None,
+        };
         let (url, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(url.contains("123:ABC"));
         assert!(body.contains("-100123"));
@@ -350,7 +400,9 @@ mod tests {
 
     #[test]
     fn build_set_description() {
-        let (url, body) = adapter().build_set_description_request("-100999", "Grumps workspace").unwrap();
+        let (url, body) = adapter()
+            .build_set_description_request("-100999", "Grumps workspace")
+            .unwrap();
         assert!(url.contains("setChatDescription"));
         assert!(body.contains("-100999"));
         assert!(body.contains("Grumps workspace"));
@@ -358,7 +410,11 @@ mod tests {
 
     #[test]
     fn build_send_request_with_reply() {
-        let msg = OutboundMessage { text: "Done.".into(), reply_to: Some("42".into()), reply_markup: None };
+        let msg = OutboundMessage {
+            text: "Done.".into(),
+            reply_to: Some("42".into()),
+            reply_markup: None,
+        };
         let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(body.contains("reply_to_message_id"));
         assert!(body.contains("42"));

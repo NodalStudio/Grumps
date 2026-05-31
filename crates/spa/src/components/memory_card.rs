@@ -1,15 +1,15 @@
-use leptos::prelude::*;
 use crate::api::MemoryItem;
 use crate::i18n::tr;
+use leptos::prelude::*;
 
 fn kind_color(kind: &str) -> &'static str {
     match kind {
-        "fact"        => "var(--teal)",
-        "preference"  => "var(--brick)",
-        "skill"       => "var(--ink)",
-        "event"       => "var(--ochre)",
-        "reminder"    => "var(--brick)",
-        _             => "var(--ink-40)",
+        "fact" => "var(--teal)",
+        "preference" => "var(--brick)",
+        "skill" => "var(--ink)",
+        "event" => "var(--ochre)",
+        "reminder" => "var(--brick)",
+        _ => "var(--ink-40)",
     }
 }
 

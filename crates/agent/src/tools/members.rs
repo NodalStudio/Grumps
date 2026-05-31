@@ -4,8 +4,8 @@
 //! instructions at fire time by inspecting a member's last activity, without
 //! any structured condition machinery.
 
-use serde_json::{json, Value};
 use super::{args, parse_args, ToolContext};
+use serde_json::{json, Value};
 
 /// Resolve a member by name (exact display-name match, else a unique substring
 /// match) and report when they were last active.
@@ -16,14 +16,18 @@ pub async fn get_member_activity(ctx: &ToolContext<'_>, raw: Value) -> worker::R
         return Ok(json!({ "ok": false, "reason": "missing_member" }));
     }
     let members = ctx.db.list_active_members().await?;
-    let name_of = |m: &crate::db::MemberShort| m.display_name.clone().unwrap_or_default().to_lowercase();
+    let name_of =
+        |m: &crate::db::MemberShort| m.display_name.clone().unwrap_or_default().to_lowercase();
 
     // Prefer an exact display-name match; otherwise accept a unique substring.
     let exact: Vec<_> = members.iter().filter(|m| name_of(m) == needle).collect();
     let matched = match exact.as_slice() {
         [m] => Some(*m),
         _ => {
-            let subs: Vec<_> = members.iter().filter(|m| name_of(m).contains(&needle)).collect();
+            let subs: Vec<_> = members
+                .iter()
+                .filter(|m| name_of(m).contains(&needle))
+                .collect();
             match subs.as_slice() {
                 [m] => Some(*m),
                 _ => None,
@@ -33,12 +37,19 @@ pub async fn get_member_activity(ctx: &ToolContext<'_>, raw: Value) -> worker::R
 
     let m = match matched {
         Some(m) => m,
-        None => return Ok(json!({ "ok": true, "found": false, "reason": "no_unique_member_match", "query": a.member })),
+        None => {
+            return Ok(
+                json!({ "ok": true, "found": false, "reason": "no_unique_member_match", "query": a.member }),
+            )
+        }
     };
 
     let last = ctx.db.get_member_last_seen(&m.id).await?;
     let (last_iso, seconds_since) = match last {
-        Some(t) => (Some(t.to_rfc3339()), Some((chrono::Utc::now() - t).num_seconds())),
+        Some(t) => (
+            Some(t.to_rfc3339()),
+            Some((chrono::Utc::now() - t).num_seconds()),
+        ),
         None => (None, None),
     };
     Ok(json!({

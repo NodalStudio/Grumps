@@ -1,8 +1,8 @@
+use crate::components::sidebar::Sidebar;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::components::Outlet;
 use leptos_router::hooks::use_params_map;
-use crate::components::sidebar::Sidebar;
 
 #[component]
 pub fn WorkspaceLayout() -> impl IntoView {
@@ -21,7 +21,11 @@ pub fn WorkspaceLayout() -> impl IntoView {
         let s = slug();
         spawn_local(async move {
             if let Ok(info) = api.get_workspace_info(&s).await {
-                let tz = info.timezone.clone().filter(|t| !t.is_empty()).unwrap_or_else(|| "UTC".into());
+                let tz = info
+                    .timezone
+                    .clone()
+                    .filter(|t| !t.is_empty())
+                    .unwrap_or_else(|| "UTC".into());
                 tz_sig.set(tz.clone());
                 let source = info.timezone_source.clone().unwrap_or_default();
                 if source.is_empty() || source == "default" {

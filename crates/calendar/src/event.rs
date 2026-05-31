@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -10,7 +10,9 @@ pub enum EventSource {
 }
 
 impl Default for EventSource {
-    fn default() -> Self { EventSource::Web }
+    fn default() -> Self {
+        EventSource::Web
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,8 +24,8 @@ pub struct Event {
     pub ends_at: Option<DateTime<Utc>>,
     pub all_day: bool,
     pub location: Option<String>,
-    pub recurrence: Option<String>,    // RRULE
-    pub attendees: Vec<String>,        // member.id
+    pub recurrence: Option<String>, // RRULE
+    pub attendees: Vec<String>,     // member.id
     pub color: String,
     pub source: EventSource,
     pub related_todo_id: Option<String>,
@@ -54,8 +56,14 @@ mod tests {
 
     #[test]
     fn event_source_serializes_snake() {
-        assert_eq!(serde_json::to_string(&EventSource::Web).unwrap(), r#""web""#);
-        assert_eq!(serde_json::to_string(&EventSource::Chat).unwrap(), r#""chat""#);
+        assert_eq!(
+            serde_json::to_string(&EventSource::Web).unwrap(),
+            r#""web""#
+        );
+        assert_eq!(
+            serde_json::to_string(&EventSource::Chat).unwrap(),
+            r#""chat""#
+        );
     }
 
     #[test]

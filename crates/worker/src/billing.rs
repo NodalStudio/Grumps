@@ -22,22 +22,28 @@ impl QuotaError {
         match self {
             Self::Todos { .. } => "billing.quota.todos",
             Self::Notes { .. } => "billing.quota.notes",
-            Self::Llm   { .. } => "billing.quota.llm",
+            Self::Llm { .. } => "billing.quota.llm",
         }
     }
 
     pub fn current(&self) -> i64 {
-        match *self { Self::Todos { current, .. } | Self::Notes { current, .. } | Self::Llm { current, .. } => current }
+        match *self {
+            Self::Todos { current, .. }
+            | Self::Notes { current, .. }
+            | Self::Llm { current, .. } => current,
+        }
     }
 
     pub fn max(&self) -> i64 {
-        match *self { Self::Todos { max, .. } | Self::Notes { max, .. } | Self::Llm { max, .. } => max }
+        match *self {
+            Self::Todos { max, .. } | Self::Notes { max, .. } | Self::Llm { max, .. } => max,
+        }
     }
 
     /// Format as a localized message using the i18n catalogue.
     pub fn render(&self, locale: grumps_i18n::Locale) -> String {
         let cur = self.current().to_string();
-        let mx  = self.max().to_string();
+        let mx = self.max().to_string();
         grumps_i18n::t(locale, self.key(), &[("current", &cur), ("max", &mx)])
     }
 }
@@ -46,7 +52,10 @@ impl QuotaError {
 pub fn check_todo_quota(plan: &Plan, current_open: i64) -> Result<(), QuotaError> {
     if let Some(max) = plan.max_todos() {
         if current_open >= max {
-            return Err(QuotaError::Todos { current: current_open, max });
+            return Err(QuotaError::Todos {
+                current: current_open,
+                max,
+            });
         }
     }
     Ok(())
@@ -55,7 +64,10 @@ pub fn check_todo_quota(plan: &Plan, current_open: i64) -> Result<(), QuotaError
 pub fn check_note_quota(plan: &Plan, current_count: i64) -> Result<(), QuotaError> {
     if let Some(max) = plan.max_notes() {
         if current_count >= max {
-            return Err(QuotaError::Notes { current: current_count, max });
+            return Err(QuotaError::Notes {
+                current: current_count,
+                max,
+            });
         }
     }
     Ok(())
@@ -64,7 +76,10 @@ pub fn check_note_quota(plan: &Plan, current_count: i64) -> Result<(), QuotaErro
 pub fn check_llm_quota(plan: &Plan, calls_this_month: i64) -> Result<(), QuotaError> {
     if let Some(max) = plan.max_llm_calls() {
         if calls_this_month >= max {
-            return Err(QuotaError::Llm { current: calls_this_month, max });
+            return Err(QuotaError::Llm {
+                current: calls_this_month,
+                max,
+            });
         }
     }
     Ok(())

@@ -25,15 +25,28 @@ pub trait Api: Send + Sync {
 
     // Todos
     async fn get_todos(&self, slug: &str, filter: &str) -> Result<Vec<TodoItem>, String>;
-    async fn create_todo(&self, slug: &str, title: &str, priority: i32) -> Result<TodoItem, String>;
-    async fn update_todo(&self, slug: &str, id: &str, updates: &serde_json::Value) -> Result<(), String>;
+    async fn create_todo(&self, slug: &str, title: &str, priority: i32)
+        -> Result<TodoItem, String>;
+    async fn update_todo(
+        &self,
+        slug: &str,
+        id: &str,
+        updates: &serde_json::Value,
+    ) -> Result<(), String>;
     async fn delete_todo(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // Notes
     async fn get_notes(&self, slug: &str) -> Result<Vec<NoteItem>, String>;
     async fn get_note(&self, slug: &str, id: &str) -> Result<NoteItem, String>;
-    async fn create_note(&self, slug: &str, title: &str, content: &str) -> Result<NoteItem, String>;
-    async fn update_note(&self, slug: &str, id: &str, title: &str, content: &str) -> Result<(), String>;
+    async fn create_note(&self, slug: &str, title: &str, content: &str)
+        -> Result<NoteItem, String>;
+    async fn update_note(
+        &self,
+        slug: &str,
+        id: &str,
+        title: &str,
+        content: &str,
+    ) -> Result<(), String>;
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // History + Members
@@ -42,24 +55,53 @@ pub trait Api: Send + Sync {
 
     // Memory
     async fn list_memory(&self, slug: &str) -> Result<Vec<MemoryItem>, String>;
-    async fn create_memory(&self, slug: &str, body: &serde_json::Value) -> Result<MemoryItem, String>;
-    async fn update_memory(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String>;
+    async fn create_memory(
+        &self,
+        slug: &str,
+        body: &serde_json::Value,
+    ) -> Result<MemoryItem, String>;
+    async fn update_memory(
+        &self,
+        slug: &str,
+        id: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), String>;
     async fn delete_memory(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // Events
     async fn list_events(&self, slug: &str) -> Result<Vec<EventItem>, String>;
-    async fn create_event(&self, slug: &str, body: &serde_json::Value) -> Result<EventItem, String>;
-    async fn update_event(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String>;
+    async fn create_event(&self, slug: &str, body: &serde_json::Value)
+        -> Result<EventItem, String>;
+    async fn update_event(
+        &self,
+        slug: &str,
+        id: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), String>;
     async fn delete_event(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // Scheduled actions
     async fn list_scheduled_actions(&self, slug: &str) -> Result<Vec<ScheduledActionItem>, String>;
-    async fn create_scheduled_action(&self, slug: &str, body: &serde_json::Value) -> Result<ScheduledActionItem, String>;
-    async fn update_scheduled_action(&self, slug: &str, id: &str, body: &serde_json::Value) -> Result<(), String>;
+    async fn create_scheduled_action(
+        &self,
+        slug: &str,
+        body: &serde_json::Value,
+    ) -> Result<ScheduledActionItem, String>;
+    async fn update_scheduled_action(
+        &self,
+        slug: &str,
+        id: &str,
+        body: &serde_json::Value,
+    ) -> Result<(), String>;
     async fn delete_scheduled_action(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // Calendar + Settings
-    async fn list_calendar(&self, slug: &str, from: &str, to: &str) -> Result<Vec<CalendarItem>, String>;
+    async fn list_calendar(
+        &self,
+        slug: &str,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<CalendarItem>, String>;
     async fn get_settings(&self, slug: &str) -> Result<WorkspaceSettings, String>;
     async fn update_settings(&self, slug: &str, body: &serde_json::Value) -> Result<(), String>;
     async fn update_workspace_locale(&self, slug: &str, locale: &str) -> Result<(), String>;
@@ -95,5 +137,5 @@ pub fn use_api() -> ApiHandle {
     leptos::prelude::expect_context::<ApiHandle>()
 }
 
-pub mod live;
 pub mod demo;
+pub mod live;

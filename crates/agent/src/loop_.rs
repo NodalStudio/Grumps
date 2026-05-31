@@ -1,13 +1,13 @@
 //! The Sonnet agent loop : tool use, multi-turn, max 5 iterations.
 //! See spec § 8.3.
 
-use worker::*;
-use serde::Serialize;
-use grumps_i18n::{t, Locale};
-use grumps_core::billing::Plan;
 use crate::llm::anthropic::{self, AnthropicRequest, ContentBlock, Message};
+use crate::prompt::{self, MemberShort, PromptContext};
 use crate::tools::{self, ToolContext};
-use crate::prompt::{self, PromptContext, MemberShort};
+use grumps_core::billing::Plan;
+use grumps_i18n::{t, Locale};
+use serde::Serialize;
+use worker::*;
 
 const MAX_TURNS: u32 = 5;
 const MAX_TOKENS_PER_INVOCATION: u32 = 50_000;
@@ -45,7 +45,11 @@ async fn post_final(ctx: &ToolContext<'_>, text: &str, staged: bool) -> Option<S
                 label: t(locale, "agent.proactive.btn_cancel", &[]),
             },
         ];
-        ctx.sink.send_with_buttons(text, &buttons).await.ok().flatten()
+        ctx.sink
+            .send_with_buttons(text, &buttons)
+            .await
+            .ok()
+            .flatten()
     } else {
         ctx.sink.send(text).await.ok();
         None
@@ -54,16 +58,33 @@ async fn post_final(ctx: &ToolContext<'_>, text: &str, staged: bool) -> Option<S
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
     // Check quota before doing anything
-    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx
+        .db
+        .get_setting("plan")
+        .await
+        .unwrap_or_else(|_| "free".into());
     let plan = Plan::from_str(&plan_str);
-    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let used = ctx
+        .db
+        .get_int_setting("agent_quota_used_month")
+        .await
+        .unwrap_or(0);
     let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
-        let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
+        let msg = t(
+            locale,
+            "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())],
+        );
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None, staged_message_id: None });
+        return Ok(LoopResult {
+            final_text: Some(msg),
+            turns: 0,
+            total_tokens: 0,
+            staged_action: None,
+            staged_message_id: None,
+        });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -71,7 +92,12 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
     let tools_json = tools::anthropic_tools();
 
     // Load any existing session for this member
-    let existing = ctx.db.get_active_agent_session(ctx.member_id).await.ok().flatten();
+    let existing = ctx
+        .db
+        .get_active_agent_session(ctx.member_id)
+        .await
+        .ok()
+        .flatten();
     let mut messages: Vec<Message> = existing
         .map(|s| s.messages.iter().map(session_msg_to_anthropic).collect())
         .unwrap_or_default();
@@ -93,10 +119,21 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
             ..Default::default()
         };
 
-        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_react", Some(ctx.member_id), None, &req).await?;
-        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
-        total_tokens = total_tokens
-            .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
+        let resp = anthropic::call_with_telemetry(
+            ctx.env,
+            ctx.db,
+            "agent_react",
+            Some(ctx.member_id),
+            None,
+            &req,
+        )
+        .await?;
+        ctx.db
+            .increment_int_setting("agent_quota_used_month", 1)
+            .await
+            .ok();
+        total_tokens =
+            total_tokens.saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
         // Extract tool_use blocks and final text
         let mut tool_uses: Vec<(String, String, serde_json::Value)> = vec![];
@@ -115,10 +152,8 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         }
 
         // Always append the assistant's full content as the next history entry
-        let assistant_content_array: Vec<serde_json::Value> = resp.content
-            .iter()
-            .map(content_block_to_json)
-            .collect();
+        let assistant_content_array: Vec<serde_json::Value> =
+            resp.content.iter().map(content_block_to_json).collect();
         messages.push(Message {
             role: "assistant".into(),
             content: serde_json::Value::Array(assistant_content_array),
@@ -181,16 +216,33 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 /// One-shot variant for autonomous runs (scheduled actions). No session persistence.
 pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<LoopResult> {
     // Check quota
-    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx
+        .db
+        .get_setting("plan")
+        .await
+        .unwrap_or_else(|_| "free".into());
     let plan = Plan::from_str(&plan_str);
-    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let used = ctx
+        .db
+        .get_int_setting("agent_quota_used_month")
+        .await
+        .unwrap_or(0);
     let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
-        let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
+        let msg = t(
+            locale,
+            "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())],
+        );
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0, staged_action: None, staged_message_id: None });
+        return Ok(LoopResult {
+            final_text: Some(msg),
+            turns: 0,
+            total_tokens: 0,
+            staged_action: None,
+            staged_message_id: None,
+        });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -215,10 +267,21 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             tools: tools_json.clone(),
             ..Default::default()
         };
-        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_oneshot", Some(ctx.member_id), None, &req).await?;
-        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
-        total_tokens = total_tokens
-            .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
+        let resp = anthropic::call_with_telemetry(
+            ctx.env,
+            ctx.db,
+            "agent_oneshot",
+            Some(ctx.member_id),
+            None,
+            &req,
+        )
+        .await?;
+        ctx.db
+            .increment_int_setting("agent_quota_used_month", 1)
+            .await
+            .ok();
+        total_tokens =
+            total_tokens.saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
         let mut tool_uses: Vec<(String, String, serde_json::Value)> = vec![];
         let mut text_pieces: Vec<String> = vec![];
@@ -234,10 +297,8 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             last_text = Some(text_pieces.join("\n"));
         }
 
-        let assistant_content_array: Vec<serde_json::Value> = resp.content
-            .iter()
-            .map(content_block_to_json)
-            .collect();
+        let assistant_content_array: Vec<serde_json::Value> =
+            resp.content.iter().map(content_block_to_json).collect();
         messages.push(Message {
             role: "assistant".into(),
             content: serde_json::Value::Array(assistant_content_array),
@@ -320,7 +381,12 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     // One round-trip for the whole settings table, then read each value with a
     // sensible per-key default. `get` treats a missing OR empty value as absent.
     let settings = ctx.db.get_all_settings().await.unwrap_or_default();
-    let get = |k: &str| settings.get(k).map(String::as_str).filter(|s| !s.is_empty());
+    let get = |k: &str| {
+        settings
+            .get(k)
+            .map(String::as_str)
+            .filter(|s| !s.is_empty())
+    };
 
     // Render "now" in the workspace timezone so the model anchors relative
     // reasoning ("tomorrow 8pm") to the group's wall clock, not UTC. The same
@@ -335,16 +401,22 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
 
     // Quota : derive from plan, read counters from the same settings snapshot.
     let plan = Plan::from_str(get("plan").unwrap_or("free"));
-    let agent_calls_used = get("agent_quota_used_month").and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let agent_calls_used = get("agent_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let agent_quota = plan.agent_call_quota();
     let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
 
-    let web_used = get("web_search_quota_used_month").and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let web_used = get("web_search_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let web_quota = plan.web_search_quota();
     let web_remaining = web_quota.saturating_sub(web_used);
 
     Ok(PromptContext {
-        workspace_name: get("workspace_name").unwrap_or(ctx.workspace_slug).to_string(),
+        workspace_name: get("workspace_name")
+            .unwrap_or(ctx.workspace_slug)
+            .to_string(),
         platform: get("platform").unwrap_or("telegram").to_string(),
         member_count: members.len(),
         persona: get("persona").unwrap_or("default").to_string(),

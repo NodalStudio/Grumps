@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -27,9 +27,9 @@ pub struct ScheduledAction {
     pub action_type: ActionType,
     pub title: String,
     pub trigger_at: DateTime<Utc>,
-    pub recurrence: Option<String>,    // RRULE
+    pub recurrence: Option<String>, // RRULE
     pub payload: serde_json::Value,
-    pub target_chat: String,           // "group" only at launch
+    pub target_chat: String, // "group" only at launch
     pub status: ActionStatus,
     pub last_fired_at: Option<DateTime<Utc>>,
     pub last_error: Option<String>,
@@ -55,13 +55,25 @@ mod tests {
 
     #[test]
     fn action_type_snake() {
-        assert_eq!(serde_json::to_string(&ActionType::AgentTask).unwrap(), r#""agent_task""#);
-        assert_eq!(serde_json::to_string(&ActionType::EventNotify).unwrap(), r#""event_notify""#);
+        assert_eq!(
+            serde_json::to_string(&ActionType::AgentTask).unwrap(),
+            r#""agent_task""#
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionType::EventNotify).unwrap(),
+            r#""event_notify""#
+        );
     }
 
     #[test]
     fn status_snake() {
-        assert_eq!(serde_json::to_string(&ActionStatus::Pending).unwrap(), r#""pending""#);
-        assert_eq!(serde_json::to_string(&ActionStatus::Firing).unwrap(), r#""firing""#);
+        assert_eq!(
+            serde_json::to_string(&ActionStatus::Pending).unwrap(),
+            r#""pending""#
+        );
+        assert_eq!(
+            serde_json::to_string(&ActionStatus::Firing).unwrap(),
+            r#""firing""#
+        );
     }
 }

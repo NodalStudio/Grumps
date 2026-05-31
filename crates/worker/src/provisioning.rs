@@ -1,5 +1,5 @@
-use worker::*;
 use crate::d1_rest::D1RestClient;
+use worker::*;
 
 pub fn generate_slug() -> String {
     uuid::Uuid::new_v4().to_string().replace('-', "")[..8].to_string()
@@ -24,7 +24,15 @@ pub async fn provision_workspace_dm(
     channel_id: &str,
     default_name: Option<&str>,
 ) -> Result<(String, String)> {
-    provision_workspace_with_meta(d1_client, index_db, platform, channel_id, default_name, true).await
+    provision_workspace_with_meta(
+        d1_client,
+        index_db,
+        platform,
+        channel_id,
+        default_name,
+        true,
+    )
+    .await
 }
 
 pub async fn provision_workspace_with_meta(

@@ -22,7 +22,7 @@ use mcp_types::{Tool, ToolAnnotations};
 use serde_json::Value;
 
 use super::{args, ToolContext};
-use super::{crud, todos, members, scheduler, calendar, memory, rag, web, chat};
+use super::{calendar, chat, crud, members, memory, rag, scheduler, todos, web};
 
 /// An executable tool: its MCP descriptor plus its handler.
 #[async_trait::async_trait(?Send)]
@@ -71,9 +71,14 @@ handler!(QueryMemory, "query_memory",
 handler!(QueryChatHistory, "query_chat_history",
     "Semantic search over past chat messages in this group. Use when the user asks 'what did we say about...', 'when did X happen', etc.",
     args::QueryChatHistoryArgs, ToolAnnotations::read_only(), rag::query_chat_history);
-handler!(ListCalendar, "list_calendar",
+handler!(
+    ListCalendar,
+    "list_calendar",
     "Read upcoming todos, reminders, events for a date range.",
-    args::ListCalendarArgs, ToolAnnotations::read_only(), calendar::list_calendar);
+    args::ListCalendarArgs,
+    ToolAnnotations::read_only(),
+    calendar::list_calendar
+);
 handler!(GetTodoStatus, "get_todo_status",
     "Check the current status (open/done) of a specific todo. Use this to judge a conditional instruction like 'remind them only if the trash todo isn't done yet' before acting. Provide its seq_num (#N) OR a natural-language `query`.",
     args::GetTodoStatusArgs, ToolAnnotations::read_only(), todos::get_todo_status);
@@ -102,9 +107,14 @@ const MUTATING: fn() -> ToolAnnotations = || ToolAnnotations {
 handler!(SaveMemory, "save_memory",
     "Persist a fact, decision, person info, or preference for this workspace. Use sparingly — only for things that will matter later.",
     args::SaveMemoryArgs, MUTATING(), memory::save_memory);
-handler!(CreateTodo, "create_todo",
+handler!(
+    CreateTodo,
+    "create_todo",
     "Create a new todo item in the group's list.",
-    args::CreateTodoArgs, MUTATING(), crud::create_todo);
+    args::CreateTodoArgs,
+    MUTATING(),
+    crud::create_todo
+);
 // Reversible mutations: not destructive (each has an inverse — complete↔reopen),
 // so they may be proposed-then-confirmed in proactive mode and undone after.
 handler!(CompleteTodo, "complete_todo",
@@ -113,15 +123,30 @@ handler!(CompleteTodo, "complete_todo",
 handler!(ReopenTodo, "reopen_todo",
     "Reopen a previously completed todo (undo a completion). Provide its seq_num OR a natural-language `query` describing it.",
     args::ReopenTodoArgs, MUTATING(), todos::reopen_todo);
-handler!(CreateNote, "create_note",
+handler!(
+    CreateNote,
+    "create_note",
     "Create a new note (markdown content) in the group's notes.",
-    args::CreateNoteArgs, MUTATING(), crud::create_note);
-handler!(CreateEvent, "create_event",
+    args::CreateNoteArgs,
+    MUTATING(),
+    crud::create_note
+);
+handler!(
+    CreateEvent,
+    "create_event",
     "Create a calendar event (meeting, appointment, birthday, etc).",
-    args::CreateEventArgs, MUTATING(), crud::create_event);
-handler!(CreateReminder, "create_reminder",
+    args::CreateEventArgs,
+    MUTATING(),
+    crud::create_event
+);
+handler!(
+    CreateReminder,
+    "create_reminder",
     "Schedule a passive reminder message in the group at a future time.",
-    args::CreateReminderArgs, MUTATING(), crud::create_reminder);
+    args::CreateReminderArgs,
+    MUTATING(),
+    crud::create_reminder
+);
 handler!(ScheduleAction, "schedule_action",
     "Schedule a complex agentic task to run later (e.g. weekly recap, conditional follow-up). The agent will run autonomously at trigger_at.",
     args::ScheduleActionArgs, MUTATING(), scheduler::schedule_action);
@@ -186,7 +211,9 @@ pub async fn dispatch(
             return handler.call(ctx, args).await;
         }
     }
-    Err(worker::Error::RustError(format!("unknown tool: {tool_name}")))
+    Err(worker::Error::RustError(format!(
+        "unknown tool: {tool_name}"
+    )))
 }
 
 /// The behavioural annotations for a tool, by name (used by the proactive gate).
@@ -211,9 +238,18 @@ mod tests {
 
     #[test]
     fn mutating_todo_tools_registered() {
-        assert_eq!(annotations("complete_todo").unwrap().read_only_hint, Some(false));
-        assert_eq!(annotations("complete_todo").unwrap().destructive_hint, Some(false));
-        assert_eq!(annotations("reopen_todo").unwrap().destructive_hint, Some(false));
+        assert_eq!(
+            annotations("complete_todo").unwrap().read_only_hint,
+            Some(false)
+        );
+        assert_eq!(
+            annotations("complete_todo").unwrap().destructive_hint,
+            Some(false)
+        );
+        assert_eq!(
+            annotations("reopen_todo").unwrap().destructive_hint,
+            Some(false)
+        );
     }
 
     #[test]
@@ -231,16 +267,34 @@ mod tests {
 
     #[test]
     fn read_only_tools_flagged_for_autonomy() {
-        assert_eq!(annotations("query_memory").unwrap().read_only_hint, Some(true));
-        assert_eq!(annotations("list_calendar").unwrap().read_only_hint, Some(true));
-        assert_eq!(annotations("web_search").unwrap().open_world_hint, Some(true));
+        assert_eq!(
+            annotations("query_memory").unwrap().read_only_hint,
+            Some(true)
+        );
+        assert_eq!(
+            annotations("list_calendar").unwrap().read_only_hint,
+            Some(true)
+        );
+        assert_eq!(
+            annotations("web_search").unwrap().open_world_hint,
+            Some(true)
+        );
     }
 
     #[test]
     fn mutating_tools_not_read_only() {
-        assert_eq!(annotations("create_todo").unwrap().read_only_hint, Some(false));
-        assert_eq!(annotations("create_reminder").unwrap().read_only_hint, Some(false));
-        assert_eq!(annotations("schedule_action").unwrap().read_only_hint, Some(false));
+        assert_eq!(
+            annotations("create_todo").unwrap().read_only_hint,
+            Some(false)
+        );
+        assert_eq!(
+            annotations("create_reminder").unwrap().read_only_hint,
+            Some(false)
+        );
+        assert_eq!(
+            annotations("schedule_action").unwrap().read_only_hint,
+            Some(false)
+        );
     }
 
     #[test]
@@ -252,13 +306,22 @@ mod tests {
 
     /// The `input_schema` object for a tool, by name.
     fn schema_of(name: &str) -> Value {
-        let h = registry().into_iter().find(|h| h.name() == name).expect("tool exists");
+        let h = registry()
+            .into_iter()
+            .find(|h| h.name() == name)
+            .expect("tool exists");
         Value::Object((*h.descriptor().input_schema).clone())
     }
 
     fn required(schema: &Value) -> Vec<String> {
-        schema.get("required").and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        schema
+            .get("required")
+            .and_then(|v| v.as_array())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -266,8 +329,17 @@ mod tests {
     fn every_tool_schema_is_object_with_properties() {
         for h in registry() {
             let s = Value::Object((*h.descriptor().input_schema).clone());
-            assert_eq!(s.get("type").and_then(|v| v.as_str()), Some("object"), "{}", h.name());
-            assert!(s.get("properties").and_then(|p| p.as_object()).is_some(), "{}", h.name());
+            assert_eq!(
+                s.get("type").and_then(|v| v.as_str()),
+                Some("object"),
+                "{}",
+                h.name()
+            );
+            assert!(
+                s.get("properties").and_then(|p| p.as_object()).is_some(),
+                "{}",
+                h.name()
+            );
         }
     }
 
@@ -289,16 +361,29 @@ mod tests {
     fn enum_values_are_inlined_faithfully() {
         let kind = schema_of("save_memory");
         let kind = kind.get("properties").and_then(|p| p.get("kind")).unwrap();
-        let vals: Vec<&str> = kind.get("enum").and_then(|e| e.as_array()).unwrap()
-            .iter().filter_map(|v| v.as_str()).collect();
+        let vals: Vec<&str> = kind
+            .get("enum")
+            .and_then(|e| e.as_array())
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
         for k in ["fact", "person", "decision", "preference", "place", "other"] {
             assert!(vals.contains(&k), "kind enum missing {k}: {vals:?}");
         }
 
         let ws = schema_of("web_search");
-        let fr = ws.get("properties").and_then(|p| p.get("freshness")).unwrap();
-        let vals: Vec<&str> = fr.get("enum").and_then(|e| e.as_array()).unwrap()
-            .iter().filter_map(|v| v.as_str()).collect();
+        let fr = ws
+            .get("properties")
+            .and_then(|p| p.get("freshness"))
+            .unwrap();
+        let vals: Vec<&str> = fr
+            .get("enum")
+            .and_then(|e| e.as_array())
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
         for f in ["pd", "pw", "pm", "py", "all"] {
             assert!(vals.contains(&f), "freshness enum missing {f}: {vals:?}");
         }
@@ -307,17 +392,32 @@ mod tests {
     #[test]
     fn datetime_fields_carry_format_and_description() {
         let ev = schema_of("create_event");
-        let starts = ev.get("properties").and_then(|p| p.get("starts_at")).unwrap();
-        assert_eq!(starts.get("format").and_then(|v| v.as_str()), Some("date-time"));
+        let starts = ev
+            .get("properties")
+            .and_then(|p| p.get("starts_at"))
+            .unwrap();
+        assert_eq!(
+            starts.get("format").and_then(|v| v.as_str()),
+            Some("date-time")
+        );
         // Field doc-comment survives as the schema description.
-        assert!(starts.get("description").and_then(|v| v.as_str())
-            .map(|d| d.contains("wall-clock")).unwrap_or(false), "starts_at desc: {starts:?}");
+        assert!(
+            starts
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(|d| d.contains("wall-clock"))
+                .unwrap_or(false),
+            "starts_at desc: {starts:?}"
+        );
     }
 
     #[test]
     fn numeric_bounds_preserved() {
         let ct = schema_of("create_todo");
-        let prio = ct.get("properties").and_then(|p| p.get("priority")).unwrap();
+        let prio = ct
+            .get("properties")
+            .and_then(|p| p.get("priority"))
+            .unwrap();
         assert_eq!(prio.get("minimum").and_then(|v| v.as_i64()), Some(1));
         assert_eq!(prio.get("maximum").and_then(|v| v.as_i64()), Some(3));
     }

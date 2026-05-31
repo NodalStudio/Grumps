@@ -1,10 +1,12 @@
-use crate::parser::*;
 use crate::entity;
+use crate::parser::*;
 
 pub fn parse_mention(text: &str) -> ParseResult {
     let clean = entity::strip_mention(text);
     let trimmed = clean.trim();
-    if trimmed.is_empty() { return ParseResult::Status; }
+    if trimmed.is_empty() {
+        return ParseResult::Status;
+    }
 
     let lower = trimmed.to_lowercase();
     let words: Vec<&str> = lower.split_whitespace().collect();
@@ -12,16 +14,22 @@ pub fn parse_mention(text: &str) -> ParseResult {
     match words[0] {
         "list" | "show" | "todos" => parse_list_command(&words[1..]),
         "done" | "complete" | "finished" => {
-            if words.len() < 2 { return ParseResult::Status; }
+            if words.len() < 2 {
+                return ParseResult::Status;
+            }
             parse_done_command(trimmed[words[0].len()..].trim())
         }
         "delete" | "remove" => {
-            if words.len() < 2 { return ParseResult::Help; }
+            if words.len() < 2 {
+                return ParseResult::Help;
+            }
             parse_delete_command(trimmed[words[0].len()..].trim())
         }
         "notes" => ParseResult::ListNotes,
         "note" | "pin" => {
-            if words.len() < 2 { return ParseResult::ListNotes; }
+            if words.len() < 2 {
+                return ParseResult::ListNotes;
+            }
             ParseResult::SearchNotes(trimmed[words[0].len()..].trim().to_string())
         }
         "files" | "file" => ParseResult::ListFiles,
@@ -30,20 +38,30 @@ pub fn parse_mention(text: &str) -> ParseResult {
         "status" | "summary" | "recap" => ParseResult::Status,
         _ => {
             let parsed = entity::extract_todo_from_line(trimmed);
-            if parsed.title.is_empty() { ParseResult::Status } else { ParseResult::AddSingleTodo(parsed) }
+            if parsed.title.is_empty() {
+                ParseResult::Status
+            } else {
+                ParseResult::AddSingleTodo(parsed)
+            }
         }
     }
 }
 
 fn parse_list_command(args: &[&str]) -> ParseResult {
-    if args.is_empty() { return ParseResult::ListTodos(ListFilter::Open); }
+    if args.is_empty() {
+        return ParseResult::ListTodos(ListFilter::Open);
+    }
     match args[0] {
         "all" => ParseResult::ListTodos(ListFilter::All),
         "mine" | "my" => ParseResult::ListTodos(ListFilter::Mine),
         "done" | "completed" | "finished" => ParseResult::ListTodos(ListFilter::Done),
         "open" => ParseResult::ListTodos(ListFilter::Open),
-        _ if args[0].starts_with('@') => ParseResult::ListTodos(ListFilter::Assignee(args[0][1..].to_string())),
-        _ if args[0].starts_with('#') => ParseResult::ListTodos(ListFilter::Tag(args[0][1..].to_string())),
+        _ if args[0].starts_with('@') => {
+            ParseResult::ListTodos(ListFilter::Assignee(args[0][1..].to_string()))
+        }
+        _ if args[0].starts_with('#') => {
+            ParseResult::ListTodos(ListFilter::Tag(args[0][1..].to_string()))
+        }
         _ => ParseResult::ListTodos(ListFilter::Open),
     }
 }
@@ -59,7 +77,9 @@ fn parse_done_command(text: &str) -> ParseResult {
 
 fn parse_delete_command(text: &str) -> ParseResult {
     let cleaned = text.trim_start_matches('#');
-    if let Ok(n) = cleaned.parse::<i64>() { return ParseResult::DeleteTodo(n); }
+    if let Ok(n) = cleaned.parse::<i64>() {
+        return ParseResult::DeleteTodo(n);
+    }
     ParseResult::Help
 }
 
@@ -84,29 +104,50 @@ mod tests {
 
     #[test]
     fn test_list_returns_list_open() {
-        assert_eq!(parse_mention("@grumps list"), ParseResult::ListTodos(ListFilter::Open));
+        assert_eq!(
+            parse_mention("@grumps list"),
+            ParseResult::ListTodos(ListFilter::Open)
+        );
     }
 
     #[test]
     fn test_list_all() {
-        assert_eq!(parse_mention("@grumps list all"), ParseResult::ListTodos(ListFilter::All));
+        assert_eq!(
+            parse_mention("@grumps list all"),
+            ParseResult::ListTodos(ListFilter::All)
+        );
     }
 
     #[test]
     fn test_list_mine() {
-        assert_eq!(parse_mention("@grumps list mine"), ParseResult::ListTodos(ListFilter::Mine));
-        assert_eq!(parse_mention("@grumps list my"), ParseResult::ListTodos(ListFilter::Mine));
+        assert_eq!(
+            parse_mention("@grumps list mine"),
+            ParseResult::ListTodos(ListFilter::Mine)
+        );
+        assert_eq!(
+            parse_mention("@grumps list my"),
+            ParseResult::ListTodos(ListFilter::Mine)
+        );
     }
 
     #[test]
     fn test_list_done() {
-        assert_eq!(parse_mention("@grumps list done"), ParseResult::ListTodos(ListFilter::Done));
-        assert_eq!(parse_mention("@grumps list completed"), ParseResult::ListTodos(ListFilter::Done));
+        assert_eq!(
+            parse_mention("@grumps list done"),
+            ParseResult::ListTodos(ListFilter::Done)
+        );
+        assert_eq!(
+            parse_mention("@grumps list completed"),
+            ParseResult::ListTodos(ListFilter::Done)
+        );
     }
 
     #[test]
     fn test_list_open() {
-        assert_eq!(parse_mention("@grumps list open"), ParseResult::ListTodos(ListFilter::Open));
+        assert_eq!(
+            parse_mention("@grumps list open"),
+            ParseResult::ListTodos(ListFilter::Open)
+        );
     }
 
     #[test]
@@ -127,12 +168,18 @@ mod tests {
 
     #[test]
     fn test_show_alias() {
-        assert_eq!(parse_mention("@grumps show"), ParseResult::ListTodos(ListFilter::Open));
+        assert_eq!(
+            parse_mention("@grumps show"),
+            ParseResult::ListTodos(ListFilter::Open)
+        );
     }
 
     #[test]
     fn test_todos_alias() {
-        assert_eq!(parse_mention("@grumps todos"), ParseResult::ListTodos(ListFilter::Open));
+        assert_eq!(
+            parse_mention("@grumps todos"),
+            ParseResult::ListTodos(ListFilter::Open)
+        );
     }
 
     #[test]
@@ -161,12 +208,18 @@ mod tests {
 
     #[test]
     fn test_delete_seq_num() {
-        assert_eq!(parse_mention("@grumps delete #42"), ParseResult::DeleteTodo(42));
+        assert_eq!(
+            parse_mention("@grumps delete #42"),
+            ParseResult::DeleteTodo(42)
+        );
     }
 
     #[test]
     fn test_remove_seq_num() {
-        assert_eq!(parse_mention("@grumps remove #42"), ParseResult::DeleteTodo(42));
+        assert_eq!(
+            parse_mention("@grumps remove #42"),
+            ParseResult::DeleteTodo(42)
+        );
     }
 
     #[test]
@@ -204,7 +257,10 @@ mod tests {
 
     #[test]
     fn test_workspace() {
-        assert_eq!(parse_mention("@grumps workspace"), ParseResult::WorkspaceLink);
+        assert_eq!(
+            parse_mention("@grumps workspace"),
+            ParseResult::WorkspaceLink
+        );
     }
 
     #[test]

@@ -3,9 +3,9 @@
 //! `action_type == "reminder"`, surfaced here as [`CalendarSource::Reminder`].
 //! See spec § 9.1.
 
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use crate::Event;
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Parse a stored date string into a UTC instant for calendar placement.
 /// Accepts both an instant (RFC3339 `…Z`/offset) and a bare civil date
@@ -23,7 +23,12 @@ fn parse_calendar_dt(s: &str) -> Option<DateTime<Utc>> {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum CalendarSource { Todo, Event, Reminder, ScheduledAction }
+pub enum CalendarSource {
+    Todo,
+    Event,
+    Reminder,
+    ScheduledAction,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarItem {
@@ -84,7 +89,10 @@ pub fn aggregate(
                     all_day: true,
                     location: None,
                     color: "brick".into(),
-                    member_id: t.get("assigned_to").and_then(|v| v.as_str()).map(String::from),
+                    member_id: t
+                        .get("assigned_to")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     recurrence: None,
                     editable: true,
                     url: format!("/w/{}/todos", ws_slug),
@@ -106,15 +114,29 @@ pub fn aggregate(
                 let is_reminder = s.get("action_type").and_then(|v| v.as_str()) == Some("reminder");
                 items.push(CalendarItem {
                     id: format!("{}:{id}", if is_reminder { "rmd" } else { "sch" }),
-                    source: if is_reminder { CalendarSource::Reminder } else { CalendarSource::ScheduledAction },
+                    source: if is_reminder {
+                        CalendarSource::Reminder
+                    } else {
+                        CalendarSource::ScheduledAction
+                    },
                     title: title.to_string(),
                     starts_at: dt.with_timezone(&Utc),
                     ends_at: None,
                     all_day: false,
                     location: None,
-                    color: if is_reminder { "cream".into() } else { "slate-300".into() },
-                    member_id: s.get("created_by").and_then(|v| v.as_str()).map(String::from),
-                    recurrence: s.get("recurrence").and_then(|v| v.as_str()).map(String::from),
+                    color: if is_reminder {
+                        "cream".into()
+                    } else {
+                        "slate-300".into()
+                    },
+                    member_id: s
+                        .get("created_by")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    recurrence: s
+                        .get("recurrence")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     editable: is_reminder,
                     url: if is_reminder {
                         format!("/w/{}/scheduled", ws_slug)
@@ -209,7 +231,9 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id, "todo:t9");
         assert!(items[0].all_day);
-        assert_eq!(items[0].starts_at.date_naive(),
-                   NaiveDate::from_ymd_opt(2026, 4, 20).unwrap());
+        assert_eq!(
+            items[0].starts_at.date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
     }
 }

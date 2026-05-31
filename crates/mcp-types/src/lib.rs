@@ -135,7 +135,10 @@ pub struct ToolAnnotations {
 impl ToolAnnotations {
     /// A read-only tool (no environment mutation).
     pub fn read_only() -> Self {
-        ToolAnnotations { read_only_hint: Some(true), ..Default::default() }
+        ToolAnnotations {
+            read_only_hint: Some(true),
+            ..Default::default()
+        }
     }
 }
 
@@ -216,12 +219,20 @@ pub struct CallToolResult {
 impl CallToolResult {
     /// A successful result containing the given content blocks.
     pub fn success(content: Vec<Content>) -> Self {
-        CallToolResult { content, is_error: Some(false), ..Default::default() }
+        CallToolResult {
+            content,
+            is_error: Some(false),
+            ..Default::default()
+        }
     }
 
     /// An error result containing the given content blocks.
     pub fn error(content: Vec<Content>) -> Self {
-        CallToolResult { content, is_error: Some(true), ..Default::default() }
+        CallToolResult {
+            content,
+            is_error: Some(true),
+            ..Default::default()
+        }
     }
 }
 
@@ -304,12 +315,13 @@ mod tests {
     fn tool_serializes_with_camelcase_and_meta() {
         let mut input = JsonObject::new();
         input.insert("type".into(), Value::String("object".into()));
-        let tool = Tool::new("create_todo", "Create a todo", Arc::new(input))
-            .with_annotations(ToolAnnotations {
+        let tool = Tool::new("create_todo", "Create a todo", Arc::new(input)).with_annotations(
+            ToolAnnotations {
                 read_only_hint: Some(false),
                 destructive_hint: Some(false),
                 ..Default::default()
-            });
+            },
+        );
         let v = serde_json::to_value(&tool).unwrap();
         assert_eq!(v["name"], "create_todo");
         assert_eq!(v["inputSchema"]["type"], "object");
@@ -340,7 +352,10 @@ mod tests {
 
     #[test]
     fn task_support_lowercase() {
-        assert_eq!(serde_json::to_value(TaskSupport::Forbidden).unwrap(), "forbidden");
+        assert_eq!(
+            serde_json::to_value(TaskSupport::Forbidden).unwrap(),
+            "forbidden"
+        );
     }
 
     #[cfg(feature = "schemars")]
@@ -377,13 +392,25 @@ mod tests {
         #[derive(schemars::JsonSchema)]
         #[schemars(rename_all = "snake_case")]
         #[allow(dead_code)]
-        enum Kind { Fact, Person }
+        enum Kind {
+            Fact,
+            Person,
+        }
 
         let s = schema_for_type::<WithEnum>();
         // Self-contained: no `$defs`, and the enum is inlined on the field.
-        assert!(s.get("$defs").is_none(), "should inline, not emit $defs: {s:?}");
-        let kind = s.get("properties").and_then(|p| p.get("kind")).expect("kind property");
-        let values = kind.get("enum").and_then(|e| e.as_array()).expect("inline enum values");
+        assert!(
+            s.get("$defs").is_none(),
+            "should inline, not emit $defs: {s:?}"
+        );
+        let kind = s
+            .get("properties")
+            .and_then(|p| p.get("kind"))
+            .expect("kind property");
+        let values = kind
+            .get("enum")
+            .and_then(|e| e.as_array())
+            .expect("inline enum values");
         assert!(values.iter().any(|v| v == "fact"));
         assert!(values.iter().any(|v| v == "person"));
     }

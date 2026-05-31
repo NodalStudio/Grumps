@@ -23,7 +23,14 @@ use serde::Deserialize;
 /// A memory kind. Mirrors `grumps_memory::MemoryKind`.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum MemoryKindArg { Fact, Person, Decision, Preference, Place, Other }
+pub enum MemoryKindArg {
+    Fact,
+    Person,
+    Decision,
+    Preference,
+    Place,
+    Other,
+}
 
 impl From<MemoryKindArg> for grumps_memory::MemoryKind {
     fn from(k: MemoryKindArg) -> Self {
@@ -41,7 +48,13 @@ impl From<MemoryKindArg> for grumps_memory::MemoryKind {
 /// A scheduled-action type. Mirrors `grumps_scheduler::ActionType`.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum ActionTypeArg { Reminder, FollowUp, Recap, AgentTask, EventNotify }
+pub enum ActionTypeArg {
+    Reminder,
+    FollowUp,
+    Recap,
+    AgentTask,
+    EventNotify,
+}
 
 impl From<ActionTypeArg> for grumps_scheduler::ActionType {
     fn from(a: ActionTypeArg) -> Self {
@@ -58,11 +71,16 @@ impl From<ActionTypeArg> for grumps_scheduler::ActionType {
 /// Web-search recency window: past day/week/month/year/all.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 pub enum Freshness {
-    #[serde(rename = "pd")] Pd,
-    #[serde(rename = "pw")] Pw,
-    #[serde(rename = "pm")] Pm,
-    #[serde(rename = "py")] Py,
-    #[serde(rename = "all")] All,
+    #[serde(rename = "pd")]
+    Pd,
+    #[serde(rename = "pw")]
+    Pw,
+    #[serde(rename = "pm")]
+    Pm,
+    #[serde(rename = "py")]
+    Py,
+    #[serde(rename = "all")]
+    All,
 }
 
 impl Freshness {
@@ -80,7 +98,12 @@ impl Freshness {
 /// Calendar item kind to include in a `list_calendar` query.
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
-pub enum CalendarType { Todo, Event, Reminder, Scheduled }
+pub enum CalendarType {
+    Todo,
+    Event,
+    Reminder,
+    Scheduled,
+}
 
 // ── per-tool argument structs ────────────────────────────────────────────────
 

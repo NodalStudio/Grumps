@@ -60,13 +60,22 @@ mod tests {
 
     #[test]
     fn priority_high() {
-        assert_eq!(action("!high"), TaskCardAction::ChangePriority(Priority::High));
-        assert_eq!(action("!!!"), TaskCardAction::ChangePriority(Priority::High));
+        assert_eq!(
+            action("!high"),
+            TaskCardAction::ChangePriority(Priority::High)
+        );
+        assert_eq!(
+            action("!!!"),
+            TaskCardAction::ChangePriority(Priority::High)
+        );
     }
 
     #[test]
     fn priority_low() {
-        assert_eq!(action("!low"), TaskCardAction::ChangePriority(Priority::Low));
+        assert_eq!(
+            action("!low"),
+            TaskCardAction::ChangePriority(Priority::Low)
+        );
     }
 
     #[test]
@@ -76,18 +85,27 @@ mod tests {
             TaskCardAction::Edit("New title for the task".into())
         );
         // Preserves original casing after "edit "
-        assert_eq!(action("edit MyTitle"), TaskCardAction::Edit("MyTitle".into()));
+        assert_eq!(
+            action("edit MyTitle"),
+            TaskCardAction::Edit("MyTitle".into())
+        );
     }
 
     #[test]
     fn edit_case_insensitive_prefix() {
-        assert_eq!(action("EDIT New title"), TaskCardAction::Edit("New title".into()));
+        assert_eq!(
+            action("EDIT New title"),
+            TaskCardAction::Edit("New title".into())
+        );
     }
 
     #[test]
     fn reassign() {
         assert_eq!(action("@Alice"), TaskCardAction::Reassign("Alice".into()));
-        assert_eq!(action("@Bob Smith"), TaskCardAction::Reassign("Bob Smith".into()));
+        assert_eq!(
+            action("@Bob Smith"),
+            TaskCardAction::Reassign("Bob Smith".into())
+        );
     }
 
     #[test]

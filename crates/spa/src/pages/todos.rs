@@ -1,9 +1,9 @@
-use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
-use wasm_bindgen::JsCast;
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::hooks::use_params_map;
+use wasm_bindgen::JsCast;
 
 #[component]
 pub fn TodosPage() -> impl IntoView {
@@ -32,7 +32,9 @@ pub fn TodosPage() -> impl IntoView {
         let api = api2.clone();
         let s = slug.get();
         let title = new_title.get();
-        if title.trim().is_empty() { return; }
+        if title.trim().is_empty() {
+            return;
+        }
         set_new_title.set(String::new());
         leptos::task::spawn_local(async move {
             let _ = api.create_todo(&s, &title, 2).await;
@@ -44,12 +46,16 @@ pub fn TodosPage() -> impl IntoView {
     let _ = &api3;
 
     let filters: Vec<(&'static str, &'static str)> = vec![
-        ("open", "todo.filter.open"), ("all", "todo.filter.all"),
-        ("done", "todo.filter.done"), ("mine", "todo.filter.mine"),
+        ("open", "todo.filter.open"),
+        ("all", "todo.filter.all"),
+        ("done", "todo.filter.done"),
+        ("mine", "todo.filter.mine"),
     ];
 
     let focus_new_todo = move |_| {
-        let Some(doc) = web_sys::window().and_then(|w| w.document()) else { return };
+        let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+            return;
+        };
         if let Some(el) = doc.get_element_by_id("new-todo-input") {
             if let Ok(input) = el.dyn_into::<web_sys::HtmlInputElement>() {
                 input.scroll_into_view();

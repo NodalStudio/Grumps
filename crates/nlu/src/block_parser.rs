@@ -1,32 +1,53 @@
-use crate::parser::{ParseResult, ParsedNote};
 use crate::entity;
+use crate::parser::{ParseResult, ParsedNote};
 
 pub fn try_parse_block(text: &str) -> Option<ParseResult> {
     let upper = text.to_uppercase();
-    if upper.starts_with("TODO:") { return parse_todo_block(&text[5..]); }
-    if upper.starts_with("DONE:") { return parse_done_block(&text[5..]); }
-    if upper.starts_with("NOTE [") { return parse_named_note(text); }
-    if upper.starts_with("NOTE:") { return parse_note(&text[5..]); }
+    if upper.starts_with("TODO:") {
+        return parse_todo_block(&text[5..]);
+    }
+    if upper.starts_with("DONE:") {
+        return parse_done_block(&text[5..]);
+    }
+    if upper.starts_with("NOTE [") {
+        return parse_named_note(text);
+    }
+    if upper.starts_with("NOTE:") {
+        return parse_note(&text[5..]);
+    }
     None
 }
 
 fn parse_todo_block(body: &str) -> Option<ParseResult> {
     let items = parse_list_items(body);
-    if items.is_empty() { return None; }
-    let todos = items.iter().map(|l| entity::extract_todo_from_line(l)).collect();
+    if items.is_empty() {
+        return None;
+    }
+    let todos = items
+        .iter()
+        .map(|l| entity::extract_todo_from_line(l))
+        .collect();
     Some(ParseResult::AddTodos(todos))
 }
 
 fn parse_done_block(body: &str) -> Option<ParseResult> {
     let items = parse_list_items(body);
-    if items.is_empty() { return None; }
+    if items.is_empty() {
+        return None;
+    }
     Some(ParseResult::CompleteTodos(items))
 }
 
 fn parse_note(body: &str) -> Option<ParseResult> {
     let content = body.trim().to_string();
-    if content.is_empty() { return None; }
-    let title = content.lines().next().filter(|l| l.trim().len() <= 60).map(|l| l.trim().to_string());
+    if content.is_empty() {
+        return None;
+    }
+    let title = content
+        .lines()
+        .next()
+        .filter(|l| l.trim().len() <= 60)
+        .map(|l| l.trim().to_string());
     Some(ParseResult::AddNote(ParsedNote { title, content }))
 }
 
@@ -35,13 +56,23 @@ fn parse_named_note(text: &str) -> Option<ParseResult> {
     let end = rest.find(']')?;
     let title = rest[..end].trim().to_string();
     let content = rest[end + 1..].trim_start_matches(':').trim().to_string();
-    if content.is_empty() { return None; }
-    Some(ParseResult::AddNote(ParsedNote { title: Some(title), content }))
+    if content.is_empty() {
+        return None;
+    }
+    Some(ParseResult::AddNote(ParsedNote {
+        title: Some(title),
+        content,
+    }))
 }
 
 fn parse_list_items(body: &str) -> Vec<String> {
     body.lines()
-        .map(|l| l.trim().trim_start_matches(|c: char| "•-*·◦▪▸►".contains(c) || c.is_whitespace()).trim().to_string())
+        .map(|l| {
+            l.trim()
+                .trim_start_matches(|c: char| "•-*·◦▪▸►".contains(c) || c.is_whitespace())
+                .trim()
+                .to_string()
+        })
         .filter(|l| !l.is_empty())
         .collect()
 }

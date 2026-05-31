@@ -3,15 +3,16 @@
 //!
 //! Handles: reminder, event_notify, recap, follow_up, agent_task.
 
-use worker::*;
-use grumps_scheduler::{ScheduledAction, ActionType};
-use crate::db::{WorkspaceDb, get_index_db, lookup_workspace_by_slug, WorkspaceMetaRow};
 use crate::d1_rest::D1RestClient;
+use crate::db::{get_index_db, lookup_workspace_by_slug, WorkspaceDb, WorkspaceMetaRow};
 use grumps_scheduler::recurrence;
+use grumps_scheduler::{ActionType, ScheduledAction};
+use worker::*;
 
 pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) -> Result<()> {
     let index = get_index_db(env)?;
-    let ws = lookup_workspace_by_slug(&index, ws_slug).await?
+    let ws = lookup_workspace_by_slug(&index, ws_slug)
+        .await?
         .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
@@ -25,10 +26,14 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
         ActionType::Recap => execute_recap(env, &ws, &db, action).await,
         ActionType::FollowUp | ActionType::AgentTask => {
-            let instruction = action.payload.get("instruction")
+            let instruction = action
+                .payload
+                .get("instruction")
                 .and_then(|v| v.as_str())
                 .unwrap_or_else(|| {
-                    action.payload.get("prompt")
+                    action
+                        .payload
+                        .get("prompt")
                         .and_then(|v| v.as_str())
                         .unwrap_or(&action.title)
                 })
@@ -39,8 +44,16 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
-            let language = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
-            let timezone = db.get_setting("timezone").await.ok().flatten()
+            let language = if ws.locale.is_empty() {
+                "en".to_string()
+            } else {
+                ws.locale.clone()
+            };
+            let timezone = db
+                .get_setting("timezone")
+                .await
+                .ok()
+                .flatten()
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "UTC".to_string());
             let ctx = grumps_agent::tools::ToolContext {
@@ -80,7 +93,11 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                     .map_err(|e| Error::RustError(format!("bad rrule: {e}")))?;
                 // Recurrence weekday/BYHOUR are evaluated in the workspace tz.
                 let tz = grumps_core::timeutil::tz_or_utc(
-                    &db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+                    &db.get_setting("timezone")
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default(),
                 );
                 if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at, tz) {
                     db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
@@ -98,36 +115,84 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     Ok(())
 }
 
-async fn execute_reminder(env: &Env, ws: &WorkspaceMetaRow, action: &ScheduledAction) -> Result<()> {
-    let text = action.payload.get("text").and_then(|v| v.as_str()).unwrap_or(&action.title);
+async fn execute_reminder(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    action: &ScheduledAction,
+) -> Result<()> {
+    let text = action
+        .payload
+        .get("text")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&action.title);
     let body = format!("⏰ Rappel : {text}");
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_event_notify(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, action: &ScheduledAction) -> Result<()> {
-    let event_id = action.payload.get("event_id").and_then(|v| v.as_str())
+async fn execute_event_notify(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
+    action: &ScheduledAction,
+) -> Result<()> {
+    let event_id = action
+        .payload
+        .get("event_id")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| Error::RustError("event_notify missing event_id".into()))?;
-    let lead = action.payload.get("lead_minutes").and_then(|v| v.as_i64()).unwrap_or(15);
-    let event = db.get_event(event_id).await?
+    let lead = action
+        .payload
+        .get("lead_minutes")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(15);
+    let event = db
+        .get_event(event_id)
+        .await?
         .ok_or_else(|| Error::RustError(format!("event not found: {event_id}")))?;
-    let body = format!("📅 Dans {lead}min : {} ({})", event.title,
-        event.location.as_deref().unwrap_or("lieu non précisé"));
+    let body = format!(
+        "📅 Dans {lead}min : {} ({})",
+        event.title,
+        event.location.as_deref().unwrap_or("lieu non précisé")
+    );
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
+async fn execute_recap(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
+    _action: &ScheduledAction,
+) -> Result<()> {
     // Build the recap from live workspace data, same as the weekly cron path.
-    let tz = db.get_setting("timezone").await.ok().flatten()
-        .filter(|s| !s.is_empty()).unwrap_or_else(|| "UTC".to_string());
+    let tz = db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
     let data = db.get_recap_data(&tz).await?;
     // Nothing worth reporting → stay silent rather than send an empty recap.
     if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
         return Ok(());
     }
-    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
-        .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+        .high_priority
+        .iter()
+        .map(|t| {
+            (
+                t.seq_num,
+                t.title.clone(),
+                t.assigned_name.clone(),
+                t.deadline.clone(),
+            )
+        })
         .collect();
-    let locale = if ws.locale.is_empty() { "en".to_string() } else { ws.locale.clone() };
+    let locale = if ws.locale.is_empty() {
+        "en".to_string()
+    } else {
+        ws.locale.clone()
+    };
     let body = grumps_messaging::formatter::recap_message(
         &ws.slug,
         data.open,
@@ -143,6 +208,9 @@ async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, _
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
     use grumps_messaging::adapter::OutboundMessage;
-    let out = OutboundMessage { text: body.to_string(), ..Default::default() };
+    let out = OutboundMessage {
+        text: body.to_string(),
+        ..Default::default()
+    };
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }

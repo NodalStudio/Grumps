@@ -1,10 +1,10 @@
-use leptos::prelude::*;
-use leptos_router::components::A;
 use crate::api::use_api;
 use crate::auth::use_session;
 use crate::components::lang_switcher::LangSwitcher;
 use crate::components::workspace_switcher::WorkspaceSwitcher;
 use crate::i18n::tr;
+use leptos::prelude::*;
+use leptos_router::components::A;
 
 #[component]
 pub fn Sidebar(slug: String) -> impl IntoView {

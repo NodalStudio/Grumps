@@ -1,7 +1,7 @@
 // crates/worker/src/cron.rs
-use worker::*;
-use crate::{db, d1_rest::D1RestClient};
+use crate::{d1_rest::D1RestClient, db};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use worker::*;
 
 /// Called by Cloudflare Cron Trigger. Iterates over all workspaces, fires due reminders and recaps.
 pub async fn handle_cron(env: &Env) -> Result<()> {
@@ -50,30 +50,56 @@ async fn check_and_send_recaps(
 
         // Recap fires on the workspace's *local* Monday.
         let tz = grumps_core::timeutil::tz_or_utc(
-            &ws_db.get_setting("timezone").await.ok().flatten().unwrap_or_default(),
+            &ws_db
+                .get_setting("timezone")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_default(),
         );
-        if grumps_core::timeutil::tz_weekday(tz) != chrono::Weekday::Mon { continue; }
+        if grumps_core::timeutil::tz_weekday(tz) != chrono::Weekday::Mon {
+            continue;
+        }
 
         // Check settings: is recap enabled? (default: enabled)
         let enabled = match ws_db.get_setting("recap_enabled").await {
             Ok(Some(v)) => v == "true",
             _ => true,
         };
-        if !enabled { continue; }
+        if !enabled {
+            continue;
+        }
 
         // KV dedup: at most one recap per local day per workspace.
-        let recap_key = format!("recap:{}:{}", ws.slug, grumps_core::timeutil::tz_today_str(tz));
-        if kv.get(&recap_key).text().await?.is_some() { continue; }
+        let recap_key = format!(
+            "recap:{}:{}",
+            ws.slug,
+            grumps_core::timeutil::tz_today_str(tz)
+        );
+        if kv.get(&recap_key).text().await?.is_some() {
+            continue;
+        }
 
         // Get recap data
         let data = ws_db.get_recap_data(tz.name()).await?;
 
         // Only send if there's something to report
-        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 { continue; }
+        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+            continue;
+        }
 
         // Format message
-        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
-            .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+            .high_priority
+            .iter()
+            .map(|t| {
+                (
+                    t.seq_num,
+                    t.title.clone(),
+                    t.assigned_name.clone(),
+                    t.deadline.clone(),
+                )
+            })
             .collect();
         let text = grumps_messaging::formatter::recap_message(
             &ws.slug,
@@ -87,7 +113,10 @@ async fn check_and_send_recaps(
         );
 
         // Send to WhatsApp group
-        let msg = OutboundMessage { text, ..Default::default() };
+        let msg = OutboundMessage {
+            text,
+            ..Default::default()
+        };
         let (url, body) = wa
             .build_send_request(&ws.platform_channel_id, &msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
@@ -104,7 +133,10 @@ async fn check_and_send_recaps(
         let _ = Fetch::Request(req).send().await;
 
         // Mark as sent (expires after 24h)
-        kv.put(&recap_key, "1")?.expiration_ttl(86400).execute().await?;
+        kv.put(&recap_key, "1")?
+            .expiration_ttl(86400)
+            .execute()
+            .await?;
         console_log!("Sent recap for workspace {}", ws.slug);
     }
 

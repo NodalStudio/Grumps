@@ -1,8 +1,8 @@
 //! Tool implementations: query_memory, save_memory.
 
-use serde_json::Value;
-use grumps_memory::{NewMemoryEntry, MemorySource};
 use super::{args, parse_args, ToolContext};
+use grumps_memory::{MemorySource, NewMemoryEntry};
+use serde_json::Value;
 
 pub async fn query_memory(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
     let a: args::QueryMemoryArgs = parse_args(raw, "query_memory")?;

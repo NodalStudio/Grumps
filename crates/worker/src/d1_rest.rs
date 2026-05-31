@@ -44,16 +44,30 @@ impl D1RestClient {
         })
     }
 
-    pub async fn query(&self, database_id: &str, sql: &str, params: Vec<serde_json::Value>) -> Result<D1Response> {
-        let url = format!("https://api.cloudflare.com/client/v4/accounts/{}/d1/database/{}/query", self.account_id, database_id);
-        let body = serde_json::to_string(&D1Query { sql: sql.to_string(), params }).map_err(|e| Error::RustError(e.to_string()))?;
+    pub async fn query(
+        &self,
+        database_id: &str,
+        sql: &str,
+        params: Vec<serde_json::Value>,
+    ) -> Result<D1Response> {
+        let url = format!(
+            "https://api.cloudflare.com/client/v4/accounts/{}/d1/database/{}/query",
+            self.account_id, database_id
+        );
+        let body = serde_json::to_string(&D1Query {
+            sql: sql.to_string(),
+            params,
+        })
+        .map_err(|e| Error::RustError(e.to_string()))?;
 
         let headers = Headers::new();
         headers.set("Authorization", &format!("Bearer {}", self.api_token))?;
         headers.set("Content-Type", "application/json")?;
 
         let mut init = RequestInit::new();
-        init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
+        init.with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.into()));
 
         let req = Request::new_with_init(&url, &init)?;
         let mut resp = match Fetch::Request(req).send().await {
@@ -66,15 +80,28 @@ impl D1RestClient {
         let status = resp.status_code();
         let text = resp.text().await.unwrap_or_default();
         if status >= 400 {
-            worker::console_log!("[d1_rest] {} {} body={}", status, database_id, &text.chars().take(300).collect::<String>());
+            worker::console_log!(
+                "[d1_rest] {} {} body={}",
+                status,
+                database_id,
+                &text.chars().take(300).collect::<String>()
+            );
         }
         let response: D1Response = serde_json::from_str(&text).map_err(|e| {
-            worker::console_log!("[d1_rest] JSON parse failed status={} body={}", status, &text.chars().take(200).collect::<String>());
+            worker::console_log!(
+                "[d1_rest] JSON parse failed status={} body={}",
+                status,
+                &text.chars().take(200).collect::<String>()
+            );
             Error::RustError(format!("D1 JSON parse: {}", e))
         })?;
 
         if !response.success {
-            let msg = response.errors.first().map(|e| e.message.clone()).unwrap_or("unknown D1 error".into());
+            let msg = response
+                .errors
+                .first()
+                .map(|e| e.message.clone())
+                .unwrap_or("unknown D1 error".into());
             worker::console_log!("[d1_rest] D1 returned success=false: {}", msg);
             return Err(Error::RustError(msg));
         }
@@ -96,7 +123,10 @@ impl D1RestClient {
     }
 
     pub async fn create_database(&self, name: &str) -> Result<String> {
-        let url = format!("https://api.cloudflare.com/client/v4/accounts/{}/d1/database", self.account_id);
+        let url = format!(
+            "https://api.cloudflare.com/client/v4/accounts/{}/d1/database",
+            self.account_id
+        );
         let body = serde_json::json!({"name": name});
 
         let headers = Headers::new();
@@ -104,25 +134,42 @@ impl D1RestClient {
         headers.set("Content-Type", "application/json")?;
 
         let mut init = RequestInit::new();
-        init.with_method(Method::Post).with_headers(headers).with_body(Some(body.to_string().into()));
+        init.with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.to_string().into()));
 
         let req = Request::new_with_init(&url, &init)?;
         let mut resp = Fetch::Request(req).send().await?;
 
         #[derive(Deserialize)]
-        struct Resp { result: Option<DbResult>, success: bool }
+        struct Resp {
+            result: Option<DbResult>,
+            success: bool,
+        }
         #[derive(Deserialize)]
-        struct DbResult { uuid: String }
+        struct DbResult {
+            uuid: String,
+        }
 
         let result: Resp = resp.json().await?;
-        if !result.success { return Err(Error::RustError("Failed to create D1 database".into())); }
+        if !result.success {
+            return Err(Error::RustError("Failed to create D1 database".into()));
+        }
         Ok(result.result.unwrap().uuid)
     }
 }
 
 pub fn extract_rows<T: serde::de::DeserializeOwned>(response: &D1Response) -> Result<Vec<T>> {
-    let results = response.result.first().and_then(|r| r.results.as_ref()).cloned().unwrap_or_default();
-    results.into_iter().map(|v| serde_json::from_value(v).map_err(|e| Error::RustError(e.to_string()))).collect()
+    let results = response
+        .result
+        .first()
+        .and_then(|r| r.results.as_ref())
+        .cloned()
+        .unwrap_or_default();
+    results
+        .into_iter()
+        .map(|v| serde_json::from_value(v).map_err(|e| Error::RustError(e.to_string())))
+        .collect()
 }
 
 pub fn extract_first<T: serde::de::DeserializeOwned>(response: &D1Response) -> Result<Option<T>> {
@@ -196,4 +243,3 @@ fn starts_with_word_ci(bytes: &[u8], i: usize, word: &[u8]) -> bool {
     }
     true
 }
-

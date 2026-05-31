@@ -57,8 +57,8 @@ fn normalize(text: &str) -> String {
         .collect();
 
     const STOPWORDS: &[&str] = &[
-        "the", "a", "an", "is", "to", "for", "of", "in", "on", "at",
-        "le", "la", "les", "un", "une", "de", "du", "des", "et", "est",
+        "the", "a", "an", "is", "to", "for", "of", "in", "on", "at", "le", "la", "les", "un",
+        "une", "de", "du", "des", "et", "est",
     ];
 
     cleaned
@@ -112,10 +112,7 @@ mod tests {
     #[test]
     fn partial_input_high_score() {
         // "toilet paper" should still score highly against "Buy toilet paper"
-        let db = todos(&[
-            ("id1", "Buy toilet paper", 1),
-            ("id2", "Unrelated task", 2),
-        ]);
+        let db = todos(&[("id1", "Buy toilet paper", 1), ("id2", "Unrelated task", 2)]);
         let result = match_done("toilet paper", &db);
         // Should be Exact or at least the top fuzzy match is id1
         match &result {

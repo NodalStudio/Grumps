@@ -1,7 +1,7 @@
-use leptos::prelude::*;
 use crate::auth::{use_session, WorkspaceRef};
 use crate::components::header::PageHeader;
 use crate::i18n::tr;
+use leptos::prelude::*;
 
 #[component]
 pub fn DashboardPage() -> impl IntoView {
@@ -157,7 +157,9 @@ fn AddGroupHelp(on_close: Callback<()>) -> impl IntoView {
 
 fn format_shape(ws: &WorkspaceRef) -> String {
     let plat = match ws.platform.as_str() {
-        "telegram" => "TELEGRAM", "whatsapp" => "WHATSAPP", "discord" => "DISCORD",
+        "telegram" => "TELEGRAM",
+        "whatsapp" => "WHATSAPP",
+        "discord" => "DISCORD",
         x if !x.is_empty() => return x.to_uppercase(),
         _ => "WORKSPACE",
     };

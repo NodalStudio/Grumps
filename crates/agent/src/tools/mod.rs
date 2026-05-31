@@ -1,23 +1,23 @@
 //! Tool registry + dispatch.
 
 pub mod args;
+pub mod calendar;
+pub mod chat;
+pub mod crud;
+pub mod members;
 pub mod memory;
 pub mod rag;
 pub mod rag_pipeline;
-pub mod crud;
-pub mod todos;
-pub mod members;
-pub mod scheduler;
-pub mod calendar;
-pub mod web;
-pub mod chat;
 pub mod registry;
+pub mod scheduler;
+pub mod todos;
+pub mod web;
 
 pub use registry::{anthropic_tools, dispatch};
 
-use worker::Env;
-use crate::router::MessagingSink;
 use crate::db::AgentDb;
+use crate::router::MessagingSink;
+use worker::Env;
 
 /// Whether the agent is acting because it was addressed (`Reactive`) or on its
 /// own initiative from ambient observation (`Proactive`). In `Proactive` mode a
@@ -97,7 +97,10 @@ pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTi
 
 /// Deserialize a tool's JSON arguments into its typed [`args`] struct, mapping a
 /// shape mismatch to a tool-tagged error (fed back to the model as a tool_result).
-pub(crate) fn parse_args<T: serde::de::DeserializeOwned>(args: serde_json::Value, tool: &str) -> worker::Result<T> {
+pub(crate) fn parse_args<T: serde::de::DeserializeOwned>(
+    args: serde_json::Value,
+    tool: &str,
+) -> worker::Result<T> {
     serde_json::from_value(args)
         .map_err(|e| worker::Error::RustError(format!("{tool}: invalid arguments: {e}")))
 }
@@ -111,16 +114,19 @@ pub fn parse_user_date(s: &str, tz: &chrono_tz::Tz) -> Option<String> {
     if let Ok(d) = chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d") {
         return Some(d.format("%Y-%m-%d").to_string());
     }
-    parse_user_datetime(s, tz)
-        .map(|utc| grumps_core::timeutil::date_of(utc, *tz).format("%Y-%m-%d").to_string())
+    parse_user_datetime(s, tz).map(|utc| {
+        grumps_core::timeutil::date_of(utc, *tz)
+            .format("%Y-%m-%d")
+            .to_string()
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_user_datetime, parse_user_date};
-    use chrono_tz::Europe::Paris;
+    use super::{parse_user_date, parse_user_datetime};
     use chrono_tz::America::New_York;
-    use chrono_tz::Asia::{Tokyo, Kolkata};
+    use chrono_tz::Asia::{Kolkata, Tokyo};
+    use chrono_tz::Europe::Paris;
     use chrono_tz::UTC;
 
     // ── naive local → UTC, across offsets and seasons ──────────────────────
@@ -224,16 +230,25 @@ mod tests {
 
     #[test]
     fn user_date_keeps_bare_date_as_civil() {
-        assert_eq!(parse_user_date("2026-06-05", &Paris).as_deref(), Some("2026-06-05"));
+        assert_eq!(
+            parse_user_date("2026-06-05", &Paris).as_deref(),
+            Some("2026-06-05")
+        );
     }
 
     #[test]
     fn user_date_takes_local_date_of_a_datetime() {
         // 2026-06-05T00:30:00 local Paris is still June 5 (not shifted to June 4).
-        assert_eq!(parse_user_date("2026-06-05T00:30:00", &Paris).as_deref(), Some("2026-06-05"));
+        assert_eq!(
+            parse_user_date("2026-06-05T00:30:00", &Paris).as_deref(),
+            Some("2026-06-05")
+        );
         // A UTC instant near midnight resolves to the *local* civil date.
         // 2026-06-04T23:30:00Z is 2026-06-05 01:30 in Paris → June 5.
-        assert_eq!(parse_user_date("2026-06-04T23:30:00Z", &Paris).as_deref(), Some("2026-06-05"));
+        assert_eq!(
+            parse_user_date("2026-06-04T23:30:00Z", &Paris).as_deref(),
+            Some("2026-06-05")
+        );
     }
 
     #[test]
@@ -254,7 +269,9 @@ mod tests {
         // Documents the tool-layer contract: an unparseable IANA name resolves
         // to UTC via `.parse().unwrap_or(chrono_tz::UTC)`.
         assert!("Bogus/Zone".parse::<chrono_tz::Tz>().is_err());
-        let tz = "Bogus/Zone".parse::<chrono_tz::Tz>().unwrap_or(chrono_tz::UTC);
+        let tz = "Bogus/Zone"
+            .parse::<chrono_tz::Tz>()
+            .unwrap_or(chrono_tz::UTC);
         let utc = parse_user_datetime("2026-05-31T20:00:00", &tz).unwrap();
         assert_eq!(utc.to_rfc3339(), "2026-05-31T20:00:00+00:00");
     }

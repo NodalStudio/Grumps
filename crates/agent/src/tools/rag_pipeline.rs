@@ -5,8 +5,8 @@
 //! Vectorize has NO binding in workers-rs 0.8 — we call the CF REST API directly,
 //! same pattern as D1RestClient: CF_ACCOUNT_ID + CF_API_TOKEN secrets.
 
-use worker::*;
 use serde::{Deserialize, Serialize};
+use worker::*;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -168,8 +168,7 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
     };
 
     let url = format!("{}/upsert", vectorize_base(&account_id, "CHAT_RAG"));
-    let body_str = serde_json::to_string(&body)
-        .map_err(|e| Error::RustError(e.to_string()))?;
+    let body_str = serde_json::to_string(&body).map_err(|e| Error::RustError(e.to_string()))?;
 
     cf_post(&url, &token, &body_str).await?;
 
@@ -203,8 +202,7 @@ pub async fn query_chat_history(
     };
 
     let url = format!("{}/query", vectorize_base(&account_id, "CHAT_RAG"));
-    let body_str = serde_json::to_string(&body)
-        .map_err(|e| Error::RustError(e.to_string()))?;
+    let body_str = serde_json::to_string(&body).map_err(|e| Error::RustError(e.to_string()))?;
 
     let resp_text = cf_post(&url, &token, &body_str).await?;
 

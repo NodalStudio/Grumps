@@ -1,8 +1,8 @@
-use leptos::prelude::*;
-use gloo_net::http::Request;
-use serde::Deserialize;
-use crate::auth::{use_session, read_csrf_cookie};
+use crate::auth::{read_csrf_cookie, use_session};
 use crate::i18n::{tr, tr_p};
+use gloo_net::http::Request;
+use leptos::prelude::*;
+use serde::Deserialize;
 
 #[component]
 pub fn GlobalSettingsPage() -> impl IntoView {
@@ -33,7 +33,10 @@ pub fn GlobalSettingsPage() -> impl IntoView {
 #[component]
 fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
     let (name, set_name) = signal(session.display_name.clone());
-    let initial_locale = session.default_locale.clone().unwrap_or_else(|| "en".into());
+    let initial_locale = session
+        .default_locale
+        .clone()
+        .unwrap_or_else(|| "en".into());
     let (locale, set_locale) = signal(initial_locale);
 
     let save = move |_| {
@@ -75,7 +78,9 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
 }
 
 #[derive(Deserialize, Default, Clone)]
-struct SessionsResponse { sessions: Vec<SessionDto> }
+struct SessionsResponse {
+    sessions: Vec<SessionDto>,
+}
 
 #[derive(Deserialize, Clone)]
 struct SessionDto {
@@ -95,7 +100,10 @@ fn SessionList() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let base = crate::api::api_base();
             if let Ok(resp) = Request::get(&format!("{}/auth/sessions", base))
-                .credentials(web_sys::RequestCredentials::Include).send().await {
+                .credentials(web_sys::RequestCredentials::Include)
+                .send()
+                .await
+            {
                 if let Ok(data) = resp.json::<SessionsResponse>().await {
                     list.set(data.sessions);
                 }
@@ -109,8 +117,11 @@ fn SessionList() -> impl IntoView {
             let _ = Request::delete(&format!("{}/auth/sessions/{}", base, sid))
                 .credentials(web_sys::RequestCredentials::Include)
                 .header("X-CSRF-Token", &read_csrf_cookie())
-                .send().await;
-            if let Some(win) = web_sys::window() { let _ = win.location().reload(); }
+                .send()
+                .await;
+            if let Some(win) = web_sys::window() {
+                let _ = win.location().reload();
+            }
         });
     };
 
@@ -120,8 +131,11 @@ fn SessionList() -> impl IntoView {
             let _ = Request::post(&format!("{}/auth/sessions/revoke-all", base))
                 .credentials(web_sys::RequestCredentials::Include)
                 .header("X-CSRF-Token", &read_csrf_cookie())
-                .send().await;
-            if let Some(win) = web_sys::window() { let _ = win.location().reload(); }
+                .send()
+                .await;
+            if let Some(win) = web_sys::window() {
+                let _ = win.location().reload();
+            }
         });
     };
 

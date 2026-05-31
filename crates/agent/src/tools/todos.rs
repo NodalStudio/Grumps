@@ -5,25 +5,40 @@
 //! Results are returned as JSON for the model to phrase; ambiguous matches come
 //! back as candidates so it can ask the user which one.
 
-use serde_json::{json, Value};
-use grumps_nlu::matcher::{self, MatchResult};
 use super::{args, parse_args, ToolContext};
+use grumps_nlu::matcher::{self, MatchResult};
+use serde_json::{json, Value};
 
 /// Resolve a `(seq_num | query)` argument pair against a `(id, title, seq)`
 /// list, returning the matched todo id+seq+title, or an outcome JSON otherwise.
 enum Pick {
-    Hit { id: String, seq_num: i64, title: String },
+    Hit {
+        id: String,
+        seq_num: i64,
+        title: String,
+    },
     Outcome(Value),
 }
 
-fn pick(seq_num: Option<i64>, query: Option<&str>, todos: &[(String, String, i64)], empty_reason: &str) -> Pick {
+fn pick(
+    seq_num: Option<i64>,
+    query: Option<&str>,
+    todos: &[(String, String, i64)],
+    empty_reason: &str,
+) -> Pick {
     if todos.is_empty() {
         return Pick::Outcome(json!({ "ok": false, "reason": empty_reason }));
     }
     if let Some(seq) = seq_num {
         return match todos.iter().find(|(_, _, n)| *n == seq) {
-            Some((id, title, n)) => Pick::Hit { id: id.clone(), seq_num: *n, title: title.clone() },
-            None => Pick::Outcome(json!({ "ok": false, "reason": "seq_not_found", "seq_num": seq })),
+            Some((id, title, n)) => Pick::Hit {
+                id: id.clone(),
+                seq_num: *n,
+                title: title.clone(),
+            },
+            None => {
+                Pick::Outcome(json!({ "ok": false, "reason": "seq_not_found", "seq_num": seq }))
+            }
         };
     }
     let query = query.unwrap_or("").trim();
@@ -31,7 +46,11 @@ fn pick(seq_num: Option<i64>, query: Option<&str>, todos: &[(String, String, i64
         return Pick::Outcome(json!({ "ok": false, "reason": "missing_query" }));
     }
     match matcher::match_done(query, todos) {
-        MatchResult::Exact(m) => Pick::Hit { id: m.todo_id, seq_num: m.seq_num, title: m.title },
+        MatchResult::Exact(m) => Pick::Hit {
+            id: m.todo_id,
+            seq_num: m.seq_num,
+            title: m.title,
+        },
         MatchResult::Fuzzy(cands) => Pick::Outcome(json!({
             "ok": false,
             "reason": "ambiguous",
@@ -39,7 +58,9 @@ fn pick(seq_num: Option<i64>, query: Option<&str>, todos: &[(String, String, i64
                 .map(|c| json!({ "seq_num": c.seq_num, "title": c.title }))
                 .collect::<Vec<_>>(),
         })),
-        MatchResult::NoMatch => Pick::Outcome(json!({ "ok": false, "reason": "no_match", "query": query })),
+        MatchResult::NoMatch => {
+            Pick::Outcome(json!({ "ok": false, "reason": "no_match", "query": query }))
+        }
     }
 }
 
@@ -78,8 +99,14 @@ pub async fn get_todo_status(ctx: &ToolContext<'_>, raw: Value) -> worker::Resul
     all.extend(done.iter().cloned());
     match pick(a.seq_num, a.query.as_deref(), &all, "no_todos") {
         Pick::Hit { id, seq_num, title } => {
-            let status = if open.iter().any(|(i, _, _)| i == &id) { "open" } else { "done" };
-            Ok(json!({ "ok": true, "found": true, "status": status, "seq_num": seq_num, "title": title }))
+            let status = if open.iter().any(|(i, _, _)| i == &id) {
+                "open"
+            } else {
+                "done"
+            };
+            Ok(
+                json!({ "ok": true, "found": true, "status": status, "seq_num": seq_num, "title": title }),
+            )
         }
         // Not found or ambiguous — surface the outcome so the model can refine.
         Pick::Outcome(v) => Ok(v),

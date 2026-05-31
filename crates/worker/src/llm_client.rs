@@ -1,6 +1,6 @@
 // crates/worker/src/llm_client.rs
+use grumps_nlu::llm::{build_user_prompt, parse_llm_response, NluResponse, NLU_SYSTEM_PROMPT};
 use worker::*;
-use grumps_nlu::llm::{NluResponse, NLU_SYSTEM_PROMPT, build_user_prompt, parse_llm_response};
 
 pub struct LlmClient {
     gemini_api_key: String,
@@ -24,13 +24,17 @@ impl LlmClient {
         now_local: &str,
         timezone: &str,
     ) -> Result<NluResponse> {
-        let user_prompt = build_user_prompt(message, sender_name, existing_todos, now_local, timezone);
+        let user_prompt =
+            build_user_prompt(message, sender_name, existing_todos, now_local, timezone);
 
         // Try Gemini first
         match self.call_gemini(&user_prompt).await {
             Ok(resp) if resp.confidence >= 0.5 => return Ok(resp),
             Ok(resp) => {
-                console_log!("Gemini low confidence ({:.2}), falling back to Haiku", resp.confidence);
+                console_log!(
+                    "Gemini low confidence ({:.2}), falling back to Haiku",
+                    resp.confidence
+                );
             }
             Err(e) => {
                 console_log!("Gemini error: {}, falling back to Haiku", e);
@@ -74,13 +78,18 @@ impl LlmClient {
 
         if resp.status_code() != 200 {
             let text = resp.text().await.unwrap_or_default();
-            return Err(Error::RustError(format!("Gemini API error {}: {}", resp.status_code(), text)));
+            return Err(Error::RustError(format!(
+                "Gemini API error {}: {}",
+                resp.status_code(),
+                text
+            )));
         }
 
         let json: serde_json::Value = resp.json().await?;
 
         // Extract text from Gemini response
-        let text = json.pointer("/candidates/0/content/parts/0/text")
+        let text = json
+            .pointer("/candidates/0/content/parts/0/text")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::RustError("No text in Gemini response".into()))?;
 
@@ -115,12 +124,17 @@ impl LlmClient {
 
         if resp.status_code() != 200 {
             let text = resp.text().await.unwrap_or_default();
-            return Err(Error::RustError(format!("Haiku API error {}: {}", resp.status_code(), text)));
+            return Err(Error::RustError(format!(
+                "Haiku API error {}: {}",
+                resp.status_code(),
+                text
+            )));
         }
 
         let json: serde_json::Value = resp.json().await?;
 
-        let text = json.pointer("/content/0/text")
+        let text = json
+            .pointer("/content/0/text")
             .and_then(|v| v.as_str())
             .ok_or_else(|| Error::RustError("No text in Haiku response".into()))?;
 

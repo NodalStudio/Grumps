@@ -1,22 +1,18 @@
-use leptos::prelude::*;
-use crate::api::CalendarItem;
 use super::item::CalItem;
-
-/// Returns (year, month, day) from an ISO date string "YYYY-MM-DD..."
-fn parse_date(s: &str) -> Option<(i32, u32, u32)> {
-    let parts: Vec<&str> = s.splitn(3, '-').collect();
-    if parts.len() < 3 { return None; }
-    let y = parts[0].parse().ok()?;
-    let m = parts[1].parse().ok()?;
-    let d = parts[2][..2.min(parts[2].len())].parse().ok()?;
-    Some((y, m, d))
-}
+use crate::api::CalendarItem;
+use leptos::prelude::*;
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     match month {
-        1|3|5|7|8|10|12 => 31,
-        4|6|9|11 => 30,
-        2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     }
 }
@@ -28,7 +24,7 @@ fn first_weekday(year: i32, month: u32) -> u32 {
     let m = month;
     let d = 1u32;
     let t = [0u32, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
-    let dow = (y + y/4 - y/100 + y/400 + t[(m-1) as usize] + d) % 7;
+    let dow = (y + y / 4 - y / 100 + y / 400 + t[(m - 1) as usize] + d) % 7;
     // dow: 0=Sun, convert to Mon=0
     (dow + 6) % 7
 }
@@ -42,7 +38,9 @@ pub fn MonthView(
     today_month: u32,
     today_day: u32,
 ) -> impl IntoView {
-    const DAY_KEYS: [&str; 7] = ["dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun"];
+    const DAY_KEYS: [&str; 7] = [
+        "dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun",
+    ];
 
     view! {
         <div class="flex flex-col flex-1 overflow-hidden">
@@ -62,21 +60,25 @@ pub fn MonthView(
                 let total_cells = first_wd + days;
                 let rows = (total_cells + 6) / 7;
                 let all_items = items.get();
+                let tz = crate::datetime::use_timezone();
 
                 (0..rows).map(|row| {
                     let all_items = all_items.clone();
+                    let tz = tz.clone();
                     view! {
                         <div class="grid grid-cols-7 flex-1 border-b border-ink/20 min-h-[80px]">
                             {(0..7u32).map(|col| {
                                 let cell = row * 7 + col;
                                 let all_items = all_items.clone();
+                                let tz = tz.clone();
                                 if cell < first_wd || cell >= first_wd + days {
                                     view! { <div class="border-r border-ink/10 last:border-r-0" style="background: var(--cream-light); opacity: 0.4;"></div> }.into_any()
                                 } else {
                                     let day = cell - first_wd + 1;
                                     let is_today = y == today_year && m == today_month && day == today_day;
+                                    let cell_key = format!("{:04}-{:02}-{:02}", y, m, day);
                                     let day_items: Vec<CalendarItem> = all_items.into_iter().filter(|i| {
-                                        parse_date(&i.starts_at).map(|(iy, im, id)| iy == y && im == m && id == day).unwrap_or(false)
+                                        crate::datetime::item_day_key(&i.starts_at, i.all_day, &tz) == cell_key
                                     }).collect();
 
                                     view! {

@@ -7,10 +7,10 @@
 //! Replaces the prior `auto_extract.rs` and `proactive.rs` modules.
 //! See spec § 6.2 (auto-extract) + § 11 (proactive) + new : quality signals.
 
-use worker::*;
-use serde::{Deserialize, Serialize};
 use crate::db::AgentDb;
 use crate::router::MessagingSink;
+use serde::{Deserialize, Serialize};
+use worker::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AmbientAnalysis {
@@ -50,7 +50,7 @@ pub struct ProactiveSignal {
 pub struct FeedbackSignal {
     /// null if no feedback signal detected
     #[serde(default)]
-    pub signal: Option<String>,    // "silence_request" | "forget_request" | "correction" | "praise" | "thanks" | "confusion"
+    pub signal: Option<String>, // "silence_request" | "forget_request" | "correction" | "praise" | "thanks" | "confusion"
     #[serde(default)]
     pub confidence: f32,
     #[serde(default)]
@@ -64,15 +64,15 @@ pub struct FeedbackSignal {
 pub struct AmbientModes {
     pub auto_memory: bool,
     pub proactive_mode: bool,
-    pub feedback_detection: bool,    // currently always true ; opt-out via setting `quality_feedback_disabled`
+    pub feedback_detection: bool, // currently always true ; opt-out via setting `quality_feedback_disabled`
 }
 
 /// Recent bot action context (last ~30 min) — passed to classifier so it can attribute signals.
 pub struct RecentBotAction {
     pub activity_id: String,
-    pub activity_type: String,    // 'bot.proactive_intervention' | 'bot.auto_memory_save' | etc
+    pub activity_type: String, // 'bot.proactive_intervention' | 'bot.auto_memory_save' | etc
     pub age_seconds: i64,
-    pub summary: String,           // short human-readable
+    pub summary: String, // short human-readable
 }
 
 /// Run the unified classifier with telemetry recording.
@@ -93,7 +93,10 @@ pub async fn analyze_with_telemetry(
         "ambient",
         "gemini",
         "gemini-2.5-flash",
-        0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0,
         latency_ms,
         true,
         None,
@@ -114,25 +117,47 @@ pub async fn analyze(
     recent_actions: &[RecentBotAction],
     modes: &AmbientModes,
 ) -> AmbientAnalysis {
-    if text.split_whitespace().count() < 3 { return Default::default(); }
-    if text.len() > 2000 { return Default::default(); }
+    // Skip trivially short messages. Whitespace-word count works for
+    // space-separated scripts; CJK (zh/ja/ko) has no spaces, so a substantive
+    // sentence would count as one "word" — approximate via char count there so
+    // those locales aren't silently excluded from ambient analysis.
+    let token_estimate = text
+        .split_whitespace()
+        .count()
+        .max(text.chars().count() / 4);
+    if token_estimate < 3 {
+        return Default::default();
+    }
+    if text.len() > 2000 {
+        return Default::default();
+    }
     if !modes.auto_memory && !modes.proactive_mode && !modes.feedback_detection {
         return Default::default();
     }
 
-    let api_key = match env.secret("GEMINI_API_KEY") { Ok(k) => k.to_string(), Err(_) => return Default::default() };
+    let api_key = match env.secret("GEMINI_API_KEY") {
+        Ok(k) => k.to_string(),
+        Err(_) => return Default::default(),
+    };
     let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}");
 
     let recent_actions_block = if recent_actions.is_empty() {
         "(no recent bot actions)".to_string()
     } else {
-        recent_actions.iter()
-            .map(|a| format!("- {}s ago | {} | {}", a.age_seconds, a.activity_type, a.summary))
-            .collect::<Vec<_>>().join("\n")
+        recent_actions
+            .iter()
+            .map(|a| {
+                format!(
+                    "- {}s ago | {} | {}",
+                    a.age_seconds, a.activity_type, a.summary
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     let prompt = format!(
-r#"You analyze a chat message in a group conversation where an AI assistant 'Grumps' lives.
+        r#"You analyze a chat message in a group conversation where an AI assistant 'Grumps' lives.
 Group members: {members_list}
 Pinned facts the bot knows: {pinned}
 Recent bot actions in this group:
@@ -175,8 +200,16 @@ Rules:
   Be conservative — set signal=null if not clearly directed at the bot. Reject if the message addresses another member, not Grumps.
 
 If the prompt explicitly mentions @grumps, that's still potentially feedback — analyze tone."#,
-        members_list = if members.is_empty() { "(none listed)".to_string() } else { members.join(", ") },
-        pinned = if pinned_summary.is_empty() { "(none)" } else { pinned_summary },
+        members_list = if members.is_empty() {
+            "(none listed)".to_string()
+        } else {
+            members.join(", ")
+        },
+        pinned = if pinned_summary.is_empty() {
+            "(none)"
+        } else {
+            pinned_summary
+        },
         recent_actions = recent_actions_block,
         text = text,
     );
@@ -191,16 +224,33 @@ If the prompt explicitly mentions @grumps, that's still potentially feedback —
     });
     let headers = Headers::new();
     headers.set("content-type", "application/json").ok();
-    let req = match Request::new_with_init(&url, RequestInit::new()
-        .with_method(Method::Post)
-        .with_headers(headers)
-        .with_body(Some(req_body.to_string().into()))) { Ok(r) => r, Err(_) => return Default::default() };
+    let req = match Request::new_with_init(
+        &url,
+        RequestInit::new()
+            .with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(req_body.to_string().into())),
+    ) {
+        Ok(r) => r,
+        Err(_) => return Default::default(),
+    };
 
-    let mut resp = match Fetch::Request(req).send().await { Ok(r) => r, Err(_) => return Default::default() };
-    if resp.status_code() >= 400 { return Default::default(); }
+    let mut resp = match Fetch::Request(req).send().await {
+        Ok(r) => r,
+        Err(_) => return Default::default(),
+    };
+    if resp.status_code() >= 400 {
+        return Default::default();
+    }
 
-    let parsed: serde_json::Value = match resp.json().await { Ok(p) => p, Err(_) => return Default::default() };
-    let text_resp = parsed.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()).unwrap_or("");
+    let parsed: serde_json::Value = match resp.json().await {
+        Ok(p) => p,
+        Err(_) => return Default::default(),
+    };
+    let text_resp = parsed
+        .pointer("/candidates/0/content/parts/0/text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     serde_json::from_str(text_resp.trim()).unwrap_or_else(|e| {
         console_log!("ambient classifier parse failed: {e}, raw: {text_resp}");
@@ -243,7 +293,13 @@ pub async fn apply_analysis<'a>(
             created_by: Some(member_id.to_string()),
         };
         if let Ok(mem_id) = db.create_memory(&entry).await {
-            db.log_bot_action("bot.auto_memory_save", &format!("saved {}", entry.value), Some(&mem_id)).await.ok();
+            db.log_bot_action(
+                "bot.auto_memory_save",
+                &format!("saved {}", entry.value),
+                Some(&mem_id),
+            )
+            .await
+            .ok();
         }
     }
 
@@ -253,16 +309,32 @@ pub async fn apply_analysis<'a>(
         let kv = env.kv("KV").ok();
         let cooldown_key = format!("proactive:{workspace_slug}:lastfire");
         // Rate-limit bucket resets on the workspace-local hour boundary.
-        let tz = grumps_core::timeutil::tz_or_utc(&db.get_setting("timezone").await.unwrap_or_default());
-        let hour_key = format!("proactive:{workspace_slug}:{}", chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d-%H"));
+        let tz =
+            grumps_core::timeutil::tz_or_utc(&db.get_setting("timezone").await.unwrap_or_default());
+        let hour_key = format!(
+            "proactive:{workspace_slug}:{}",
+            chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d-%H")
+        );
         let mut should_proceed = true;
         if let Some(ref kv) = kv {
             if kv.get(&cooldown_key).text().await.ok().flatten().is_some() {
                 should_proceed = false;
             } else {
-                let count: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
-                let max = db.get_int_setting("proactive_max_per_hour").await.unwrap_or(3) as u32;
-                if count >= max { should_proceed = false; }
+                let count: u32 = kv
+                    .get(&hour_key)
+                    .text()
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                let max = db
+                    .get_int_setting("proactive_max_per_hour")
+                    .await
+                    .unwrap_or(3) as u32;
+                if count >= max {
+                    should_proceed = false;
+                }
             }
         }
         if should_proceed {
@@ -271,8 +343,12 @@ pub async fn apply_analysis<'a>(
             // to confirm) or simply chime in with text — both are posted to the
             // group by run_oneshot. A staged action is parked in KV for the
             // confirmation handler to execute once a human says "oui".
-            let language = db.get_setting("language").await.ok()
-                .filter(|s| !s.is_empty()).unwrap_or_else(|| "en".to_string());
+            let language = db
+                .get_setting("language")
+                .await
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "en".to_string());
             let ctx = crate::tools::ToolContext {
                 env,
                 workspace_slug,
@@ -288,8 +364,11 @@ pub async fn apply_analysis<'a>(
                 reason = analysis.proactive.reason
             );
             if let Ok(result) = crate::loop_::run_oneshot(&ctx, &instruction).await {
-                let said_something = result.final_text.as_deref()
-                    .map(|t| !t.trim().is_empty()).unwrap_or(false);
+                let said_something = result
+                    .final_text
+                    .as_deref()
+                    .map(|t| !t.trim().is_empty())
+                    .unwrap_or(false);
                 let intervened = result.staged_action.is_some() || said_something;
                 if let Some(staged) = &result.staged_action {
                     // Park the proposed action for confirmation (group-scoped, short TTL).
@@ -303,20 +382,42 @@ pub async fn apply_analysis<'a>(
                             // inline buttons), so a button tap can edit/clear it.
                             "chat_message_id": result.staged_message_id,
                         });
-                        if let Ok(p) = kv.put(&format!("proactive:pending:{workspace_slug}"), &pending.to_string()) {
+                        if let Ok(p) = kv.put(
+                            &format!("proactive:pending:{workspace_slug}"),
+                            &pending.to_string(),
+                        ) {
                             p.expiration_ttl(3600).execute().await.ok();
                         }
                     }
-                    db.log_bot_action("bot.proactive_proposal", result.final_text.as_deref().unwrap_or(""), None).await.ok();
+                    db.log_bot_action(
+                        "bot.proactive_proposal",
+                        result.final_text.as_deref().unwrap_or(""),
+                        None,
+                    )
+                    .await
+                    .ok();
                 } else if said_something {
-                    db.log_bot_action("bot.proactive_intervention", result.final_text.as_deref().unwrap_or(""), None).await.ok();
+                    db.log_bot_action(
+                        "bot.proactive_intervention",
+                        result.final_text.as_deref().unwrap_or(""),
+                        None,
+                    )
+                    .await
+                    .ok();
                 }
                 if intervened {
                     if let Some(kv) = kv {
                         if let Ok(p) = kv.put(&cooldown_key, "1") {
                             p.expiration_ttl(60).execute().await.ok();
                         }
-                        let cnt: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        let cnt: u32 = kv
+                            .get(&hour_key)
+                            .text()
+                            .await
+                            .ok()
+                            .flatten()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
                         if let Ok(p) = kv.put(&hour_key, &(cnt + 1).to_string()) {
                             p.expiration_ttl(7200).execute().await.ok();
                         }
@@ -330,9 +431,13 @@ pub async fn apply_analysis<'a>(
     if let Some(signal) = &analysis.feedback.signal {
         if analysis.feedback.confidence >= 0.5 {
             // Try to attribute to a recent action
-            let target = analysis.feedback.target_recent_action.as_ref()
+            let target = analysis
+                .feedback
+                .target_recent_action
+                .as_ref()
                 .and_then(|desc| {
-                    recent_actions.iter()
+                    recent_actions
+                        .iter()
                         .find(|a| a.summary.contains(desc.as_str()) || desc.contains(&a.summary))
                 });
             db.log_quality_signal(
@@ -343,7 +448,9 @@ pub async fn apply_analysis<'a>(
                 raw_text,
                 analysis.feedback.confidence as f64,
                 &analysis.feedback.reason,
-            ).await.ok();
+            )
+            .await
+            .ok();
         }
     }
 

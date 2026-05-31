@@ -9,8 +9,8 @@
 //! one entry to `workspace_migrations()` (strictly increasing version — never
 //! renumber or reuse). The runner records applied versions in `schema_migrations`.
 
-use crate::d1_rest::{D1RestClient, extract_rows};
-use worker::{Result, console_log};
+use crate::d1_rest::{extract_rows, D1RestClient};
+use worker::{console_log, Result};
 
 pub struct Migration {
     pub version: u32,
@@ -25,26 +25,83 @@ pub struct Migration {
 /// The ordered migration registry.
 pub fn workspace_migrations() -> Vec<Migration> {
     vec![
-        Migration { version: 1, name: "init",              data: false, sql: include_str!("../../../migrations/workspace/0001_init.sql") },
-        Migration { version: 2, name: "memory",            data: false, sql: include_str!("../../../migrations/workspace/0002_memory.sql") },
-        Migration { version: 3, name: "calendar",          data: false, sql: include_str!("../../../migrations/workspace/0003_calendar.sql") },
-        Migration { version: 4, name: "scheduling",        data: false, sql: include_str!("../../../migrations/workspace/0004_scheduling.sql") },
-        Migration { version: 5, name: "migrate_reminders", data: true,  sql: include_str!("../../../migrations/workspace/0005_migrate_reminders.sql") },
-        Migration { version: 6, name: "normalize_recurrence", data: true, sql: include_str!("../../../migrations/workspace/0006_normalize_recurrence.sql") },
-        Migration { version: 7, name: "quality_signals",   data: false, sql: include_str!("../../../migrations/workspace/0007_quality_signals.sql") },
-        Migration { version: 8, name: "llm_calls",         data: false, sql: include_str!("../../../migrations/workspace/0008_llm_calls.sql") },
-        Migration { version: 9, name: "member_locale",     data: false, sql: include_str!("../../../migrations/workspace/0009_member_locale.sql") },
-        Migration { version: 10, name: "drop_reminders",   data: false, sql: include_str!("../../../migrations/workspace/0010_drop_reminders.sql") },
-        Migration { version: 11, name: "drop_condition",   data: false, sql: include_str!("../../../migrations/workspace/0011_drop_condition.sql") },
+        Migration {
+            version: 1,
+            name: "init",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0001_init.sql"),
+        },
+        Migration {
+            version: 2,
+            name: "memory",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0002_memory.sql"),
+        },
+        Migration {
+            version: 3,
+            name: "calendar",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0003_calendar.sql"),
+        },
+        Migration {
+            version: 4,
+            name: "scheduling",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0004_scheduling.sql"),
+        },
+        Migration {
+            version: 5,
+            name: "migrate_reminders",
+            data: true,
+            sql: include_str!("../../../migrations/workspace/0005_migrate_reminders.sql"),
+        },
+        Migration {
+            version: 6,
+            name: "normalize_recurrence",
+            data: true,
+            sql: include_str!("../../../migrations/workspace/0006_normalize_recurrence.sql"),
+        },
+        Migration {
+            version: 7,
+            name: "quality_signals",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0007_quality_signals.sql"),
+        },
+        Migration {
+            version: 8,
+            name: "llm_calls",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0008_llm_calls.sql"),
+        },
+        Migration {
+            version: 9,
+            name: "member_locale",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0009_member_locale.sql"),
+        },
+        Migration {
+            version: 10,
+            name: "drop_reminders",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0010_drop_reminders.sql"),
+        },
+        Migration {
+            version: 11,
+            name: "drop_condition",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0011_drop_condition.sql"),
+        },
     ]
 }
 
 async fn table_exists(client: &D1RestClient, db: &str, name: &str) -> Result<bool> {
-    let resp = client.query(
-        db,
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?1",
-        vec![name.into()],
-    ).await?;
+    let resp = client
+        .query(
+            db,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?1",
+            vec![name.into()],
+        )
+        .await?;
     Ok(!extract_rows::<serde_json::Value>(&resp)?.is_empty())
 }
 
@@ -62,10 +119,16 @@ pub async fn apply_pending(client: &D1RestClient, database_id: &str) -> Result<V
     ).await?;
 
     #[derive(serde::Deserialize)]
-    struct V { version: u32 }
-    let resp = client.query(database_id, "SELECT version FROM schema_migrations", vec![]).await?;
-    let applied: std::collections::HashSet<u32> =
-        extract_rows::<V>(&resp)?.into_iter().map(|v| v.version).collect();
+    struct V {
+        version: u32,
+    }
+    let resp = client
+        .query(database_id, "SELECT version FROM schema_migrations", vec![])
+        .await?;
+    let applied: std::collections::HashSet<u32> = extract_rows::<V>(&resp)?
+        .into_iter()
+        .map(|v| v.version)
+        .collect();
 
     let registry = workspace_migrations();
 
@@ -76,13 +139,20 @@ pub async fn apply_pending(client: &D1RestClient, database_id: &str) -> Result<V
         for m in &registry {
             if m.data {
                 client.exec_statements(database_id, m.sql).await?;
-                console_log!("[migration] (baseline) ran data migration v{} ({}) -> {}", m.version, m.name, database_id);
+                console_log!(
+                    "[migration] (baseline) ran data migration v{} ({}) -> {}",
+                    m.version,
+                    m.name,
+                    database_id
+                );
             }
-            client.query(
-                database_id,
-                "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?1, ?2)",
-                vec![m.version.into(), m.name.into()],
-            ).await?;
+            client
+                .query(
+                    database_id,
+                    "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?1, ?2)",
+                    vec![m.version.into(), m.name.into()],
+                )
+                .await?;
         }
         console_log!(
             "[migration] baselined existing db {} at v{}",
@@ -94,14 +164,23 @@ pub async fn apply_pending(client: &D1RestClient, database_id: &str) -> Result<V
 
     let mut newly = vec![];
     for m in &registry {
-        if applied.contains(&m.version) { continue; }
+        if applied.contains(&m.version) {
+            continue;
+        }
         client.exec_statements(database_id, m.sql).await?;
-        client.query(
-            database_id,
-            "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?1, ?2)",
-            vec![m.version.into(), m.name.into()],
-        ).await?;
-        console_log!("[migration] applied v{} ({}) -> {}", m.version, m.name, database_id);
+        client
+            .query(
+                database_id,
+                "INSERT OR IGNORE INTO schema_migrations (version, name) VALUES (?1, ?2)",
+                vec![m.version.into(), m.name.into()],
+            )
+            .await?;
+        console_log!(
+            "[migration] applied v{} ({}) -> {}",
+            m.version,
+            m.name,
+            database_id
+        );
         newly.push(m.version);
     }
     Ok(newly)
@@ -116,15 +195,26 @@ mod tests {
         let m = workspace_migrations();
         assert!(!m.is_empty());
         for w in m.windows(2) {
-            assert!(w[1].version > w[0].version, "migration versions must strictly increase");
+            assert!(
+                w[1].version > w[0].version,
+                "migration versions must strictly increase"
+            );
         }
     }
 
     #[test]
     fn all_have_sql_and_name() {
         for m in workspace_migrations() {
-            assert!(!m.sql.trim().is_empty(), "migration v{} has empty SQL", m.version);
-            assert!(!m.name.is_empty(), "migration v{} has empty name", m.version);
+            assert!(
+                !m.sql.trim().is_empty(),
+                "migration v{} has empty SQL",
+                m.version
+            );
+            assert!(
+                !m.name.is_empty(),
+                "migration v{} has empty name",
+                m.version
+            );
         }
     }
 }

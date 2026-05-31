@@ -3,8 +3,8 @@
 //! Reminders are scheduled actions (`action_type == "reminder"`) — they appear
 //! under `scheduled`, each carrying its `action_type`.
 
-use serde_json::Value;
 use super::{args, parse_args, ToolContext};
+use serde_json::Value;
 
 pub async fn list_calendar(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
     let a: args::ListCalendarArgs = parse_args(raw, "list_calendar")?;

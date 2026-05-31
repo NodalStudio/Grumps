@@ -1,9 +1,9 @@
 //! REST routes for events (workspace-scoped, JWT-auth).
 
-use worker::*;
-use serde::Deserialize;
-use crate::{db, middleware, d1_rest};
 use crate::routes::util::read_query;
+use crate::{d1_rest, db, middleware};
+use serde::Deserialize;
+use worker::*;
 
 /// Normalize an all-day event's instant to its calendar date at UTC midnight,
 /// so the storage layer writes a bare "YYYY-MM-DD". The date-picker value is
@@ -16,9 +16,12 @@ fn utc_midnight(d: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Ut
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx.param("slug").ok_or_else(|| Error::RustError("missing slug".into()))?;
+    let slug = ctx
+        .param("slug")
+        .ok_or_else(|| Error::RustError("missing slug".into()))?;
     let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug).await?
+    db::lookup_workspace_by_slug(&index_db, slug)
+        .await?
         .ok_or_else(|| Error::RustError("workspace not found".into()))
 }
 
@@ -31,21 +34,33 @@ pub async fn list(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
     let url = req.url()?;
     let now = chrono::Utc::now();
     let default_from = (now - chrono::Duration::days(30)).to_rfc3339();
-    let default_to   = (now + chrono::Duration::days(60)).to_rfc3339();
+    let default_to = (now + chrono::Duration::days(60)).to_rfc3339();
     let mut from = default_from;
-    let mut to   = default_to;
+    let mut to = default_to;
     read_query(&url, |k, v| match k {
         "from" => from = v.to_string(),
-        "to"   => to   = v.to_string(),
+        "to" => to = v.to_string(),
         _ => {}
     });
 
@@ -80,10 +95,22 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
     let body: CreateBody = match req.json().await {
@@ -96,7 +123,12 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
     if let Some(ends_at) = body.ends_at {
         if ends_at < body.starts_at {
-            return middleware::error_with_cors(&req, 400, "bad_request", "ends_at must be at or after starts_at");
+            return middleware::error_with_cors(
+                &req,
+                400,
+                "bad_request",
+                "ends_at must be at or after starts_at",
+            );
         }
     }
 
@@ -148,20 +180,35 @@ pub async fn get(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
-    let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
+    let id = ctx
+        .param("id")
+        .ok_or_else(|| Error::RustError("missing id".into()))?
+        .to_string();
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
     match ws_db.get_event(&id).await? {
         Some(e) => middleware::with_cors(&req, Response::from_json(&e)?),
-        None    => middleware::with_cors(&req, Response::error("event not found", 404)?),
+        None => middleware::with_cors(&req, Response::error("event not found", 404)?),
     }
 }
 
@@ -182,13 +229,28 @@ pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
-    let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
+    let id = ctx
+        .param("id")
+        .ok_or_else(|| Error::RustError("missing id".into()))?
+        .to_string();
     let body: UpdateBody = match req.json().await {
         Ok(b) => b,
         Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
@@ -198,20 +260,27 @@ pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
     // sort lexically — sufficient for an order check on UTC-normalized input.
     if let (Some(starts), Some(ends)) = (&body.starts_at, &body.ends_at) {
         if ends < starts {
-            return middleware::error_with_cors(&req, 400, "bad_request", "ends_at must be at or after starts_at");
+            return middleware::error_with_cors(
+                &req,
+                400,
+                "bad_request",
+                "ends_at must be at or after starts_at",
+            );
         }
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
 
-    let updated = ws_db.update_event(
-        &id,
-        body.title.as_deref(),
-        body.starts_at.as_deref(),
-        body.ends_at.as_deref(),
-        body.location.as_deref(),
-    ).await?;
+    let updated = ws_db
+        .update_event(
+            &id,
+            body.title.as_deref(),
+            body.starts_at.as_deref(),
+            body.ends_at.as_deref(),
+            body.location.as_deref(),
+        )
+        .await?;
 
     if !updated {
         return middleware::with_cors(&req, Response::error("event not found", 404)?);
@@ -230,13 +299,28 @@ pub async fn delete(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
-    let id = ctx.param("id").ok_or_else(|| Error::RustError("missing id".into()))?.to_string();
+    let id = ctx
+        .param("id")
+        .ok_or_else(|| Error::RustError("missing id".into()))?
+        .to_string();
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);

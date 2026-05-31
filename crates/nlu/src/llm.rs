@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NluResponse {
     pub intent: NluIntent,
-    pub confidence: f32,      // 0.0 - 1.0
+    pub confidence: f32, // 0.0 - 1.0
     pub entities: NluEntities,
 }
 
@@ -30,12 +30,12 @@ pub enum NluIntent {
 pub struct NluEntities {
     pub title: Option<String>,
     pub assignee: Option<String>,
-    pub deadline: Option<String>,     // ISO 8601 or relative like "tomorrow"
-    pub priority: Option<String>,     // "high", "normal", "low"
+    pub deadline: Option<String>, // ISO 8601 or relative like "tomorrow"
+    pub priority: Option<String>, // "high", "normal", "low"
     pub tags: Vec<String>,
     pub search_query: Option<String>,
-    pub target_id: Option<i64>,       // #42
-    pub recurrence: Option<String>,   // "every monday", "daily"
+    pub target_id: Option<i64>,     // #42
+    pub recurrence: Option<String>, // "every monday", "daily"
 }
 
 /// System prompt for NLU. Sent with every request.
@@ -98,7 +98,8 @@ pub fn build_user_prompt(
 /// Parse the LLM's JSON response into our structured type.
 pub fn parse_llm_response(text: &str) -> Result<NluResponse, String> {
     // Strip markdown code fences if present
-    let clean = text.trim()
+    let clean = text
+        .trim()
         .trim_start_matches("```json")
         .trim_start_matches("```")
         .trim_end_matches("```")
@@ -160,7 +161,13 @@ mod tests {
     #[test]
     fn build_prompt_with_todos() {
         let todos = vec![(1, "Buy bread".into()), (2, "Call plumber".into())];
-        let prompt = build_user_prompt("remind bob to pay rent", "Alice", &todos, "2026-05-30T14:00:00", "Europe/Paris");
+        let prompt = build_user_prompt(
+            "remind bob to pay rent",
+            "Alice",
+            &todos,
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
         assert!(prompt.contains("Alice"));
         assert!(prompt.contains("remind bob to pay rent"));
         assert!(prompt.contains("#1 Buy bread"));
@@ -168,7 +175,13 @@ mod tests {
 
     #[test]
     fn build_prompt_includes_current_time() {
-        let prompt = build_user_prompt("remind me tomorrow", "Alice", &[], "2026-05-30T14:00:00", "Europe/Paris");
+        let prompt = build_user_prompt(
+            "remind me tomorrow",
+            "Alice",
+            &[],
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
         assert!(prompt.contains("2026-05-30T14:00:00"));
         assert!(prompt.contains("Europe/Paris"));
     }

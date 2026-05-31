@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -53,11 +53,15 @@ pub struct NewMemoryEntry {
 }
 
 impl Default for MemoryKind {
-    fn default() -> Self { MemoryKind::Other }
+    fn default() -> Self {
+        MemoryKind::Other
+    }
 }
 
 impl Default for MemorySource {
-    fn default() -> Self { MemorySource::Web }
+    fn default() -> Self {
+        MemorySource::Web
+    }
 }
 
 #[cfg(test)]
@@ -84,11 +88,19 @@ mod tests {
     fn entry_roundtrips_json() {
         let now = Utc::now();
         let e = MemoryEntry {
-            id: "m1".into(), key: Some("wifi".into()), value: "abc".into(),
-            kind: MemoryKind::Fact, related_member: None, tags: vec!["home".into()],
-            source: MemorySource::ChatExplicit, confidence: 1.0, pinned: true,
-            expires_at: None, created_by: Some("u1".into()),
-            created_at: now, updated_at: now,
+            id: "m1".into(),
+            key: Some("wifi".into()),
+            value: "abc".into(),
+            kind: MemoryKind::Fact,
+            related_member: None,
+            tags: vec!["home".into()],
+            source: MemorySource::ChatExplicit,
+            confidence: 1.0,
+            pinned: true,
+            expires_at: None,
+            created_by: Some("u1".into()),
+            created_at: now,
+            updated_at: now,
         };
         let json = serde_json::to_string(&e).unwrap();
         let back: MemoryEntry = serde_json::from_str(&json).unwrap();

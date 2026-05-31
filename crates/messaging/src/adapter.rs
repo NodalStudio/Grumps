@@ -33,8 +33,15 @@ pub trait MessagingPlatform {
     fn platform_id(&self) -> &str;
     fn parse_webhook(&self, payload: &[u8]) -> Result<Option<InboundMessage>, MessagingError>;
     fn verify_signature(&self, payload: &[u8], signature: &str) -> Result<(), MessagingError>;
-    fn build_send_request(&self, recipient: &str, message: &OutboundMessage) -> Result<(String, String), MessagingError>;
-    fn handle_verification_challenge(&self, params: &std::collections::HashMap<String, String>) -> Result<String, MessagingError>;
+    fn build_send_request(
+        &self,
+        recipient: &str,
+        message: &OutboundMessage,
+    ) -> Result<(String, String), MessagingError>;
+    fn handle_verification_challenge(
+        &self,
+        params: &std::collections::HashMap<String, String>,
+    ) -> Result<String, MessagingError>;
 }
 
 #[derive(Debug, thiserror::Error)]
