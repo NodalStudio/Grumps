@@ -196,9 +196,11 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
     let json = serde_json::to_string(&payload).map_err(|e| Error::RustError(e.to_string()))?;
 
     if let Some(ref kv) = kv {
-        let _ = kv
-            .put(cache_key, &json)
-            .map(|p| p.expiration_ttl(300).execute());
+        // Await the write — a dropped `execute()` future never runs, so the
+        // observability cache would never actually be populated.
+        if let Ok(p) = kv.put(cache_key, &json) {
+            let _ = p.expiration_ttl(300).execute().await;
+        }
     }
 
     let mut resp = Response::ok(json)?;

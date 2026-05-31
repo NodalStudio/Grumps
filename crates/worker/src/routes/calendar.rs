@@ -176,8 +176,16 @@ pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
         );
     }
 
-    // Admin only
-    // We verify by checking the member's role in the workspace DB
+    // Admin only: minting a 1-year public-calendar token (and overwriting any
+    // existing one) is an admin action, not something any member may do.
+    let index_db = db::get_index_db(&ctx.env)?;
+    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+        .await
+        .unwrap_or(false)
+    {
+        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
+    }
+
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
@@ -230,6 +238,16 @@ pub async fn delete_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
             "auth.not_member",
             "not a member of this workspace",
         );
+    }
+
+    // Admin only: revoking the workspace's public-calendar token is an admin
+    // action (a non-admin must not be able to break the admin's feed URL).
+    let index_db = db::get_index_db(&ctx.env)?;
+    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+        .await
+        .unwrap_or(false)
+    {
+        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;

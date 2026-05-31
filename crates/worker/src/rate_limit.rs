@@ -39,9 +39,10 @@ pub async fn check_rate_limit(
         return Err(());
     }
 
-    let _ = kv
-        .put(&key, &(current + 1).to_string())
-        .and_then(|p| Ok(p.expiration_ttl(120)))
-        .map(|b| b.execute());
+    // Await the write — a dropped `execute()` future never runs, so the
+    // counter would never increment and the rate limit would never bind.
+    if let Ok(p) = kv.put(&key, &(current + 1).to_string()) {
+        let _ = p.expiration_ttl(120).execute().await;
+    }
     Ok(())
 }
