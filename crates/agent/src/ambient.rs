@@ -117,7 +117,15 @@ pub async fn analyze(
     recent_actions: &[RecentBotAction],
     modes: &AmbientModes,
 ) -> AmbientAnalysis {
-    if text.split_whitespace().count() < 3 {
+    // Skip trivially short messages. Whitespace-word count works for
+    // space-separated scripts; CJK (zh/ja/ko) has no spaces, so a substantive
+    // sentence would count as one "word" — approximate via char count there so
+    // those locales aren't silently excluded from ambient analysis.
+    let token_estimate = text
+        .split_whitespace()
+        .count()
+        .max(text.chars().count() / 4);
+    if token_estimate < 3 {
         return Default::default();
     }
     if text.len() > 2000 {
