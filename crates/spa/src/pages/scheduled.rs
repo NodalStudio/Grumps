@@ -28,7 +28,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
     // Form fields
     let (form_title, set_form_title) = signal(String::new());
-    let (form_type, set_form_type) = signal("message".to_string());
+    let (form_type, set_form_type) = signal("reminder".to_string());
     // form_trigger holds a `datetime-local` value (workspace-local wall clock);
     // it is converted to/from the stored UTC instant at load/save.
     let (form_trigger, set_form_trigger) = signal(String::new());
@@ -62,7 +62,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let open_create = move |_| {
         set_edit_item.set(None);
         set_form_title.set(String::new());
-        set_form_type.set("message".to_string());
+        set_form_type.set("reminder".to_string());
         set_form_trigger.set(String::new());
         set_form_recurrence.set(String::new());
         set_form_payload.set(String::new());
@@ -85,13 +85,6 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
     let on_delete = Callback::new(move |id: String| {
         set_confirm_delete.set(Some(id));
-    });
-
-    let api_exec = use_api();
-    let on_execute = Callback::new(move |id: String| {
-        // TODO: POST /api/w/:slug/scheduled-actions/:id/execute
-        let _ = (&api_exec, &id);
-        web_sys::window().and_then(|w| w.alert_with_message("Execute now — API endpoint TBD").ok());
     });
 
     let api_save = use_api();
@@ -137,8 +130,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         }
     };
 
-    let type_opts = vec!["all", "message", "reminder", "recap", "task", "webhook"];
-    let status_opts = vec!["all", "active", "paused", "done", "failed"];
+    let type_opts = vec![
+        "all",
+        "reminder",
+        "event_notify",
+        "recap",
+        "follow_up",
+        "agent_task",
+    ];
+    let status_opts = vec!["all", "pending", "firing", "done", "cancelled", "failed"];
 
     view! {
         <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
@@ -208,13 +208,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                 children={
                                     let on_edit = on_edit.clone();
                                     let on_delete = on_delete.clone();
-                                    let on_execute = on_execute.clone();
                                     move |item| view! {
                                         <ScheduledCard
                                             item=item
                                             on_edit=on_edit.clone()
                                             on_delete=on_delete.clone()
-                                            on_execute=on_execute.clone()
                                         />
                                     }
                                 }
@@ -258,11 +256,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                     on:change=move |ev| set_form_type.set(event_target_value(&ev))
                                     prop:value=form_type
                                 >
-                                    <option value="message">{move || tr("schedule.type.message")}</option>
                                     <option value="reminder">{move || tr("schedule.type.reminder")}</option>
+                                    <option value="event_notify">{move || tr("schedule.type.event_notify")}</option>
                                     <option value="recap">{move || tr("schedule.type.recap")}</option>
-                                    <option value="task">{move || tr("schedule.type.task")}</option>
-                                    <option value="webhook">{move || tr("schedule.type.webhook")}</option>
+                                    <option value="follow_up">{move || tr("schedule.type.follow_up")}</option>
+                                    <option value="agent_task">{move || tr("schedule.type.agent_task")}</option>
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">
