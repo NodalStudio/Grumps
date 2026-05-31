@@ -129,19 +129,25 @@ pub fn OverviewPage() -> impl IntoView {
                                         let items = items.clone();
                                         let offset = col as i32 - mon_offset as i32;
                                         let actual_day = today_d as i32 + offset;
-                                        let (cell_m, cell_d) = if actual_day < 1 {
-                                            let prev_last = days_in_month(today_y, if today_m == 1 { 12 } else { today_m - 1 }) as i32;
-                                            (if today_m == 1 { 12 } else { today_m - 1 }, (prev_last + actual_day) as u32)
+                                        // Track the cell's YEAR too: days from the
+                                        // adjacent month at a Jan/Dec boundary belong to
+                                        // the previous/next year, else date_key uses the
+                                        // wrong year and never matches an event.
+                                        let (cell_y, cell_m, cell_d) = if actual_day < 1 {
+                                            let (py, pm) = if today_m == 1 { (today_y - 1, 12) } else { (today_y, today_m - 1) };
+                                            let prev_last = days_in_month(py, pm) as i32;
+                                            (py, pm, (prev_last + actual_day) as u32)
                                         } else {
                                             let last = days_in_month(today_y, today_m) as i32;
                                             if actual_day > last {
-                                                (if today_m == 12 { 1 } else { today_m + 1 }, (actual_day - last) as u32)
+                                                let (ny, nm) = if today_m == 12 { (today_y + 1, 1) } else { (today_y, today_m + 1) };
+                                                (ny, nm, (actual_day - last) as u32)
                                             } else {
-                                                (today_m, actual_day as u32)
+                                                (today_y, today_m, actual_day as u32)
                                             }
                                         };
-                                        let is_today = cell_m == today_m && cell_d == today_d;
-                                        let date_key = format!("{}-{}-{}", today_y, pad2(cell_m), pad2(cell_d));
+                                        let is_today = cell_y == today_y && cell_m == today_m && cell_d == today_d;
+                                        let date_key = format!("{}-{}-{}", cell_y, pad2(cell_m), pad2(cell_d));
                                         let day_items: Vec<CalendarItem> = items.into_iter()
                                             .filter(|i| parse_date_key(&i.starts_at) == date_key)
                                             .collect();
