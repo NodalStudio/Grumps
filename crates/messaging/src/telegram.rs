@@ -13,9 +13,15 @@ impl TelegramAdapter {
         Self { bot_token, bot_username, webhook_secret }
     }
 
+    /// The Bot API endpoint URL for a given method (single source of the base URL
+    /// + token interpolation).
+    fn api_url(&self, method: &str) -> String {
+        format!("https://api.telegram.org/bot{}/{method}", self.bot_token)
+    }
+
     /// Build request to set group description via Telegram Bot API.
     pub fn build_set_description_request(&self, chat_id: &str, description: &str) -> Result<(String, String), MessagingError> {
-        let url = format!("https://api.telegram.org/bot{}/setChatDescription", self.bot_token);
+        let url = self.api_url("setChatDescription");
         let body = serde_json::json!({
             "chat_id": chat_id,
             "description": description
@@ -26,7 +32,7 @@ impl TelegramAdapter {
     /// Build an `answerCallbackQuery` request — acknowledges an inline-button tap
     /// (dismisses the client's loading spinner). An optional `text` shows a toast.
     pub fn build_answer_callback_request(&self, callback_query_id: &str, text: Option<&str>) -> (String, String) {
-        let url = format!("https://api.telegram.org/bot{}/answerCallbackQuery", self.bot_token);
+        let url = self.api_url("answerCallbackQuery");
         let mut body = serde_json::json!({ "callback_query_id": callback_query_id });
         if let Some(t) = text {
             body["text"] = serde_json::json!(t);
@@ -37,7 +43,7 @@ impl TelegramAdapter {
     /// Build an `editMessageReplyMarkup` request — swaps (or, with `markup: None`,
     /// removes) the inline keyboard on an already-sent message.
     pub fn build_edit_reply_markup_request(&self, chat_id: &str, message_id: i64, markup: Option<serde_json::Value>) -> (String, String) {
-        let url = format!("https://api.telegram.org/bot{}/editMessageReplyMarkup", self.bot_token);
+        let url = self.api_url("editMessageReplyMarkup");
         let mut body = serde_json::json!({ "chat_id": chat_id, "message_id": message_id });
         // Omitting reply_markup removes the keyboard.
         if let Some(m) = markup {
@@ -124,7 +130,7 @@ impl MessagingPlatform for TelegramAdapter {
     }
 
     fn build_send_request(&self, chat_id: &str, message: &OutboundMessage) -> Result<(String, String), MessagingError> {
-        let url = format!("https://api.telegram.org/bot{}/sendMessage", self.bot_token);
+        let url = self.api_url("sendMessage");
         let mut body = serde_json::json!({
             "chat_id": chat_id,
             "text": message.text,

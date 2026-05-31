@@ -8,27 +8,17 @@ use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 use grumps_messaging::telegram::TelegramAdapter;
 use crate::db::{get_index_db, lookup_platform_channel};
 
+/// Send a message to a workspace's chat group. Resolves the platform from the
+/// Index DB and routes through the matching adapter. Thin wrapper over
+/// [`send_to_workspace_with_markup`] that discards the returned message id.
 pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<()> {
-    let index = get_index_db(env)?;
-    let (platform, channel_id) = lookup_platform_channel(&index, ws_slug)
-        .await?
-        .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
-    match platform.as_str() {
-        "telegram" => send_via_telegram(env, &channel_id, out).await,
-        "whatsapp" => Err(Error::RustError(
-            "send_to_workspace: WhatsApp not wired yet — use the webhook path".into(),
-        )),
-        "discord" => Err(Error::RustError(
-            "send_to_workspace: Discord not wired yet — use the webhook path".into(),
-        )),
-        other => Err(Error::RustError(format!("unknown platform: {other}"))),
-    }
+    send_to_workspace_with_markup(env, ws_slug, out).await.map(|_| ())
 }
 
 /// Like [`send_to_workspace`] but returns the platform message id of the sent
 /// message when available (Telegram). Used for interactive proposals whose
-/// inline keyboard we may later edit/clear. WhatsApp/Discord don't support
-/// inline buttons yet, so they fall back to a plain send and return `None`.
+/// inline keyboard we may later edit/clear. WhatsApp/Discord aren't wired for
+/// sending yet (no inline buttons), so they error here.
 pub async fn send_to_workspace_with_markup(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<Option<String>> {
     let index = get_index_db(env)?;
     let (platform, channel_id) = lookup_platform_channel(&index, ws_slug)
@@ -37,14 +27,15 @@ pub async fn send_to_workspace_with_markup(env: &Env, ws_slug: &str, out: &Outbo
     match platform.as_str() {
         "telegram" => send_via_telegram_returning_id(env, &channel_id, out).await,
         // TODO(buttons): map reply_markup to WhatsApp interactive reply buttons /
-        // Discord message components. For now these platforms aren't wired for
-        // sending at all, so delegate to the erroring plain path.
-        _ => send_to_workspace(env, ws_slug, out).await.map(|_| None),
+        // Discord message components, and wire these platforms for sending.
+        "whatsapp" => Err(Error::RustError(
+            "send_to_workspace: WhatsApp not wired yet — use the webhook path".into(),
+        )),
+        "discord" => Err(Error::RustError(
+            "send_to_workspace: Discord not wired yet — use the webhook path".into(),
+        )),
+        other => Err(Error::RustError(format!("unknown platform: {other}"))),
     }
-}
-
-async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<()> {
-    send_via_telegram_returning_id(env, chat_id, out).await.map(|_| ())
 }
 
 async fn send_via_telegram_returning_id(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<Option<String>> {
