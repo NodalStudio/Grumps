@@ -95,21 +95,6 @@ impl AgentDb for WorkspaceDb<'_> {
         self.list_events_in_range(from, to).await
     }
 
-    async fn insert_reminder(
-        &self,
-        title: &str,
-        remind_at: &str,
-        recurrence: Option<&str>,
-        target_member: &str,
-        created_by: &str,
-    ) -> Result<String> {
-        self.insert_reminder(title, remind_at, recurrence, target_member, created_by).await
-    }
-
-    async fn list_reminders_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
-        self.list_reminders_active_in_range(from, to).await
-    }
-
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
         self.create_scheduled_action(a).await
     }

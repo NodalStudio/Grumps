@@ -34,6 +34,7 @@ pub fn workspace_migrations() -> Vec<Migration> {
         Migration { version: 7, name: "quality_signals",   data: false, sql: include_str!("../../../migrations/workspace/0007_quality_signals.sql") },
         Migration { version: 8, name: "llm_calls",         data: false, sql: include_str!("../../../migrations/workspace/0008_llm_calls.sql") },
         Migration { version: 9, name: "member_locale",     data: false, sql: include_str!("../../../migrations/workspace/0009_member_locale.sql") },
+        Migration { version: 10, name: "drop_reminders",   data: false, sql: include_str!("../../../migrations/workspace/0010_drop_reminders.sql") },
     ]
 }
 

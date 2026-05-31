@@ -91,20 +91,8 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
         .map(|t| serde_json::to_value(&t).unwrap_or(serde_json::Value::Null))
         .collect();
 
-    // Reminders: filter active reminders in range
-    let all_reminders = ws_db.get_active_reminders().await?;
-    let reminders_json: Vec<serde_json::Value> = all_reminders.into_iter()
-        .filter(|r| r.remind_at.as_str() >= from.as_str() && r.remind_at.as_str() <= to.as_str())
-        .map(|r| serde_json::json!({
-            "id": r.id,
-            "title": r.title,
-            "remind_at": r.remind_at,
-            "recurrence": r.recurrence,
-            "target_member": r.target_member,
-        }))
-        .collect();
-
-    // Scheduled actions: filter pending in range
+    // Scheduled actions (incl. reminders, which are action_type 'reminder' —
+    // the aggregator classifies them): filter pending in range.
     let all_scheduled = ws_db.list_scheduled_actions(Some("pending"), 500, 0).await?;
     let scheduled_json: Vec<serde_json::Value> = all_scheduled.into_iter()
         .filter(|a| {
@@ -117,10 +105,11 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
             "trigger_at": a.trigger_at.to_rfc3339(),
             "recurrence": a.recurrence,
             "created_by": a.created_by,
+            "action_type": a.action_type,
         }))
         .collect();
 
-    let items = aggregate(events, todos_json, reminders_json, scheduled_json, &ws.slug);
+    let items = aggregate(events, todos_json, scheduled_json, &ws.slug);
 
     middleware::with_cors(&req, Response::from_json(&items)?)
 }
@@ -232,18 +221,8 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
         .map(|t| serde_json::to_value(&t).unwrap_or(serde_json::Value::Null))
         .collect();
 
-    let all_reminders = ws_db.get_active_reminders().await?;
-    let reminders_json: Vec<serde_json::Value> = all_reminders.into_iter()
-        .filter(|r| r.remind_at.as_str() >= from.as_str() && r.remind_at.as_str() <= to.as_str())
-        .map(|r| serde_json::json!({
-            "id": r.id,
-            "title": r.title,
-            "remind_at": r.remind_at,
-            "recurrence": r.recurrence,
-            "target_member": r.target_member,
-        }))
-        .collect();
-
+    // Reminders are scheduled_actions (action_type "reminder"); the aggregator
+    // classifies them from `action_type` below — no separate source.
     let all_scheduled = ws_db.list_scheduled_actions(Some("pending"), 500, 0).await?;
     let scheduled_json: Vec<serde_json::Value> = all_scheduled.into_iter()
         .filter(|a| {
@@ -256,12 +235,13 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
             "trigger_at": a.trigger_at.to_rfc3339(),
             "recurrence": a.recurrence,
             "created_by": a.created_by,
+            "action_type": a.action_type,
         }))
         .collect();
 
     let workspace_name = ws.name.as_deref().unwrap_or(slug);
     let tz = ws_db.get_setting("timezone").await.ok().flatten().filter(|s| !s.is_empty());
-    let items = aggregate(events, todos_json, reminders_json, scheduled_json, slug);
+    let items = aggregate(events, todos_json, scheduled_json, slug);
     let ical_body = generate_ical(workspace_name, &items, tz.as_deref());
 
     let mut resp = Response::ok(ical_body)?;

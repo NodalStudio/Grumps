@@ -343,63 +343,10 @@ impl<'a> WorkspaceDb<'a> {
         extract_rows(&resp)
     }
 
-    // --- Reminders ---
-
-    /// Insert a reminder.
-    pub async fn insert_reminder(&self, title: &str, remind_at: &str, recurrence: Option<&str>, target_member: &str, created_by: &str) -> Result<String> {
-        let id = uuid::Uuid::new_v4().to_string();
-        self.q(
-            "INSERT INTO reminders (id, title, remind_at, recurrence, target_member, status, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'active', ?6, datetime('now'))",
-            vec![id.clone().into(), title.into(), remind_at.into(), recurrence.unwrap_or("").into(), target_member.into(), created_by.into()],
-        ).await?;
-        Ok(id)
-    }
-
-    /// Get active reminders that should fire now (remind_at <= now).
-    pub async fn get_due_reminders(&self) -> Result<Vec<ReminderRow>> {
-        let resp = self.q(
-            // Normalize both sides through datetime() so an ISO-8601 remind_at
-            // (with 'T' / 'Z' / offset) compares correctly against UTC now —
-            // a raw string `<=` breaks on the 'T'-vs-space separator.
-            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND datetime(remind_at) <= datetime('now')",
-            vec![],
-        ).await?;
-        extract_rows(&resp)
-    }
-
-    /// Mark a reminder as fired. If recurring, update remind_at to next occurrence.
-    pub async fn fire_reminder(&self, reminder_id: &str, recurrence: Option<&str>) -> Result<()> {
-        if let Some(rec) = recurrence {
-            if !rec.is_empty() {
-                let interval = if rec.contains("daily") || rec.contains("every day") {
-                    "+1 day"
-                } else if rec.contains("weekly") || rec.contains("every week") || rec.contains("every monday") || rec.contains("every tuesday") || rec.contains("every wednesday") || rec.contains("every thursday") || rec.contains("every friday") || rec.contains("every saturday") || rec.contains("every sunday") {
-                    "+7 days"
-                } else {
-                    return self.q("UPDATE reminders SET status = 'fired' WHERE id = ?1", vec![reminder_id.into()]).await.map(|_| ());
-                };
-                self.q(
-                    &format!("UPDATE reminders SET remind_at = datetime(remind_at, '{}') WHERE id = ?1", interval),
-                    vec![reminder_id.into()],
-                ).await?;
-                return Ok(());
-            }
-        }
-        self.q("UPDATE reminders SET status = 'fired' WHERE id = ?1", vec![reminder_id.into()]).await?;
-        Ok(())
-    }
-
-    /// List active reminders.
-    pub async fn get_active_reminders(&self) -> Result<Vec<ReminderRow>> {
-        let resp = self.q("SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' ORDER BY remind_at ASC", vec![]).await?;
-        extract_rows(&resp)
-    }
-
-    /// Cancel a reminder.
-    pub async fn cancel_reminder(&self, reminder_id: &str) -> Result<()> {
-        self.q("UPDATE reminders SET status = 'cancelled' WHERE id = ?1", vec![reminder_id.into()]).await?;
-        Ok(())
-    }
+    // Reminders are no longer a standalone table: a reminder is a
+    // `scheduled_actions` row with `action_type = 'reminder'`, created via the
+    // agent's create_reminder tool / SetReminder path and fired by the workspace
+    // Durable Object. The `reminders` table was dropped (migration 0010).
 
     // --- LLM call tracking ---
 
@@ -498,18 +445,6 @@ impl<'a> WorkspaceDb<'a> {
         Ok(row.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0))
     }
 
-    /// List active reminders in a [from, to] date range (SQL-filtered).
-    pub async fn list_reminders_active_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
-        let resp = self.q(
-            "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
-             FROM reminders \
-             WHERE status = 'active' AND datetime(remind_at) >= datetime(?1) AND datetime(remind_at) <= datetime(?2) \
-             ORDER BY datetime(remind_at) ASC",
-            vec![from.into(), to.into()],
-        ).await?;
-        extract_rows::<serde_json::Value>(&resp)
-    }
-
     /// List pending scheduled actions in a [from, to] trigger_at range (SQL-filtered).
     pub async fn list_scheduled_active_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
         let resp = self.q(
@@ -576,8 +511,8 @@ impl<'a> WorkspaceDb<'a> {
         let r = self.q("SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
-        // Active reminders
-        let r = self.q("SELECT COUNT(*) as cnt FROM reminders WHERE status = 'active'", vec![]).await?;
+        // Upcoming reminders (reminders are scheduled_actions of that type).
+        let r = self.q("SELECT COUNT(*) as cnt FROM scheduled_actions WHERE action_type = 'reminder' AND status = 'pending'", vec![]).await?;
         let reminders: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         Ok(RecapData { open, assigned, done_week, high_priority, new_notes, reminders })
@@ -664,16 +599,6 @@ pub struct ActivityRow {
     pub target_id: Option<String>,
     pub source: String,
     pub created_at: String,
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-pub struct ReminderRow {
-    pub id: String,
-    pub title: String,
-    pub remind_at: String,
-    pub recurrence: Option<String>,
-    pub target_member: Option<String>,
-    pub created_by: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]

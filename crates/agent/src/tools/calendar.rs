@@ -1,5 +1,7 @@
 //! Tool implementation: list_calendar.
-//! Aggregates events + todos-with-deadline + reminders + scheduled actions in a date range.
+//! Aggregates events + todos-with-deadline + scheduled actions in a date range.
+//! Reminders are scheduled actions (`action_type == "reminder"`) — they appear
+//! under `scheduled`, each carrying its `action_type`.
 
 use serde_json::Value;
 use super::{args, parse_args, ToolContext};
@@ -10,7 +12,6 @@ pub async fn list_calendar(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<
 
     let events = ctx.db.list_events_in_range(from, to).await?;
     let todos = ctx.db.list_todos_with_deadline(from, to).await?;
-    let reminders = ctx.db.list_reminders_in_range(from, to).await?;
     let scheduled = ctx.db.list_scheduled_in_range(from, to).await?;
 
     Ok(serde_json::json!({
@@ -23,7 +24,6 @@ pub async fn list_calendar(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<
             "location": e.location,
         })).collect::<Vec<_>>(),
         "todos": todos,
-        "reminders": reminders,
         "scheduled": scheduled.iter().map(|a| serde_json::json!({
             "id": a.id,
             "title": a.title,

@@ -96,19 +96,6 @@ pub trait AgentDb {
     async fn create_event(&self, e: &NewEvent) -> worker::Result<String>;
     async fn list_events_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<Event>>;
 
-    // --- reminders ---
-    async fn insert_reminder(
-        &self,
-        title: &str,
-        remind_at: &str,
-        recurrence: Option<&str>,
-        target_member: &str,
-        created_by: &str,
-    ) -> worker::Result<String>;
-
-    /// List active reminders in a datetime range (remind_at between from and to).
-    async fn list_reminders_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<serde_json::Value>>;
-
     // --- scheduled actions ---
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> worker::Result<String>;
     async fn list_scheduled_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<ScheduledAction>>;
