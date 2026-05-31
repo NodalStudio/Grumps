@@ -4,6 +4,10 @@ use grumps_messaging::whatsapp::WhatsAppAdapter;
 use grumps_nlu::parser;
 use crate::{db, d1_rest::D1RestClient, provisioning, handler, llm_client::LlmClient};
 
+// WhatsApp inbound is temporarily disabled (the routes are not registered in
+// `lib.rs`); these handlers are kept for when WhatsApp reaches parity with
+// Telegram. Outbound (`build_adapter_from_env`) is still used by cron/auth.
+#[allow(dead_code)]
 pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let wa = build_adapter(&ctx)?;
     let params: std::collections::HashMap<String, String> = req.url()?.query_pairs()
@@ -14,6 +18,7 @@ pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Respon
     }
 }
 
+#[allow(dead_code)]
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let wa = build_adapter(&ctx)?;
     let body = req.bytes().await?;

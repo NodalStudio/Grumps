@@ -40,13 +40,16 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     Router::new()
         // Health
         .get("/health", routes::health::handle)
-        // WhatsApp webhook
-        .get_async("/webhook/whatsapp", routes::webhook::handle_verify)
-        .post_async("/webhook/whatsapp", routes::webhook::handle_incoming)
         // Telegram webhook
         .post_async("/webhook/telegram", routes::webhook_telegram::handle_incoming)
-        // Discord webhook
-        .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
+        // WhatsApp & Discord inbound are intentionally NOT registered yet: the
+        // platforms are Telegram-first until inline-button confirm/undo (and the
+        // rest of the inbound flow) is implemented for them. Re-enable by
+        // restoring these routes:
+        //   .get_async("/webhook/whatsapp", routes::webhook::handle_verify)
+        //   .post_async("/webhook/whatsapp", routes::webhook::handle_incoming)
+        //   .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
+        // The handlers themselves are kept (marked #[allow(dead_code)]).
         // Auth — legacy WA OTP (Bearer JWT)
         .post_async("/auth/otp", routes::auth::handle_send_otp)
         .post_async("/auth/verify", routes::auth::handle_verify_otp)

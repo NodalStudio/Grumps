@@ -1,3 +1,8 @@
+// Discord inbound is temporarily disabled (the route is not registered in
+// `lib.rs`). The handler is kept intact for when Discord is brought up to parity
+// with Telegram; until then nothing in-crate references it.
+#![allow(dead_code)]
+
 use worker::*;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
