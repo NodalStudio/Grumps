@@ -241,6 +241,7 @@ pub async fn web_search(
             &[("limit", &limit.to_string()), ("plan", plan.as_str())],
         );
         return Ok(serde_json::json!({
+            "ok": false,
             "error": "quota_exceeded",
             "message": message,
             "used": used,
@@ -251,7 +252,7 @@ pub async fn web_search(
     // Call provider
     let provider = build_provider(ctx.env);
     let hits = provider.search(query, count, freshness).await?;
-    let result = serde_json::json!({ "query": query, "results": hits });
+    let result = serde_json::json!({ "ok": true, "query": query, "results": hits });
 
     // Cache + bump quota
     if let Some(ref kv) = kv {

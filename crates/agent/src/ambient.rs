@@ -265,6 +265,7 @@ pub async fn apply_analysis<'a>(
     db: &'a dyn AgentDb,
     sink: &'a dyn MessagingSink,
     workspace_slug: &str,
+    ws_locale: &str,
     member_id: &str,
     raw_text: &str,
     analysis: &AmbientAnalysis,
@@ -343,12 +344,15 @@ pub async fn apply_analysis<'a>(
             // to confirm) or simply chime in with text — both are posted to the
             // group by run_oneshot. A staged action is parked in KV for the
             // confirmation handler to execute once a human says "oui".
-            let language = db
-                .get_setting("language")
-                .await
-                .ok()
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "en".to_string());
+            // The workspace locale is the canonical source (index DB
+            // `workspaces_meta.locale`), passed in by the caller. The reactive
+            // path uses the same value, so proactive proposals — their text and
+            // confirm/cancel buttons — render in the group's language.
+            let language = if ws_locale.is_empty() {
+                "en".to_string()
+            } else {
+                ws_locale.to_string()
+            };
             let ctx = crate::tools::ToolContext {
                 env,
                 workspace_slug,

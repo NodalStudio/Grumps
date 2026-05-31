@@ -95,16 +95,6 @@ impl Freshness {
     }
 }
 
-/// Calendar item kind to include in a `list_calendar` query.
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
-#[serde(rename_all = "lowercase")]
-pub enum CalendarType {
-    Todo,
-    Event,
-    Reminder,
-    Scheduled,
-}
-
 // ── per-tool argument structs ────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -256,7 +246,6 @@ pub struct ListCalendarArgs {
     pub from: String,
     #[schemars(extend("format" = "date-time"))]
     pub to: String,
-    pub types: Option<Vec<CalendarType>>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

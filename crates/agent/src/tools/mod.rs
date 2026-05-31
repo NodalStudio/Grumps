@@ -53,7 +53,6 @@ pub struct ToolContext<'a> {
 /// an explicit offset or a trailing `Z`, that is authoritative and respected.
 /// Returns `None` if the string cannot be parsed.
 pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTime<chrono::Utc>> {
-    use chrono::TimeZone;
     let s = s.trim();
     // 1. Explicit offset / Z → authoritative.
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
@@ -68,23 +67,11 @@ pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTi
     ];
     for fmt in FORMATS {
         if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
-            // Fold (fall-back): time occurs twice → `.single()` is None, take
-            // the earliest of the two instants.
-            if let Some(dt) = tz
-                .from_local_datetime(&naive)
-                .single()
-                .or_else(|| tz.from_local_datetime(&naive).earliest())
-            {
-                return Some(dt.with_timezone(&chrono::Utc));
-            }
-            // Gap (spring-forward): the named wall-clock time doesn't exist.
-            // Nudge past the gap (DST jumps are ≤ 1h in practice) so we still
-            // resolve to a sensible instant rather than failing.
-            let nudged = naive + chrono::Duration::hours(1);
-            return tz
-                .from_local_datetime(&nudged)
-                .earliest()
-                .map(|dt| dt.with_timezone(&chrono::Utc));
+            // Single source of the DST gap/fold resolution rule — shared with the
+            // worker/calendar paths so a stored instant means the same thing
+            // everywhere. Don't re-implement the spring-forward/fall-back handling
+            // here; see grumps_core::timeutil::local_naive_to_utc.
+            return Some(grumps_core::timeutil::local_naive_to_utc(*tz, naive));
         }
     }
     None

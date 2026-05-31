@@ -12,6 +12,7 @@ pub async fn query_chat_history(ctx: &ToolContext<'_>, raw: Value) -> worker::Re
             .await?;
 
     Ok(serde_json::json!({
+        "ok": true,
         "results": hits.iter().map(|h| serde_json::json!({
             "sender_name": h.sender_name,
             "timestamp": h.timestamp,

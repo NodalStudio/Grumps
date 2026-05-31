@@ -108,27 +108,10 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
         .collect();
 
     // Scheduled actions (incl. reminders, which are action_type 'reminder' —
-    // the aggregator classifies them): filter pending in range.
-    let all_scheduled = ws_db
-        .list_scheduled_actions(Some("pending"), 500, 0)
-        .await?;
-    let scheduled_json: Vec<serde_json::Value> = all_scheduled
-        .into_iter()
-        .filter(|a| {
-            let t = a.trigger_at.to_rfc3339();
-            t.as_str() >= from.as_str() && t.as_str() <= to.as_str()
-        })
-        .map(|a| {
-            serde_json::json!({
-                "id": a.id,
-                "title": a.title,
-                "trigger_at": a.trigger_at.to_rfc3339(),
-                "recurrence": a.recurrence,
-                "created_by": a.created_by,
-                "action_type": a.action_type,
-            })
-        })
-        .collect();
+    // the aggregator classifies them): pending in range, bounded in SQL so we
+    // don't transfer/parse rows outside the visible window. The rows already
+    // carry the keys the aggregator reads (id/action_type/trigger_at/recurrence).
+    let scheduled_json = ws_db.list_scheduled_active_in_range(&from, &to).await?;
 
     let items = aggregate(events, todos_json, scheduled_json, &ws.slug);
 
@@ -299,27 +282,9 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
         .collect();
 
     // Reminders are scheduled_actions (action_type "reminder"); the aggregator
-    // classifies them from `action_type` below — no separate source.
-    let all_scheduled = ws_db
-        .list_scheduled_actions(Some("pending"), 500, 0)
-        .await?;
-    let scheduled_json: Vec<serde_json::Value> = all_scheduled
-        .into_iter()
-        .filter(|a| {
-            let t = a.trigger_at.to_rfc3339();
-            t.as_str() >= from.as_str() && t.as_str() <= to.as_str()
-        })
-        .map(|a| {
-            serde_json::json!({
-                "id": a.id,
-                "title": a.title,
-                "trigger_at": a.trigger_at.to_rfc3339(),
-                "recurrence": a.recurrence,
-                "created_by": a.created_by,
-                "action_type": a.action_type,
-            })
-        })
-        .collect();
+    // classifies them from `action_type` below — no separate source. Bounded in
+    // SQL to the feed window instead of fetching all pending and filtering here.
+    let scheduled_json = ws_db.list_scheduled_active_in_range(&from, &to).await?;
 
     let workspace_name = ws.name.as_deref().unwrap_or(slug);
     let tz = ws_db

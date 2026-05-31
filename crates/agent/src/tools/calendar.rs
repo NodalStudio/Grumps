@@ -15,6 +15,7 @@ pub async fn list_calendar(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<
     let scheduled = ctx.db.list_scheduled_in_range(from, to).await?;
 
     Ok(serde_json::json!({
+        "ok": true,
         "events": events.iter().map(|e| serde_json::json!({
             "id": e.id,
             "title": e.title,

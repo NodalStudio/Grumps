@@ -100,7 +100,7 @@ pub async fn handle_message(
                     .flatten()
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "UTC".to_string());
-                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
                 let now_local = chrono::Utc::now()
                     .with_timezone(&tz)
                     .format("%Y-%m-%dT%H:%M:%S")
@@ -1060,7 +1060,7 @@ async fn handle_llm_result(
                 // Normalize to a civil date (YYYY-MM-DD) in the workspace tz; a
                 // deadline is a calendar day, not an instant. Unparseable → no
                 // deadline (better than storing relative text that never matches).
-                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
                 todo.deadline_text = grumps_agent::tools::parse_user_date(&deadline, &tz);
             }
             if let Some(ref p) = nlu.entities.priority {
@@ -1108,7 +1108,7 @@ async fn handle_llm_result(
             handle_add_note(note, ws_db, member_id, locale, plan).await
         }
         NluIntent::SetReminder => {
-            let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+            let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
             // Resolve the model's concrete local datetime to a UTC instant. If
             // it's missing or unparseable, ask for a time rather than store a
             // reminder that can never fire (datetime(NULL) never matches).

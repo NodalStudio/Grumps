@@ -18,7 +18,7 @@ pub async fn create_todo(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Va
     let a: args::CreateTodoArgs = parse_args(raw, "create_todo")?;
     // A deadline is a civil date in the workspace tz — normalized to YYYY-MM-DD,
     // never converted to a UTC instant (which would shift the day).
-    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
     let deadline = a
         .deadline
         .as_deref()
@@ -38,7 +38,7 @@ pub async fn create_todo(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Va
         )
         .await?;
 
-    Ok(serde_json::json!({ "id": id, "created": true, "title": a.title }))
+    Ok(serde_json::json!({ "ok": true, "id": id, "created": true, "title": a.title }))
 }
 
 pub async fn create_note(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
@@ -47,13 +47,13 @@ pub async fn create_note(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Va
         .db
         .create_note_simple(a.title.as_deref(), &a.content, Some(ctx.member_id))
         .await?;
-    Ok(serde_json::json!({ "id": id, "created": true }))
+    Ok(serde_json::json!({ "ok": true, "id": id, "created": true }))
 }
 
 pub async fn create_event(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
     let a: args::CreateEventArgs = parse_args(raw, "create_event")?;
 
-    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
     let all_day = a.all_day.unwrap_or(false);
     let starts_at_str = a.starts_at.as_str();
     let ends_at_str = a.ends_at.as_deref();
@@ -95,7 +95,7 @@ pub async fn create_event(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<V
     };
 
     let id = ctx.db.create_event(&event).await?;
-    Ok(serde_json::json!({ "id": id, "created": true, "title": a.title }))
+    Ok(serde_json::json!({ "ok": true, "id": id, "created": true, "title": a.title }))
 }
 
 pub async fn create_reminder(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
@@ -103,7 +103,7 @@ pub async fn create_reminder(ctx: &ToolContext<'_>, raw: Value) -> worker::Resul
     let a: args::CreateReminderArgs = parse_args(raw, "create_reminder")?;
 
     // Interpret the model's local wall-clock time in the workspace tz → UTC.
-    let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+    let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
     let remind_at = super::parse_user_datetime(&a.trigger_at, &tz).ok_or_else(|| {
         worker::Error::RustError("create_reminder: invalid 'trigger_at' datetime".into())
     })?;
@@ -128,5 +128,5 @@ pub async fn create_reminder(ctx: &ToolContext<'_>, raw: Value) -> worker::Resul
         created_by: Some(ctx.member_id.to_string()),
     };
     let id = ctx.db.create_scheduled_action(&action).await?;
-    Ok(serde_json::json!({ "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
+    Ok(serde_json::json!({ "ok": true, "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
 }

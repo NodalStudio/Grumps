@@ -393,7 +393,7 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     // timezone (carried on the ToolContext) is what the tool layer uses to
     // convert the model's local times back to UTC — single source of truth.
     let timezone = ctx.timezone.clone();
-    let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+    let tz = grumps_core::timeutil::tz_or_utc(&timezone);
     let now_local = chrono::Utc::now()
         .with_timezone(&tz)
         .format("%Y-%m-%d %H:%M (%A)")

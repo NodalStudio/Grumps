@@ -176,7 +176,7 @@ pub fn registry() -> Vec<Box<dyn ToolHandler>> {
 /// Annotations stay internal (used for proactive gating, not sent to the model).
 ///
 /// The list is immutable for the lifetime of the isolate, so it is built once
-/// and cached — every agent turn would otherwise re-derive 13 descriptors and
+/// and cached — every agent turn would otherwise re-derive 15 descriptors and
 /// their JSON-Schemas.
 pub fn anthropic_tools() -> Vec<Value> {
     thread_local! {
@@ -217,11 +217,22 @@ pub async fn dispatch(
 }
 
 /// The behavioural annotations for a tool, by name (used by the proactive gate).
+///
+/// Called once per `tool_use` block on the proactive staging path. The registry
+/// is immutable for the isolate's lifetime, so the (name → annotations) table is
+/// built once and cached — the same rationale (and pattern) as `anthropic_tools`
+/// — instead of rebuilding all 15 boxed handlers on every lookup.
 pub fn annotations(tool_name: &str) -> Option<ToolAnnotations> {
-    registry()
-        .iter()
-        .find(|h| h.name() == tool_name)
-        .and_then(|h| h.annotations())
+    thread_local! {
+        static ANNOTATIONS: Vec<(&'static str, Option<ToolAnnotations>)> =
+            registry().iter().map(|h| (h.name(), h.annotations())).collect();
+    }
+    ANNOTATIONS.with(|table| {
+        table
+            .iter()
+            .find(|(name, _)| *name == tool_name)
+            .and_then(|(_, ann)| ann.clone())
+    })
 }
 
 #[cfg(test)]

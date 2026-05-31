@@ -10,6 +10,7 @@ pub async fn query_memory(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<V
 
     let entries = ctx.db.search_memory_fts(&a.query, limit).await?;
     Ok(serde_json::json!({
+        "ok": true,
         "results": entries.iter().map(|e| serde_json::json!({
             "id": e.id,
             "key": e.key,
@@ -36,5 +37,5 @@ pub async fn save_memory(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Va
     };
 
     let id = ctx.db.create_memory(&entry).await?;
-    Ok(serde_json::json!({ "id": id, "saved": true }))
+    Ok(serde_json::json!({ "ok": true, "id": id, "saved": true }))
 }

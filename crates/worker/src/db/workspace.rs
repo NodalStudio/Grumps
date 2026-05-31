@@ -1414,7 +1414,7 @@ impl<'a> WorkspaceDb<'a> {
             params.push(s.into());
             sql.push_str(&format!(" WHERE status = ?{}", params.len()));
         }
-        sql.push_str(" ORDER BY trigger_at ASC");
+        sql.push_str(" ORDER BY datetime(trigger_at) ASC");
         params.push(limit.into());
         sql.push_str(&format!(" LIMIT ?{}", params.len()));
         params.push(offset.into());
@@ -1431,7 +1431,7 @@ impl<'a> WorkspaceDb<'a> {
     ) -> Result<Vec<ScheduledAction>> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
-             FROM scheduled_actions WHERE status = 'pending' AND trigger_at <= ?1 ORDER BY trigger_at ASC LIMIT ?2",
+             FROM scheduled_actions WHERE status = 'pending' AND datetime(trigger_at) <= datetime(?1) ORDER BY datetime(trigger_at) ASC LIMIT ?2",
             vec![now_iso.into(), limit.into()],
         ).await?;
         let rows: Vec<ScheduledActionRow> = extract_rows(&resp)?;
@@ -1444,7 +1444,7 @@ impl<'a> WorkspaceDb<'a> {
             trigger_at: String,
         }
         let resp = self.q(
-            "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY trigger_at ASC LIMIT 1",
+            "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY datetime(trigger_at) ASC LIMIT 1",
             vec![],
         ).await?;
         let row: Option<Row> = extract_first(&resp)?;

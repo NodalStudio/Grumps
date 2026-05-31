@@ -300,6 +300,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                     &ws_db,
                     &sink,
                     &workspace.slug,
+                    &workspace.locale,
                     &member_id,
                     text,
                     &analysis,
