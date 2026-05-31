@@ -283,7 +283,17 @@ pub(crate) async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) ->
                 .with_body(Some(serde_json::to_string(&body).unwrap().into())),
         )?;
         match stub.fetch_with_request(req).await {
-            Ok(resp) if resp.status_code() < 500 => return Ok(()),
+            // Only 2xx means the DO actually armed the alarm.
+            Ok(resp) if (200..300).contains(&resp.status_code()) => return Ok(()),
+            // 4xx is a non-retryable rejection — fail loudly rather than
+            // reporting a success the DO never granted.
+            Ok(resp) if (400..500).contains(&resp.status_code()) => {
+                return Err(Error::RustError(format!(
+                    "DO alarm rejected with status {}",
+                    resp.status_code()
+                )))
+            }
+            // 5xx / transport error: retry up to 3 times, then give up.
             Ok(_) | Err(_) if attempts >= 3 => {
                 return Err(Error::RustError("DO RPC failed after 3 retries".into()))
             }

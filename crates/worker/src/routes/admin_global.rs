@@ -267,6 +267,11 @@ pub async fn force_fire_scheduled(req: Request, ctx: RouteContext<()>) -> Result
         return middleware::error_with_cors(&req, 500, "execute_failed", &format!("{e}"));
     }
 
+    // execute_action wrote the next occurrence (for recurring actions) to D1 but
+    // ran outside the Durable Object, so the DO's alarm wasn't re-armed. Nudge it
+    // to recompute its next alarm from D1 so the series keeps firing.
+    let _ = crate::routes::scheduled::reschedule_do(&ctx.env, &slug).await;
+
     let mut resp = Response::from_json(&serde_json::json!({ "ok": true, "id": id }))?;
     let origin = req.headers().get("Origin")?.unwrap_or_default();
     middleware::add_cors(&mut resp, Some(&origin))?;
