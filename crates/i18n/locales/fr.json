@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "Résumé bientôt disponible !",
   "agent.reminder.default_title": "Rappel",
   "agent.reminder.need_time": "Quand dois-je te le rappeler ? Donne-moi un jour et une heure, p. ex. « demain à 9h ».",
+  "calendar.allday": "Journée",
   "crud.todo_created": "✅ Tâche créée (#{id})",
   "crud.note_created": "📝 Note créée",
   "crud.event_created": "📅 Événement créé",

@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "要約は近日公開！",
   "agent.reminder.default_title": "リマインダー",
   "agent.reminder.need_time": "いつリマインドしますか？日付と時刻を教えてください。例：「明日の午前9時」。",
+  "calendar.allday": "終日",
   "crud.todo_created": "✅ タスクを作成しました（#{id}）",
   "crud.note_created": "📝 メモを作成しました",
   "crud.event_created": "📅 予定を作成しました",

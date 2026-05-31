@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "¡Resumir llegará pronto!",
   "agent.reminder.default_title": "Recordatorio",
   "agent.reminder.need_time": "¿Cuándo quieres que te lo recuerde? Dame un día y una hora, p. ej. «mañana a las 9».",
+  "calendar.allday": "Todo el día",
   "crud.todo_created": "✅ Tarea creada (#{id})",
   "crud.note_created": "📝 Nota creada",
   "crud.event_created": "📅 Evento creado",

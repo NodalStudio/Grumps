@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "التلخيص قريبًا!",
   "agent.reminder.default_title": "تذكير",
   "agent.reminder.need_time": "متى أُذكّرك؟ أعطني يومًا ووقتًا، مثلاً «غدًا الساعة 9 صباحًا».",
+  "calendar.allday": "طوال اليوم",
   "crud.todo_created": "✅ تم إنشاء المهمة (#{id})",
   "crud.note_created": "📝 تم إنشاء الملاحظة",
   "crud.event_created": "📅 تم إنشاء الحدث",

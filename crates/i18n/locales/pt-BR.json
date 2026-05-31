@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "Resumir está chegando!",
   "agent.reminder.default_title": "Lembrete",
   "agent.reminder.need_time": "Quando devo te lembrar? Me diga um dia e um horário, ex.: \"amanhã às 9h\".",
+  "calendar.allday": "Dia todo",
   "crud.todo_created": "✅ Tarefa criada (#{id})",
   "crud.note_created": "📝 Nota criada",
   "crud.event_created": "📅 Evento criado",

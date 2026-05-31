@@ -333,6 +333,7 @@
   "agent.summarize.coming_soon": "摘要功能即将推出！",
   "agent.reminder.default_title": "提醒",
   "agent.reminder.need_time": "要我什么时候提醒你？告诉我日期和时间，例如\"明天上午 9 点\"。",
+  "calendar.allday": "全天",
   "crud.todo_created": "✅ 待办已创建（#{id}）",
   "crud.note_created": "📝 笔记已创建",
   "crud.event_created": "📅 活动已创建",

@@ -143,6 +143,16 @@ fn time_in_tz(date: &js_sys::Date, tz: &str, with_seconds: bool) -> String {
         })
 }
 
+/// The wall-clock hour (0–23) of a UTC instant as seen in `tz`. `None` if the
+/// instant doesn't parse. Used to place timed events in the week-view grid.
+pub fn hour_in_tz(utc_iso: &str, tz: &str) -> Option<u32> {
+    let date = js_sys::Date::new(&JsValue::from_str(utc_iso));
+    if date.get_time().is_nan() {
+        return None;
+    }
+    time_in_tz(&date, tz, false).get(..2)?.parse().ok()
+}
+
 /// Render the wall clock of a UTC instant in `tz` as a `datetime-local` input
 /// value, "YYYY-MM-DDTHH:MM". Inverse of [`input_local_to_utc`].
 pub fn to_input_local(utc_iso: &str, tz: &str) -> String {
