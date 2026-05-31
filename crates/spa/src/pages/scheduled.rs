@@ -17,9 +17,20 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let (edit_item, set_edit_item) = signal::<Option<ScheduledActionItem>>(None);
     let (confirm_delete, set_confirm_delete) = signal::<Option<String>>(None);
 
+    // Workspace timezone signal, captured once (Copy) so event handlers can read
+    // the current zone — use_context is unreliable inside callbacks.
+    let tz_sig = use_context::<crate::datetime::TimezoneSignal>();
+    let read_tz = move || {
+        tz_sig
+            .map(|s| s.0.get_untracked())
+            .unwrap_or_else(|| "UTC".to_string())
+    };
+
     // Form fields
     let (form_title, set_form_title) = signal(String::new());
     let (form_type, set_form_type) = signal("message".to_string());
+    // form_trigger holds a `datetime-local` value (workspace-local wall clock);
+    // it is converted to/from the stored UTC instant at load/save.
     let (form_trigger, set_form_trigger) = signal(String::new());
     let (form_recurrence, set_form_recurrence) = signal(String::new());
     let (form_payload, set_form_payload) = signal(String::new());
@@ -61,7 +72,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let on_edit = Callback::new(move |item: ScheduledActionItem| {
         set_form_title.set(item.title.clone());
         set_form_type.set(item.action_type.clone());
-        set_form_trigger.set(item.trigger_at.clone());
+        // Stored as a UTC instant → show it as a workspace-local wall clock.
+        set_form_trigger.set(crate::datetime::to_input_local(
+            &item.trigger_at,
+            &read_tz(),
+        ));
         set_form_recurrence.set(item.recurrence.clone().unwrap_or_default());
         set_form_payload.set(String::new());
         set_edit_item.set(Some(item));
@@ -85,7 +100,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         let s = slug();
         let title = form_title.get();
         let atype = form_type.get();
-        let trigger = form_trigger.get();
+        // The datetime-local value is a workspace-local wall clock → convert it
+        // back to a UTC instant before sending.
+        let trigger = crate::datetime::input_local_to_utc(&form_trigger.get(), &read_tz());
         let recurrence = form_recurrence.get();
         let payload = form_payload.get();
         let edit = edit_item.get();

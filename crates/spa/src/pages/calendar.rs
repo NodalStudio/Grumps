@@ -25,10 +25,10 @@ fn month_key(m: u32) -> &'static str {
     }
 }
 
-/// Get today's date from the JS Date API
+/// Today's date in the workspace timezone (never the browser's), so "today"
+/// matches how calendar events are bucketed. See crate::datetime.
 fn today() -> (i32, u32, u32) {
-    let d = js_sys::Date::new_0();
-    (d.get_full_year() as i32, d.get_month() + 1, d.get_date())
+    crate::datetime::today_in_tz(&crate::datetime::use_timezone())
 }
 
 fn pad2(n: u32) -> String {

@@ -7,12 +7,17 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
 fn today_str() -> (i32, u32, u32) {
-    let d = js_sys::Date::new_0();
-    (d.get_full_year() as i32, d.get_month() + 1, d.get_date())
+    // Workspace timezone, never the browser's (see crate::datetime).
+    crate::datetime::today_in_tz(&crate::datetime::use_timezone())
 }
 
-fn parse_date_key(s: &str) -> String {
-    s.get(..10).unwrap_or(s).to_string()
+/// Weekday of a civil date, 0=Mon..6=Sun (Sakamoto's algorithm). Derived from
+/// the date itself so it stays consistent with the workspace-tz `today`.
+fn weekday_mon0(y: i32, m: u32, d: u32) -> u32 {
+    let t = [0i64, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+    let yy = if m < 3 { y - 1 } else { y } as i64;
+    let dow = (yy + yy / 4 - yy / 100 + yy / 400 + t[(m - 1) as usize] + d as i64) % 7; // 0=Sun
+    ((dow + 6) % 7) as u32
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
@@ -76,8 +81,7 @@ pub fn OverviewPage() -> impl IntoView {
 
     // Build 7-day grid (Mon..Sun of the current week)
     // We find what day of week today is, then figure Mon offset
-    let js_dow = js_sys::Date::new_0().get_day(); // 0=Sun..6=Sat
-    let mon_offset = ((js_dow as i32 + 6) % 7) as u32; // 0=today is Mon..6=today is Sun
+    let mon_offset = weekday_mon0(today_y, today_m, today_d); // 0=today is Mon..6=Sun
 
     view! {
         <PageHeader title=move || {
@@ -85,7 +89,6 @@ pub fn OverviewPage() -> impl IntoView {
             info.get()
                 .and_then(|data| (*data).clone())
                 .and_then(|d| d.name)
-                .map(|n| tr(&n))
                 .unwrap_or(s)
         } subtitle=tr("page.overview.title") />
         <div class="flex-1 overflow-y-auto p-8">
@@ -112,6 +115,7 @@ pub fn OverviewPage() -> impl IntoView {
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || week_items.get().map(|data| {
                             let items: Vec<CalendarItem> = (*data).clone();
+                            let tz = crate::datetime::use_timezone();
                             let day_names = [
                                 tr("overview.day.short.mon"),
                                 tr("overview.day.short.tue"),
@@ -127,6 +131,7 @@ pub fn OverviewPage() -> impl IntoView {
                                     {(0..7u32).map(|col| {
                                         // Calculate actual date for this column
                                         let items = items.clone();
+                                        let tz = tz.clone();
                                         let offset = col as i32 - mon_offset as i32;
                                         let actual_day = today_d as i32 + offset;
                                         // Track the cell's YEAR too: days from the
@@ -149,7 +154,7 @@ pub fn OverviewPage() -> impl IntoView {
                                         let is_today = cell_y == today_y && cell_m == today_m && cell_d == today_d;
                                         let date_key = format!("{}-{}-{}", cell_y, pad2(cell_m), pad2(cell_d));
                                         let day_items: Vec<CalendarItem> = items.into_iter()
-                                            .filter(|i| parse_date_key(&i.starts_at) == date_key)
+                                            .filter(|i| crate::datetime::item_day_key(&i.starts_at, i.all_day, &tz) == date_key)
                                             .collect();
 
                                         view! {
