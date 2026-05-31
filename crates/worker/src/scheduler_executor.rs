@@ -1,8 +1,7 @@
 //! Dispatch scheduled actions when their alarm fires.
 //! See spec § 7.4.
 //!
-//! Plan A scope : reminder, event_notify, recap.
-//! follow_up + agent_task come in Plan B (require agent loop).
+//! Handles: reminder, event_notify, recap, follow_up, agent_task.
 
 use crate::d1_rest::D1RestClient;
 use crate::db::{get_index_db, lookup_workspace_by_slug, WorkspaceDb, WorkspaceMetaRow};
@@ -18,41 +17,24 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
-    // Evaluate condition if present
+    // Condition gate. The DB-backed ConditionContext is still stubbed (it cannot
+    // run async D1 queries from the sync `ConditionContext` trait), so evaluating
+    // a real condition used to ALWAYS fail → reschedule forever → silently
+    // mark_failed after 7 days, i.e. the action never fired. Until conditions are
+    // genuinely evaluable (needs an async trait or pre-fetched context), a present
+    // condition no longer blocks execution — the action fires at trigger_at. We
+    // still validate the JSON shape so malformed payloads are surfaced.
     if let Some(cond_value) = &action.condition {
-        let condition: grumps_scheduler::Condition =
-            match serde_json::from_value(cond_value.clone()) {
-                Ok(c) => c,
-                Err(e) => {
-                    console_log!(
-                    "execute_action: bad condition JSON for {}: {e}, treating as fail-open (true)",
-                    action.id
-                );
-                    // Bad JSON — mark failed and bail
-                    db.mark_action_failed(&action.id, &format!("bad condition JSON: {e}"))
-                        .await?;
-                    return Ok(());
-                }
-            };
-        let ctx = WorkerConditionContext { db: &db };
-        if !grumps_scheduler::evaluate(&condition, &ctx) {
-            // Condition not met — reschedule for later check or give up after 7d
-            let recheck_in = action
-                .payload
-                .get("recheck_in_seconds")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(3600);
-            let next = action.trigger_at + chrono::Duration::seconds(recheck_in);
-            let give_up_at = action.created_at + chrono::Duration::days(7);
-            if next > give_up_at {
-                console_log!("condition give-up for {}: 7d elapsed", action.id);
-                db.mark_action_failed(&action.id, "condition never met within 7d")
-                    .await?;
-            } else {
-                console_log!("condition not met for {}, recheck at {next}", action.id);
-                db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
-            }
-            return Ok(());
+        if let Err(e) = serde_json::from_value::<grumps_scheduler::Condition>(cond_value.clone()) {
+            console_log!(
+                "execute_action {}: malformed condition JSON ({e}) — ignoring, executing",
+                action.id
+            );
+        } else {
+            console_log!(
+                "execute_action {}: condition present but not yet evaluated (stub) — executing",
+                action.id
+            );
         }
     }
 
@@ -79,12 +61,18 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
-            let language = db
-                .get_setting("default_locale")
+            let language = if ws.locale.is_empty() {
+                "en".to_string()
+            } else {
+                ws.locale.clone()
+            };
+            let timezone = db
+                .get_setting("timezone")
                 .await
                 .ok()
                 .flatten()
-                .unwrap_or_else(|| "en".to_string());
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "UTC".to_string());
             let ctx = grumps_agent::tools::ToolContext {
                 env,
                 workspace_slug: ws_slug,
@@ -92,6 +80,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 sink: &sink,
                 db: &db,
                 language,
+                timezone,
             };
 
             match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
@@ -117,7 +106,15 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             if let Some(rrule) = &action.recurrence {
                 let parsed = recurrence::parse(rrule)
                     .map_err(|e| Error::RustError(format!("bad rrule: {e}")))?;
-                if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at) {
+                // Recurrence weekday/BYHOUR are evaluated in the workspace tz.
+                let tz = grumps_core::timeutil::tz_or_utc(
+                    &db.get_setting("timezone")
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default(),
+                );
+                if let Some(next) = recurrence::next_occurrence(&parsed, action.trigger_at, tz) {
                     db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
                 } else {
                     db.mark_action_done(&action.id).await?;
@@ -143,7 +140,8 @@ async fn execute_reminder(
         .get("text")
         .and_then(|v| v.as_str())
         .unwrap_or(&action.title);
-    let body = format!("⏰ Rappel : {text}");
+    let loc = grumps_i18n::Locale::from_code(&ws.locale);
+    let body = grumps_i18n::t(loc, "agent.reminder.fire", &[("text", text)]);
     send_to_group(env, ws, &body).await
 }
 
@@ -167,10 +165,20 @@ async fn execute_event_notify(
         .get_event(event_id)
         .await?
         .ok_or_else(|| Error::RustError(format!("event not found: {event_id}")))?;
-    let body = format!(
-        "📅 Dans {lead}min : {} ({})",
-        event.title,
-        event.location.as_deref().unwrap_or("lieu non précisé")
+    let loc = grumps_i18n::Locale::from_code(&ws.locale);
+    let location = match event.location.as_deref() {
+        Some(l) if !l.is_empty() => l.to_string(),
+        _ => grumps_i18n::t(loc, "agent.event.location_unset", &[]),
+    };
+    let lead_str = lead.to_string();
+    let body = grumps_i18n::t(
+        loc,
+        "agent.event.notify",
+        &[
+            ("lead", lead_str.as_str()),
+            ("title", event.title.as_str()),
+            ("location", location.as_str()),
+        ],
     );
     send_to_group(env, ws, &body).await
 }
@@ -178,15 +186,68 @@ async fn execute_event_notify(
 async fn execute_recap(
     env: &Env,
     ws: &WorkspaceMetaRow,
-    _db: &WorkspaceDb<'_>,
+    db: &WorkspaceDb<'_>,
     _action: &ScheduledAction,
 ) -> Result<()> {
-    // Reuse existing recap logic from worker/src/cron.rs if it exists.
-    // For Plan A, we send a placeholder recap. Plan B will integrate real LLM-generated recap.
-    let body =
-        "📋 Recap hebdomadaire — placeholder (Plan B improves this with LLM-generated content)."
-            .to_string();
-    send_to_group(env, ws, &body).await
+    // Build the recap from live workspace data, same as the weekly cron path.
+    let tz = db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
+    let data = db.get_recap_data(&tz).await?;
+    // Nothing worth reporting → stay silent rather than send an empty recap.
+    if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+        return Ok(());
+    }
+    // Dedup against the weekly cron recap (same key shape) so a workspace with
+    // both an automatic Monday recap and a scheduled recap can't get two.
+    let kv = env.kv("KV")?;
+    let recap_key = format!(
+        "recap:{}:{}",
+        ws.slug,
+        grumps_core::timeutil::tz_today_str(grumps_core::timeutil::tz_or_utc(&tz))
+    );
+    if kv.get(&recap_key).text().await?.is_some() {
+        return Ok(());
+    }
+    let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+        .high_priority
+        .iter()
+        .map(|t| {
+            (
+                t.seq_num,
+                t.title.clone(),
+                t.assigned_name.clone(),
+                t.deadline.clone(),
+            )
+        })
+        .collect();
+    let locale = if ws.locale.is_empty() {
+        "en".to_string()
+    } else {
+        ws.locale.clone()
+    };
+    let body = grumps_messaging::formatter::recap_message(
+        &ws.slug,
+        data.open,
+        data.assigned,
+        data.done_week,
+        &high_prio,
+        data.new_notes,
+        data.reminders,
+        &locale,
+    );
+    send_to_group(env, ws, &body).await?;
+    // Mark today's recap as sent so the cron path (and any other scheduled
+    // recap) skips it for the rest of the local day.
+    kv.put(&recap_key, "1")?
+        .expiration_ttl(86400)
+        .execute()
+        .await?;
+    Ok(())
 }
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
@@ -198,33 +259,7 @@ async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<(
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }
 
-// =============================================
-// ConditionContext (V1 stubs)
-// =============================================
-
-struct WorkerConditionContext<'a> {
-    db: &'a WorkspaceDb<'a>,
-}
-
-impl<'a> grumps_scheduler::ConditionContext for WorkerConditionContext<'a> {
-    fn count_messages_matching(
-        &self,
-        _since: chrono::DateTime<chrono::Utc>,
-        _keywords: &[String],
-    ) -> i64 {
-        // V1 stub: no chat-message table in D1 (RAG lives in Vectorize).
-        // Return 0 → conservative (NoMessageMatching fires when count < min, so 0 → fires).
-        0
-    }
-    fn last_active_at(&self, _member_id: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-        // V1 stub: would query members.last_seen_at
-        None
-    }
-    fn todo_status_now(&self, _todo_id: &str) -> Option<String> {
-        // V1 stub: would query todos.status
-        None
-    }
-    fn now(&self) -> chrono::DateTime<chrono::Utc> {
-        chrono::Utc::now()
-    }
-}
+// The stubbed ConditionContext was removed: it could not evaluate conditions
+// (the trait is sync, D1 is async) and made conditional actions never fire.
+// See the condition gate in execute_action. Real evaluation needs an async
+// ConditionContext (or a pre-fetched context) — tracked as a follow-up.

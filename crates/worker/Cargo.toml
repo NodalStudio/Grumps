@@ -16,6 +16,7 @@ worker = { version = "0.8", features = ["d1"] }
 serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
+chrono-tz.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
 jsonwebtoken = { version = "9", default-features = false }
@@ -26,6 +27,9 @@ hex = "0.4"
 
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["blocking", "json"] }
+# D1 is SQLite — exercise the migration schema + the tz/civil-date queries
+# against a real in-memory SQLite, no live D1 needed.
+rusqlite = { version = "0.32", features = ["bundled"] }
 
 [lib]
 crate-type = ["cdylib"]

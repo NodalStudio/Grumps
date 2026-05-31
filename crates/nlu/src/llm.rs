@@ -50,7 +50,7 @@ Return EXACTLY this JSON structure:
   "entities": {
     "title": "<extracted task/note title or null>",
     "assignee": "<@mentioned person or null>",
-    "deadline": "<parsed date/time in ISO 8601, or relative like 'tomorrow 9am', or null>",
+    "deadline": "<concrete local datetime, ISO-8601 'YYYY-MM-DDTHH:MM:SS' with NO timezone suffix, or null>",
     "priority": "<high/normal/low or null>",
     "tags": ["<extracted #tags>"],
     "search_query": "<search text or null>",
@@ -66,17 +66,26 @@ Rules:
 - If the user asks to be reminded, intent = "set_reminder"
 - If the message is casual chat not meant for the bot, intent = "irrelevant"
 - Extract ALL entities you can find, even if the intent is simple
-- Parse dates relative to today. "friday" = next Friday. "in 2 hours" = 2h from now.
+- The user message starts with the current local date/time and timezone. Resolve EVERY date/time against it.
+- Output "deadline" as a CONCRETE local wall-clock timestamp, ISO-8601 "YYYY-MM-DDTHH:MM:SS" with NO timezone suffix and NO offset. Never return relative text ("tomorrow", "friday", "in 2 hours") and never convert to UTC. E.g. if it's 2026-05-30 and the user says "tomorrow at 9", return "2026-05-31T09:00:00".
 - confidence < 0.5 means you're guessing — the system will ask for clarification
 - Always respond with valid JSON only, no markdown, no explanation"#;
 
 /// Build the user message for the LLM.
+///
+/// `now_local` is the current wall-clock time in the workspace timezone
+/// (ISO-8601, no offset); it anchors the model's relative-date resolution.
 pub fn build_user_prompt(
     message: &str,
     sender_name: &str,
     existing_todos: &[(i64, String)],
+    now_local: &str,
+    timezone: &str,
 ) -> String {
-    let mut prompt = format!("Sender: {}\nMessage: {}", sender_name, message);
+    let mut prompt = format!(
+        "Current local time: {} ({}). Resolve all relative dates against this.\nSender: {}\nMessage: {}",
+        now_local, timezone, sender_name, message
+    );
     if !existing_todos.is_empty() {
         prompt.push_str("\n\nOpen todos in this group:");
         for (seq, title) in existing_todos.iter().take(20) {
@@ -152,15 +161,34 @@ mod tests {
     #[test]
     fn build_prompt_with_todos() {
         let todos = vec![(1, "Buy bread".into()), (2, "Call plumber".into())];
-        let prompt = build_user_prompt("remind bob to pay rent", "Alice", &todos);
+        let prompt = build_user_prompt(
+            "remind bob to pay rent",
+            "Alice",
+            &todos,
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
         assert!(prompt.contains("Alice"));
         assert!(prompt.contains("remind bob to pay rent"));
         assert!(prompt.contains("#1 Buy bread"));
     }
 
     #[test]
+    fn build_prompt_includes_current_time() {
+        let prompt = build_user_prompt(
+            "remind me tomorrow",
+            "Alice",
+            &[],
+            "2026-05-30T14:00:00",
+            "Europe/Paris",
+        );
+        assert!(prompt.contains("2026-05-30T14:00:00"));
+        assert!(prompt.contains("Europe/Paris"));
+    }
+
+    #[test]
     fn build_prompt_empty_todos() {
-        let prompt = build_user_prompt("hello", "Alice", &[]);
+        let prompt = build_user_prompt("hello", "Alice", &[], "2026-05-30T14:00:00", "UTC");
         assert!(!prompt.contains("Open todos"));
     }
 }

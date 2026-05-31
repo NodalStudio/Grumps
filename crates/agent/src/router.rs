@@ -29,11 +29,23 @@ pub async fn route_message<'a>(
     has_active_session: bool,
     sink: &'a dyn MessagingSink,
     db: &'a dyn AgentDb,
+    locale: &'a str,
 ) -> Result<RouteResult> {
-    let language = db
-        .get_setting("default_locale")
-        .await
-        .unwrap_or_else(|_| "en".to_string());
+    // Locale is resolved by the caller from the canonical source (the workspace
+    // member/meta locale in the index DB) — not a workspace-D1 setting.
+    let language = if locale.is_empty() {
+        "en".to_string()
+    } else {
+        locale.to_string()
+    };
+    let timezone = {
+        let t = db.get_setting("timezone").await.unwrap_or_default();
+        if t.is_empty() {
+            "UTC".to_string()
+        } else {
+            t
+        }
+    };
     let ctx = ToolContext {
         env,
         workspace_slug: ws_slug,
@@ -41,6 +53,7 @@ pub async fn route_message<'a>(
         sink,
         db,
         language,
+        timezone,
     };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).
@@ -73,7 +86,7 @@ pub async fn route_message<'a>(
         match tools::dispatch(&ctx, &classified.intent, classified.args.clone()).await {
             Ok(result) => {
                 // Format a short confirmation reply
-                let msg = format_crud_confirmation(&classified.intent, &result);
+                let msg = format_crud_confirmation(locale, &classified.intent, &result);
                 sink.send(&msg).await?;
                 return Ok(RouteResult {
                     final_text: Some(msg),
@@ -98,16 +111,18 @@ pub async fn route_message<'a>(
     })
 }
 
-fn format_crud_confirmation(intent: &str, result: &serde_json::Value) -> String {
+fn format_crud_confirmation(locale: &str, intent: &str, result: &serde_json::Value) -> String {
+    use grumps_i18n::{t, Locale};
+    let loc = Locale::from_code(locale);
     match intent {
         "create_todo" => {
             let id = result.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-            format!("✅ Todo créée (#{id})")
+            t(loc, "crud.todo_created", &[("id", id)])
         }
-        "create_note" => "📝 Note créée".to_string(),
-        "create_event" => "📅 Event créé".to_string(),
-        "create_reminder" => "⏰ Rappel programmé".to_string(),
-        "list_todos" => "Voir la liste dans le workspace".to_string(),
-        _ => format!("Action '{intent}' exécutée"),
+        "create_note" => t(loc, "crud.note_created", &[]),
+        "create_event" => t(loc, "crud.event_created", &[]),
+        "create_reminder" => t(loc, "crud.reminder_scheduled", &[]),
+        "list_todos" => t(loc, "crud.list_todos", &[]),
+        _ => t(loc, "crud.action_done", &[("intent", intent)]),
     }
 }

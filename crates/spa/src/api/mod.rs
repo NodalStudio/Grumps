@@ -105,6 +105,9 @@ pub trait Api: Send + Sync {
     async fn get_settings(&self, slug: &str) -> Result<WorkspaceSettings, String>;
     async fn update_settings(&self, slug: &str, body: &serde_json::Value) -> Result<(), String>;
     async fn update_workspace_locale(&self, slug: &str, locale: &str) -> Result<(), String>;
+    /// Set the workspace timezone (auto-detected from the browser; server
+    /// adopts it only if not already explicitly configured).
+    async fn update_timezone(&self, slug: &str, tz: &str) -> Result<(), String>;
     async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String>;
 
     // Observability + Admin

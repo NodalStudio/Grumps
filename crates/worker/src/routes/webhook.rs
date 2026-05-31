@@ -1,5 +1,4 @@
 use crate::{d1_rest::D1RestClient, db, handler, llm_client::LlmClient, provisioning};
-use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::whatsapp::WhatsAppAdapter;
 use grumps_nlu::parser;
@@ -44,7 +43,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // 3. Dedup via KV
     let kv = ctx.kv("KV")?;
-    let dedup_key = format!("msg:{}", inbound.message_id);
+    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
     if kv.get(&dedup_key).text().await?.is_some() {
         return Response::ok("ok");
     }

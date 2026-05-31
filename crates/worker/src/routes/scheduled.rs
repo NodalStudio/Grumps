@@ -263,7 +263,7 @@ pub async fn delete(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 // ── DO RPC helpers ────────────────────────────────────────────────────────────
 
 /// RPC the DO to arm a new alarm. Retries 3x.
-async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()> {
+pub(crate) async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()> {
     let do_ns = env.durable_object("WS_SCHEDULER")?;
     let id = do_ns.id_from_name(slug)?;
     let stub = id.get_stub()?;
@@ -283,7 +283,17 @@ async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()>
                 .with_body(Some(serde_json::to_string(&body).unwrap().into())),
         )?;
         match stub.fetch_with_request(req).await {
-            Ok(resp) if resp.status_code() < 500 => return Ok(()),
+            // Only 2xx means the DO actually armed the alarm.
+            Ok(resp) if (200..300).contains(&resp.status_code()) => return Ok(()),
+            // 4xx is a non-retryable rejection — fail loudly rather than
+            // reporting a success the DO never granted.
+            Ok(resp) if (400..500).contains(&resp.status_code()) => {
+                return Err(Error::RustError(format!(
+                    "DO alarm rejected with status {}",
+                    resp.status_code()
+                )))
+            }
+            // 5xx / transport error: retry up to 3 times, then give up.
             Ok(_) | Err(_) if attempts >= 3 => {
                 return Err(Error::RustError("DO RPC failed after 3 retries".into()))
             }
@@ -293,7 +303,7 @@ async fn arm_do_alarm(env: &Env, slug: &str, trigger_at_iso: &str) -> Result<()>
 }
 
 /// Tell DO to recompute its next alarm (best-effort).
-async fn reschedule_do(env: &Env, slug: &str) -> Result<()> {
+pub(crate) async fn reschedule_do(env: &Env, slug: &str) -> Result<()> {
     let do_ns = env.durable_object("WS_SCHEDULER")?;
     let id = do_ns.id_from_name(slug)?;
     let stub = id.get_stub()?;

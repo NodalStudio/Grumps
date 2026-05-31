@@ -3,10 +3,6 @@ use crate::api::CalendarItem;
 use crate::i18n::tr;
 use leptos::prelude::*;
 
-fn parse_date_key(s: &str) -> String {
-    s.get(..10).unwrap_or(s).to_string()
-}
-
 #[component]
 pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
     view! {
@@ -21,10 +17,13 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                     }.into_any();
                 }
 
-                // Group by date
+                // Group by the workspace-tz calendar day. Timed instants are
+                // converted into the workspace tz; all-day items keep their
+                // bare date (converting would shift the day).
+                let tz = crate::datetime::use_timezone();
                 let mut groups: Vec<(String, Vec<CalendarItem>)> = Vec::new();
                 for item in all {
-                    let key = parse_date_key(&item.starts_at);
+                    let key = crate::datetime::item_day_key(&item.starts_at, item.all_day, &tz);
                     if let Some(last) = groups.last_mut() {
                         if last.0 == key {
                             last.1.push(item);
@@ -42,7 +41,7 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                                     <div
                                         class="text-[11px] font-bold uppercase tracking-wider pb-2 mb-2 border-b-2 border-ink"
                                         style="color: var(--ink-70);"
-                                    >{date}</div>
+                                    >{let d = date.clone(); move || crate::datetime::format_civil_date(&d, crate::i18n::use_locale().code())}</div>
                                     <div class="flex flex-col gap-2">
                                         {day_items.into_iter().map(|item| view! {
                                             <CalItem item=item compact=false />

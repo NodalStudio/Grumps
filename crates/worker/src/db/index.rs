@@ -154,6 +154,8 @@ pub async fn upsert_identity_user(
 }
 
 /// List identities of a user (for /api/me/identities / settings page).
+/// Intended API, not yet wired to a route.
+#[allow(dead_code)]
 #[derive(Serialize)]
 pub struct UserIdentity {
     pub platform: String,

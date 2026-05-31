@@ -1,5 +1,4 @@
 use crate::{d1_rest::D1RestClient, db, handler, provisioning};
-use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
 use grumps_nlu::parser;

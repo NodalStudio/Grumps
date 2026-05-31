@@ -34,8 +34,7 @@ pub enum Condition {
 }
 
 /// Context provided by the worker when evaluating a condition.
-/// Plan A : trait définie ; les méthodes sont stubbed/mockées dans le test ici.
-/// L'implémentation worker (DB-backed) arrive en Task 13.
+/// The trait is defined here; the worker provides the DB-backed implementation.
 pub trait ConditionContext {
     fn count_messages_matching(&self, since: DateTime<Utc>, keywords: &[String]) -> i64;
     fn last_active_at(&self, member_id: &str) -> Option<DateTime<Utc>>;

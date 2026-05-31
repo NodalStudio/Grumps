@@ -28,6 +28,8 @@ impl Api for DemoApi {
             name: Some("seed.workspace.name".into()),
             plan: "free".into(),
             stats: crate::demo::status_counts(),
+            timezone: Some("Europe/Paris".into()),
+            timezone_source: Some("admin".into()),
         })
     }
 
@@ -179,6 +181,9 @@ impl Api for DemoApi {
         Ok(())
     }
     async fn update_workspace_locale(&self, _slug: &str, _locale: &str) -> Result<(), String> {
+        Ok(())
+    }
+    async fn update_timezone(&self, _slug: &str, _tz: &str) -> Result<(), String> {
         Ok(())
     }
     async fn regenerate_ical_token(&self, _slug: &str) -> Result<ICalTokenResponse, String> {

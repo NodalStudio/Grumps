@@ -83,6 +83,8 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
     }
 
     let url = req.url()?;
+    // Coarse default window (the SPA/agent send explicit from/to); the workspace
+    // tz offset shifts only the ±month edges by hours, never which items fall in.
     let now = chrono::Utc::now();
     let default_from = (now - chrono::Duration::days(30)).to_rfc3339();
     let default_to = (now + chrono::Duration::days(90)).to_rfc3339();
@@ -174,8 +176,16 @@ pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
         );
     }
 
-    // Admin only
-    // We verify by checking the member's role in the workspace DB
+    // Admin only: minting a 1-year public-calendar token (and overwriting any
+    // existing one) is an admin action, not something any member may do.
+    let index_db = db::get_index_db(&ctx.env)?;
+    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+        .await
+        .unwrap_or(false)
+    {
+        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
+    }
+
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
@@ -228,6 +238,16 @@ pub async fn delete_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
             "auth.not_member",
             "not a member of this workspace",
         );
+    }
+
+    // Admin only: revoking the workspace's public-calendar token is an admin
+    // action (a non-admin must not be able to break the admin's feed URL).
+    let index_db = db::get_index_db(&ctx.env)?;
+    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+        .await
+        .unwrap_or(false)
+    {
+        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
@@ -328,8 +348,14 @@ pub async fn ical_feed(req: Request, ctx: RouteContext<()>) -> Result<Response> 
         .collect();
 
     let workspace_name = ws.name.as_deref().unwrap_or(slug);
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty());
     let items = aggregate(events, todos_json, reminders_json, scheduled_json, slug);
-    let ical_body = generate_ical(workspace_name, &items);
+    let ical_body = generate_ical(workspace_name, &items, tz.as_deref());
 
     let mut resp = Response::ok(ical_body)?;
     resp.headers_mut()

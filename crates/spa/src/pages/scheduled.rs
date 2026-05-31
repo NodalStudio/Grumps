@@ -17,9 +17,20 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let (edit_item, set_edit_item) = signal::<Option<ScheduledActionItem>>(None);
     let (confirm_delete, set_confirm_delete) = signal::<Option<String>>(None);
 
+    // Workspace timezone signal, captured once (Copy) so event handlers can read
+    // the current zone — use_context is unreliable inside callbacks.
+    let tz_sig = use_context::<crate::datetime::TimezoneSignal>();
+    let read_tz = move || {
+        tz_sig
+            .map(|s| s.0.get_untracked())
+            .unwrap_or_else(|| "UTC".to_string())
+    };
+
     // Form fields
     let (form_title, set_form_title) = signal(String::new());
-    let (form_type, set_form_type) = signal("message".to_string());
+    let (form_type, set_form_type) = signal("reminder".to_string());
+    // form_trigger holds a `datetime-local` value (workspace-local wall clock);
+    // it is converted to/from the stored UTC instant at load/save.
     let (form_trigger, set_form_trigger) = signal(String::new());
     let (form_recurrence, set_form_recurrence) = signal(String::new());
     let (form_payload, set_form_payload) = signal(String::new());
@@ -51,7 +62,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let open_create = move |_| {
         set_edit_item.set(None);
         set_form_title.set(String::new());
-        set_form_type.set("message".to_string());
+        set_form_type.set("reminder".to_string());
         set_form_trigger.set(String::new());
         set_form_recurrence.set(String::new());
         set_form_payload.set(String::new());
@@ -61,7 +72,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let on_edit = Callback::new(move |item: ScheduledActionItem| {
         set_form_title.set(item.title.clone());
         set_form_type.set(item.action_type.clone());
-        set_form_trigger.set(item.trigger_at.clone());
+        // Stored as a UTC instant → show it as a workspace-local wall clock.
+        set_form_trigger.set(crate::datetime::to_input_local(
+            &item.trigger_at,
+            &read_tz(),
+        ));
         set_form_recurrence.set(item.recurrence.clone().unwrap_or_default());
         set_form_payload.set(String::new());
         set_edit_item.set(Some(item));
@@ -72,20 +87,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         set_confirm_delete.set(Some(id));
     });
 
-    let api_exec = use_api();
-    let on_execute = Callback::new(move |id: String| {
-        // TODO: POST /api/w/:slug/scheduled-actions/:id/execute
-        let _ = (&api_exec, &id);
-        web_sys::window().and_then(|w| w.alert_with_message("Execute now — API endpoint TBD").ok());
-    });
-
     let api_save = use_api();
     let save = move |_| {
         let api = api_save.clone();
         let s = slug();
         let title = form_title.get();
         let atype = form_type.get();
-        let trigger = form_trigger.get();
+        // The datetime-local value is a workspace-local wall clock → convert it
+        // back to a UTC instant before sending.
+        let trigger = crate::datetime::input_local_to_utc(&form_trigger.get(), &read_tz());
         let recurrence = form_recurrence.get();
         let payload = form_payload.get();
         let edit = edit_item.get();
@@ -120,8 +130,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         }
     };
 
-    let type_opts = vec!["all", "message", "reminder", "recap", "task", "webhook"];
-    let status_opts = vec!["all", "active", "paused", "done", "failed"];
+    let type_opts = vec![
+        "all",
+        "reminder",
+        "event_notify",
+        "recap",
+        "follow_up",
+        "agent_task",
+    ];
+    let status_opts = vec!["all", "pending", "firing", "done", "cancelled", "failed"];
 
     view! {
         <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
@@ -191,13 +208,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                 children={
                                     let on_edit = on_edit.clone();
                                     let on_delete = on_delete.clone();
-                                    let on_execute = on_execute.clone();
                                     move |item| view! {
                                         <ScheduledCard
                                             item=item
                                             on_edit=on_edit.clone()
                                             on_delete=on_delete.clone()
-                                            on_execute=on_execute.clone()
                                         />
                                     }
                                 }
@@ -241,11 +256,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                     on:change=move |ev| set_form_type.set(event_target_value(&ev))
                                     prop:value=form_type
                                 >
-                                    <option value="message">{move || tr("schedule.type.message")}</option>
                                     <option value="reminder">{move || tr("schedule.type.reminder")}</option>
+                                    <option value="event_notify">{move || tr("schedule.type.event_notify")}</option>
                                     <option value="recap">{move || tr("schedule.type.recap")}</option>
-                                    <option value="task">{move || tr("schedule.type.task")}</option>
-                                    <option value="webhook">{move || tr("schedule.type.webhook")}</option>
+                                    <option value="follow_up">{move || tr("schedule.type.follow_up")}</option>
+                                    <option value="agent_task">{move || tr("schedule.type.agent_task")}</option>
                                 </select>
                             </div>
                             <div class="flex flex-col gap-1 flex-1">

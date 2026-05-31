@@ -9,6 +9,7 @@ mod error;
 mod handler;
 mod llm_client;
 mod middleware;
+mod migrations;
 mod provisioning;
 // rag module moved to grumps_agent::tools::rag_pipeline
 mod agent_db_impl;
@@ -82,6 +83,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::workspace_api::update_locale,
         )
         .patch_async(
+            "/api/w/:slug/settings/timezone",
+            routes::workspace_api::update_timezone,
+        )
+        .patch_async(
             "/api/w/:slug/settings/name",
             routes::workspace_api::update_workspace_name,
         )
@@ -142,6 +147,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/api/admin/w/:slug/scheduled/:id/fire",
             routes::admin_global::force_fire_scheduled,
         )
+        .post_async("/api/admin/migrate-all", routes::admin_global::migrate_all)
         // Stripe webhook
         .post_async(
             "/webhook/stripe",

@@ -115,7 +115,7 @@ pub fn SettingsPage() -> impl IntoView {
                             }).collect_view()}
                         </select>
                     </div>
-                    <SettingRow label_key="settings.row.timezone" value="Europe/Paris".to_string() />
+                    <SettingRow label_key="settings.row.timezone" value=crate::datetime::use_timezone() />
                 </SettingsSection>
 
                 // Bot Behavior

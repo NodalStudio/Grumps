@@ -119,8 +119,8 @@ pub fn create_event() -> Value {
             "type": "object",
             "properties": {
                 "title": { "type": "string" },
-                "starts_at": { "type": "string", "format": "date-time" },
-                "ends_at": { "type": "string", "format": "date-time" },
+                "starts_at": { "type": "string", "format": "date-time", "description": "Local wall-clock time in the group's timezone (see CURRENT DATETIME in your context), ISO-8601 with NO timezone suffix, e.g. 2026-05-31T20:00:00. Do not convert to UTC." },
+                "ends_at": { "type": "string", "format": "date-time", "description": "Optional end time, same local-wall-clock format as starts_at." },
                 "all_day": { "type": "boolean", "default": false },
                 "location": { "type": "string" },
                 "attendees": { "type": "array", "items": { "type": "string" }, "description": "member_ids" },
@@ -139,7 +139,7 @@ pub fn create_reminder() -> Value {
             "type": "object",
             "properties": {
                 "text": { "type": "string", "description": "The reminder message text" },
-                "trigger_at": { "type": "string", "format": "date-time" },
+                "trigger_at": { "type": "string", "format": "date-time", "description": "Local wall-clock time in the group's timezone (see CURRENT DATETIME in your context), ISO-8601 with NO timezone suffix, e.g. 2026-05-31T20:00:00. Do not convert to UTC." },
                 "recurrence": { "type": "string", "description": "Optional RRULE" }
             },
             "required": ["text", "trigger_at"]
@@ -159,7 +159,7 @@ pub fn schedule_action() -> Value {
                     "enum": ["reminder", "follow_up", "recap", "agent_task", "event_notify"]
                 },
                 "title": { "type": "string", "description": "Human summary" },
-                "trigger_at": { "type": "string", "format": "date-time" },
+                "trigger_at": { "type": "string", "format": "date-time", "description": "Local wall-clock time in the group's timezone (see CURRENT DATETIME in your context), ISO-8601 with NO timezone suffix, e.g. 2026-05-31T20:00:00. Do not convert to UTC." },
                 "recurrence": { "type": "string" },
                 "condition": { "type": "object", "description": "Optional condition JSON" },
                 "payload": { "type": "object", "description": "Action payload (instruction string for agent_task, etc.)" }

@@ -1,7 +1,6 @@
 // crates/worker/src/handler.rs
 use crate::db::WorkspaceDb;
 use crate::llm_client::LlmClient;
-use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::OutboundMessage;
 use grumps_messaging::formatter;
 use grumps_nlu::entity;
@@ -47,7 +46,7 @@ pub async fn handle_message(
     // Agent fast-path: route @grumps mentions through the agent before structured parsing.
     if let Some(env) = env {
         if let Some(result) =
-            try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text).await?
+            try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await?
         {
             return Ok(result);
         }
@@ -86,7 +85,31 @@ pub async fn handle_message(
                     .map(|(_, title, seq)| (*seq, title.clone()))
                     .collect();
 
-                match llm.classify(original_text, sender_name, &todo_pairs).await {
+                // Anchor the NLU's relative-date resolution to the workspace's
+                // local wall clock, so "tomorrow 9am" becomes a concrete time.
+                let timezone = ws_db
+                    .get_setting("timezone")
+                    .await
+                    .ok()
+                    .flatten()
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "UTC".to_string());
+                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let now_local = chrono::Utc::now()
+                    .with_timezone(&tz)
+                    .format("%Y-%m-%dT%H:%M:%S")
+                    .to_string();
+
+                match llm
+                    .classify(
+                        original_text,
+                        sender_name,
+                        &todo_pairs,
+                        &now_local,
+                        &timezone,
+                    )
+                    .await
+                {
                     Ok(nlu) => {
                         let _ = ws_db.increment_llm_calls().await;
                         return handle_llm_result(
@@ -98,6 +121,8 @@ pub async fn handle_message(
                             workspace_slug,
                             locale,
                             &plan,
+                            &timezone,
+                            env,
                         )
                         .await;
                     }
@@ -180,8 +205,9 @@ async fn handle_add_todos(
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
 ) -> worker::Result<HandlerResult> {
-    // Check todo quota before inserting
-    let (open_count, _, _, _) = ws_db.get_status_counts().await?;
+    // Check todo quota before inserting. Only `open` is used here, so the
+    // (tz-sensitive) "this week" count is irrelevant — pass UTC to skip a read.
+    let (open_count, _, _, _) = ws_db.get_status_counts("UTC").await?;
     if let Err(qe) = crate::billing::check_todo_quota(plan, open_count) {
         return Ok(HandlerResult::one(
             qe.render(locale),
@@ -202,6 +228,12 @@ async fn handle_add_todos(
         let tags_json = serde_json::to_string(&parsed.tags).unwrap_or_else(|_| "[]".into());
         let assignee = parsed.assignee_mention.as_deref().unwrap_or("");
 
+        // Persist the deadline only when it's a real civil date (the LLM path
+        // normalizes to YYYY-MM-DD; raw regex hints like "friday" fall through).
+        let deadline = parsed
+            .deadline_text
+            .as_deref()
+            .filter(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
         let (todo_id, seq) = ws_db
             .insert_todo(
                 &parsed.title,
@@ -212,6 +244,7 @@ async fn handle_add_todos(
                 member_id,
                 "chat",
                 msg_id,
+                deadline,
             )
             .await?;
 
@@ -380,8 +413,8 @@ async fn handle_add_note(
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
 ) -> worker::Result<HandlerResult> {
-    // Check note quota
-    let (_, _, note_count, _) = ws_db.get_status_counts().await?;
+    // Check note quota. Only `notes` is used → tz-irrelevant, pass UTC.
+    let (_, _, note_count, _) = ws_db.get_status_counts("UTC").await?;
     if let Err(qe) = crate::billing::check_note_quota(plan, note_count) {
         return Ok(HandlerResult::one(qe.render(locale), None));
     }
@@ -462,7 +495,15 @@ async fn handle_status(
     slug: &str,
     locale: grumps_i18n::Locale,
 ) -> worker::Result<HandlerResult> {
-    let (open, done_week, notes, files) = ws_db.get_status_counts().await?;
+    // "Done this week" follows the workspace calendar.
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
+    let (open, done_week, notes, files) = ws_db.get_status_counts(&tz).await?;
     Ok(HandlerResult::one(
         formatter::status_summary(open, done_week, notes, files, slug, locale.code()),
         None,
@@ -588,6 +629,7 @@ async fn try_route_via_agent(
     ws_slug: &str,
     member_id: &str,
     text: &str,
+    ws_locale: &str,
 ) -> worker::Result<Option<HandlerResult>> {
     // Only route via agent if the message contains an @grumps mention.
     let lower = text.to_lowercase();
@@ -631,11 +673,16 @@ async fn try_route_via_agent(
         has_session,
         &sink,
         ws_db,
+        ws_locale,
     )
     .await;
 
     match route_result {
         Ok(_) => {
+            // The agent may have created a scheduled_action / reminder; recompute
+            // the workspace DO alarm so it fires promptly (the agent layer can't
+            // arm the Durable Object itself). Best-effort.
+            let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
             // sink.send already pushed the message — return empty HandlerResult to avoid double-send.
             Ok(Some(HandlerResult::none()))
         }
@@ -711,9 +758,11 @@ async fn try_fast_commands(
     ];
     if silence_triggers.iter().any(|t| lower.contains(t)) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
-        let _ = kv
-            .put(&silence_key, "1")
-            .map(|p| p.expiration_ttl(86400).execute());
+        // Await the write — a dropped `execute()` future never runs, so the
+        // silence window would never actually be recorded.
+        if let Ok(p) = kv.put(&silence_key, "1") {
+            let _ = p.expiration_ttl(86400).execute().await;
+        }
         return Ok(Some(HandlerResult::one(
             grumps_i18n::t(locale, "agent.silence.confirm", &[]),
             None,
@@ -805,6 +854,8 @@ async fn handle_llm_result(
     slug: &str,
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
+    timezone: &str,
+    env: Option<&Env>,
 ) -> worker::Result<HandlerResult> {
     use grumps_core::todo::Priority;
 
@@ -819,7 +870,11 @@ async fn handle_llm_result(
                 todo.assignee_mention = Some(assignee);
             }
             if let Some(deadline) = nlu.entities.deadline {
-                todo.deadline_text = Some(deadline);
+                // Normalize to a civil date (YYYY-MM-DD) in the workspace tz; a
+                // deadline is a calendar day, not an instant. Unparseable → no
+                // deadline (better than storing relative text that never matches).
+                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                todo.deadline_text = grumps_agent::tools::parse_user_date(&deadline, &tz);
             }
             if let Some(ref p) = nlu.entities.priority {
                 todo.priority = match p.as_str() {
@@ -866,21 +921,63 @@ async fn handle_llm_result(
             handle_add_note(note, ws_db, member_id, locale, plan).await
         }
         NluIntent::SetReminder => {
-            let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
-            let title = nlu.entities.title.unwrap_or(default_title);
-            let remind_at = nlu
+            let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+            // Resolve the model's concrete local datetime to a UTC instant. If
+            // it's missing or unparseable, ask for a time rather than store a
+            // reminder that can never fire (datetime(NULL) never matches).
+            let remind_at_utc = match nlu
                 .entities
                 .deadline
-                .unwrap_or_else(|| "tomorrow 9:00".into());
-            let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
-            let recurrence = nlu.entities.recurrence.as_deref();
+                .as_deref()
+                .and_then(|d| grumps_agent::tools::parse_user_datetime(d, &tz))
+            {
+                Some(dt) => dt,
+                None => {
+                    return Ok(HandlerResult::one(
+                        grumps_i18n::t(locale, "agent.reminder.need_time", &[]),
+                        Some(msg_id.to_string()),
+                    ))
+                }
+            };
+            // Store UTC (Z); display the local wall clock the user expects.
+            let remind_at = remind_at_utc.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+            let remind_at_display = remind_at_utc
+                .with_timezone(&tz)
+                .format("%Y-%m-%d %H:%M")
+                .to_string();
 
-            let id = ws_db
-                .insert_reminder(&title, &remind_at, recurrence, target, member_id)
-                .await?;
+            let default_title = grumps_i18n::t(locale, "agent.reminder.default_title", &[]);
+            let title = nlu.entities.title.unwrap_or(default_title);
+            let target = nlu.entities.assignee.as_deref().unwrap_or(member_id);
+            // Free-text recurrence ("every monday") → RRULE; bare "weekly" uses
+            // the trigger's local weekday.
+            let local_weekday = chrono::Datelike::weekday(&remind_at_utc.with_timezone(&tz));
+            let recurrence = nlu
+                .entities
+                .recurrence
+                .as_deref()
+                .and_then(|r| grumps_scheduler::recurrence::text_to_rrule(r, local_weekday));
+
+            // Unified path: a reminder is a `scheduled_actions` row fired by the
+            // workspace Durable Object (tz-correct recurrence), not the legacy
+            // `reminders` table + cron.
+            let action = grumps_scheduler::NewScheduledAction {
+                action_type: grumps_scheduler::ActionType::Reminder,
+                title: title.clone(),
+                trigger_at: remind_at_utc,
+                recurrence: recurrence.clone(),
+                condition: None,
+                payload: serde_json::json!({ "text": title }),
+                target_chat: Some("group".to_string()),
+                created_by: Some(member_id.to_string()),
+            };
+            let id = ws_db.create_scheduled_action(&action).await?;
             ws_db
                 .log_activity(member_id, "reminder.created", "reminder", &id, "chat")
                 .await?;
+            if let Some(env) = env {
+                let _ = crate::routes::scheduled::arm_do_alarm(env, slug, &remind_at).await;
+            }
 
             let rec_text = recurrence.map(|r| format!(" ({})", r)).unwrap_or_default();
             let target_text = if target != member_id {
@@ -900,7 +997,7 @@ async fn handle_llm_result(
                     &[
                         ("target", &target_text),
                         ("title", &title),
-                        ("remind_at", &remind_at),
+                        ("remind_at", &remind_at_display),
                         ("rec", &rec_text),
                     ],
                 ),

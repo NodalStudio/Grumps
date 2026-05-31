@@ -48,8 +48,6 @@ impl AgentDb for WorkspaceDb<'_> {
         created_by: Option<&str>,
     ) -> Result<String> {
         let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".into());
-        // For deadline, we store it in the todo. WorkspaceDb::insert_todo doesn't take deadline
-        // directly — we insert then update the deadline column if present.
         let (id, _seq) = self
             .insert_todo(
                 title,
@@ -60,13 +58,9 @@ impl AgentDb for WorkspaceDb<'_> {
                 created_by.unwrap_or(""),
                 "agent",
                 "",
+                deadline, // already a civil "YYYY-MM-DD" (normalized in the tool layer)
             )
             .await?;
-
-        // Store deadline if provided.
-        if let Some(dl) = deadline {
-            self.set_todo_deadline(&id, dl).await?;
-        }
 
         Ok(id)
     }
@@ -198,10 +192,14 @@ impl AgentDb for WorkspaceDb<'_> {
     }
 
     async fn get_setting(&self, key: &str) -> Result<String> {
-        Ok(self
-            .get_setting(key)
-            .await?
-            .unwrap_or_else(|| "free".into()))
+        // Missing → empty string. Callers apply their own per-key default
+        // (e.g. Plan::from_str("") == Free). A hardcoded "free" here leaked the
+        // plan default into unrelated keys (e.g. timezone, persona).
+        Ok(self.get_setting(key).await?.unwrap_or_default())
+    }
+
+    async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
+        self.get_all_settings().await
     }
 
     async fn get_int_setting(&self, key: &str) -> Result<i64> {

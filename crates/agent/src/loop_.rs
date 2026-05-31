@@ -307,43 +307,56 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
             role: m.role.clone(),
         })
         .collect();
-    let now = chrono::Utc::now().to_rfc3339();
 
-    // Quota : read from DB, derive from plan
-    let plan_str = ctx
-        .db
-        .get_setting("plan")
-        .await
-        .unwrap_or_else(|_| "free".into());
-    let plan = Plan::from_str(&plan_str);
-    let agent_calls_used = ctx
-        .db
-        .get_int_setting("agent_quota_used_month")
-        .await
-        .unwrap_or(0) as u32;
+    // One round-trip for the whole settings table, then read each value with a
+    // sensible per-key default. `get` treats a missing OR empty value as absent.
+    let settings = ctx.db.get_all_settings().await.unwrap_or_default();
+    let get = |k: &str| {
+        settings
+            .get(k)
+            .map(String::as_str)
+            .filter(|s| !s.is_empty())
+    };
+
+    // Render "now" in the workspace timezone so the model anchors relative
+    // reasoning ("tomorrow 8pm") to the group's wall clock, not UTC. The same
+    // timezone (carried on the ToolContext) is what the tool layer uses to
+    // convert the model's local times back to UTC — single source of truth.
+    let timezone = ctx.timezone.clone();
+    let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+    let now_local = chrono::Utc::now()
+        .with_timezone(&tz)
+        .format("%Y-%m-%d %H:%M (%A)")
+        .to_string();
+
+    // Quota : derive from plan, read counters from the same settings snapshot.
+    let plan = Plan::from_str(get("plan").unwrap_or("free"));
+    let agent_calls_used = get("agent_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let agent_quota = plan.agent_call_quota();
     let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
 
-    let web_used = ctx
-        .db
-        .get_int_setting("web_search_quota_used_month")
-        .await
-        .unwrap_or(0) as u32;
+    let web_used = get("web_search_quota_used_month")
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     let web_quota = plan.web_search_quota();
     let web_remaining = web_quota.saturating_sub(web_used);
 
     Ok(PromptContext {
-        workspace_name: ctx.workspace_slug.to_string(), // Plan C will fetch the real name
-        platform: "telegram".to_string(),               // Plan C : look up from index DB
+        workspace_name: get("workspace_name")
+            .unwrap_or(ctx.workspace_slug)
+            .to_string(),
+        platform: get("platform").unwrap_or("telegram").to_string(),
         member_count: members.len(),
-        persona: "default".to_string(), // Plan C : read from settings
+        persona: get("persona").unwrap_or("default").to_string(),
         language: ctx.language.clone(),
         pinned_memories: pinned,
         members,
-        now_local: now,
-        timezone: "UTC".to_string(), // Plan C : read from settings
-        proactive_mode: false,       // Plan C : read from settings
-        auto_memory: false,          // Plan C : read from settings
+        now_local,
+        timezone,
+        proactive_mode: get("proactive_mode") == Some("true"),
+        auto_memory: get("auto_memory") == Some("true"),
         agent_calls_remaining: agent_remaining,
         agent_calls_quota: agent_quota,
         web_search_remaining: web_remaining,

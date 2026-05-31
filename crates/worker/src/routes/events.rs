@@ -5,6 +5,14 @@ use crate::{d1_rest, db, middleware};
 use serde::Deserialize;
 use worker::*;
 
+/// Normalize an all-day event's instant to its calendar date at UTC midnight,
+/// so the storage layer writes a bare "YYYY-MM-DD". The date-picker value is
+/// taken literally (no tz conversion → no day shift).
+fn utc_midnight(d: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+    use chrono::TimeZone;
+    chrono::Utc.from_utc_datetime(&d.date_naive().and_hms_opt(0, 0, 0).unwrap())
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
@@ -135,11 +143,19 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         _ => None,
     };
 
+    // All-day events are civil dates: normalize to UTC-midnight so the DB layer
+    // writes a bare date (no time component, no day shift).
+    let (starts_at, ends_at) = if body.all_day {
+        (utc_midnight(body.starts_at), body.ends_at.map(utc_midnight))
+    } else {
+        (body.starts_at, body.ends_at)
+    };
+
     let new = grumps_calendar::NewEvent {
         title: body.title,
         description: body.description,
-        starts_at: body.starts_at,
-        ends_at: body.ends_at,
+        starts_at,
+        ends_at,
         all_day: body.all_day,
         location: body.location,
         recurrence: body.recurrence,

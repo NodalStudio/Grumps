@@ -34,6 +34,17 @@ fn db_str_to_enum<T: serde::de::DeserializeOwned>(s: &str, fallback: T, context:
 // Workspace DB (via D1 REST API)
 // =============================================
 
+/// Calendar-month bucket key for the LLM-call quota counter, e.g.
+/// `llm_calls_2026_05`. Uses the real UTC calendar month. (The previous
+/// version approximated it from epoch seconds with `1970 + days/365` and
+/// `day_of_year/30`, which drifts off the calendar by ~a day per year and
+/// ignores leap years, so quota windows didn't line up with real months.)
+fn month_bucket_key() -> String {
+    use chrono::Datelike;
+    let now = chrono::Utc::now();
+    format!("llm_calls_{}_{:02}", now.year(), now.month())
+}
+
 pub struct WorkspaceDb<'a> {
     client: &'a D1RestClient,
     database_id: String,
@@ -140,11 +151,13 @@ impl<'a> WorkspaceDb<'a> {
         created_by: &str,
         source: &str,
         message_id: &str,
+        deadline: Option<&str>,
     ) -> Result<(String, i64)> {
         let id = uuid::Uuid::new_v4().to_string();
+        // `deadline` is a civil date "YYYY-MM-DD" (never a UTC instant). Empty/None → NULL.
         self.q(
-            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, message_id, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), ?2, 'open', ?3, ?4, NULLIF(?5,''), NULLIF(?6,''), ?7, ?8, NULLIF(?9,''), datetime('now'), datetime('now'))",
-            vec![id.clone().into(), title.into(), priority.into(), tags_json.into(), assigned_to.into(), assigned_name.into(), created_by.into(), source.into(), message_id.into()],
+            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, message_id, deadline, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), ?2, 'open', ?3, ?4, NULLIF(?5,''), NULLIF(?6,''), ?7, ?8, NULLIF(?9,''), NULLIF(?10,''), datetime('now'), datetime('now'))",
+            vec![id.clone().into(), title.into(), priority.into(), tags_json.into(), assigned_to.into(), assigned_name.into(), created_by.into(), source.into(), message_id.into(), deadline.unwrap_or("").into()],
         ).await?;
 
         #[derive(Deserialize)]
@@ -479,7 +492,10 @@ impl<'a> WorkspaceDb<'a> {
     /// Get active reminders that should fire now (remind_at <= now).
     pub async fn get_due_reminders(&self) -> Result<Vec<ReminderRow>> {
         let resp = self.q(
-            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND remind_at <= datetime('now')",
+            // Normalize both sides through datetime() so an ISO-8601 remind_at
+            // (with 'T' / 'Z' / offset) compares correctly against UTC now —
+            // a raw string `<=` breaks on the 'T'-vs-space separator.
+            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND datetime(remind_at) <= datetime('now')",
             vec![],
         ).await?;
         extract_rows(&resp)
@@ -550,19 +566,7 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Increment LLM call counter for this month. Uses settings table.
     pub async fn increment_llm_calls(&self) -> Result<i64> {
-        let month_key = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            // Approximate year/month from epoch seconds (good enough for monthly bucketing)
-            let days = secs / 86400;
-            let year = 1970 + days / 365;
-            let day_of_year = days % 365;
-            let month = day_of_year / 30 + 1;
-            format!("llm_calls_{}_{:02}", year, month.min(12))
-        };
+        let month_key = month_bucket_key();
 
         // Upsert counter
         self.q(
@@ -587,18 +591,7 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Get current LLM call count for this month.
     pub async fn get_llm_calls_this_month(&self) -> Result<i64> {
-        let month_key = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let days = secs / 86400;
-            let year = 1970 + days / 365;
-            let day_of_year = days % 365;
-            let month = day_of_year / 30 + 1;
-            format!("llm_calls_{}_{:02}", year, month.min(12))
-        };
+        let month_key = month_bucket_key();
         #[derive(serde::Deserialize)]
         struct Row {
             value: String,
@@ -629,6 +622,20 @@ impl<'a> WorkspaceDb<'a> {
             .await?;
         let row: Option<Row> = extract_first(&resp)?;
         Ok(row.map(|r| r.value))
+    }
+
+    /// Fetch all settings rows in one query (the table holds only a handful of
+    /// rows per workspace). Avoids an N+1 of one REST call per key when the
+    /// agent builds its prompt context.
+    pub async fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>> {
+        #[derive(Deserialize)]
+        struct Row {
+            key: String,
+            value: String,
+        }
+        let resp = self.q("SELECT key, value FROM settings", vec![]).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows.into_iter().map(|r| (r.key, r.value)).collect())
     }
 
     /// Upsert a setting value by key.
@@ -667,15 +674,13 @@ impl<'a> WorkspaceDb<'a> {
         from: &str,
         to: &str,
     ) -> Result<Vec<serde_json::Value>> {
-        let resp = self
-            .q(
-                "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
+        let resp = self.q(
+            "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
              FROM reminders \
-             WHERE status = 'active' AND remind_at >= ?1 AND remind_at <= ?2 \
-             ORDER BY remind_at ASC",
-                vec![from.into(), to.into()],
-            )
-            .await?;
+             WHERE status = 'active' AND datetime(remind_at) >= datetime(?1) AND datetime(remind_at) <= datetime(?2) \
+             ORDER BY datetime(remind_at) ASC",
+            vec![from.into(), to.into()],
+        ).await?;
         extract_rows::<serde_json::Value>(&resp)
     }
 
@@ -688,8 +693,8 @@ impl<'a> WorkspaceDb<'a> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, status, fire_count, created_by \
              FROM scheduled_actions \
-             WHERE status = 'pending' AND trigger_at >= ?1 AND trigger_at <= ?2 \
-             ORDER BY trigger_at ASC",
+             WHERE status = 'pending' AND datetime(trigger_at) >= datetime(?1) AND datetime(trigger_at) <= datetime(?2) \
+             ORDER BY datetime(trigger_at) ASC",
             vec![from.into(), to.into()],
         ).await?;
         extract_rows::<serde_json::Value>(&resp)
@@ -714,9 +719,12 @@ impl<'a> WorkspaceDb<'a> {
         to: &str,
     ) -> Result<Vec<TodoBrief>> {
         let resp = self.q(
+            // Civil-date comparison: date() normalizes both a bare 'YYYY-MM-DD'
+            // deadline and the range bounds (which may arrive as instants), so a
+            // calendar day is compared as a day regardless of stored shape.
             "SELECT id, seq_num, title, deadline, assigned_to, priority, status \
-             FROM todos WHERE deadline IS NOT NULL AND deadline >= ?1 AND deadline <= ?2 AND status != 'done' \
-             ORDER BY deadline ASC",
+             FROM todos WHERE deadline IS NOT NULL AND date(deadline) >= date(?1) AND date(deadline) <= date(?2) AND status != 'done' \
+             ORDER BY date(deadline) ASC",
             vec![from.into(), to.into()],
         ).await?;
         extract_rows(&resp)
@@ -725,11 +733,13 @@ impl<'a> WorkspaceDb<'a> {
     // --- Recap ---
 
     /// Get data needed for a recap.
-    pub async fn get_recap_data(&self) -> Result<RecapData> {
+    pub async fn get_recap_data(&self, tz: &str) -> Result<RecapData> {
         #[derive(Deserialize)]
         struct Count {
             cnt: i64,
         }
+        // "This week" = the last 7 *local* days, anchored to the workspace tz.
+        let week_start = week_start_utc(tz);
 
         // Open todos
         let r = self
@@ -745,7 +755,7 @@ impl<'a> WorkspaceDb<'a> {
         let assigned: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // Completed this week
-        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime('now', '-7 days')", vec![]).await?;
+        let r = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let done_week: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         // High priority open
@@ -755,8 +765,8 @@ impl<'a> WorkspaceDb<'a> {
         // New notes this week
         let r = self
             .q(
-                "SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime('now', '-7 days')",
-                vec![],
+                "SELECT COUNT(*) as cnt FROM notes WHERE created_at >= datetime(?1)",
+                vec![week_start.clone().into()],
             )
             .await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
@@ -808,11 +818,12 @@ impl<'a> WorkspaceDb<'a> {
 
     // --- Status counts ---
 
-    pub async fn get_status_counts(&self) -> Result<(i64, i64, i64, i64)> {
+    pub async fn get_status_counts(&self, tz: &str) -> Result<(i64, i64, i64, i64)> {
         #[derive(Deserialize)]
         struct Row {
             cnt: i64,
         }
+        let week_start = week_start_utc(tz);
 
         let r1 = self
             .q(
@@ -822,7 +833,7 @@ impl<'a> WorkspaceDb<'a> {
             .await?;
         let open: i64 = extract_first::<Row>(&r1)?.map(|r| r.cnt).unwrap_or(0);
 
-        let r2 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime('now', '-7 days')", vec![]).await?;
+        let r2 = self.q("SELECT COUNT(*) as cnt FROM todos WHERE status = 'done' AND completed_at >= datetime(?1)", vec![week_start.clone().into()]).await?;
         let done_week: i64 = extract_first::<Row>(&r2)?.map(|r| r.cnt).unwrap_or(0);
 
         let r3 = self.q("SELECT COUNT(*) as cnt FROM notes", vec![]).await?;
@@ -1137,9 +1148,20 @@ impl<'a> WorkspaceDb<'a> {
         let attendees_json = serde_json::to_string(&e.attendees).unwrap_or_else(|_| "[]".into());
         let source = enum_to_db_str(&e.source, "web");
         let color = e.color.clone().unwrap_or_else(|| "teal".into());
+        // All-day events store a civil date ("YYYY-MM-DD"); timed events store a
+        // UTC instant. For all-day, starts_at/ends_at carry the date at UTC
+        // midnight (set by the caller), so formatting %Y-%m-%d yields the date.
+        let fmt_dt = |d: chrono::DateTime<chrono::Utc>| -> String {
+            if e.all_day {
+                d.format("%Y-%m-%d").to_string()
+            } else {
+                d.to_rfc3339()
+            }
+        };
+        let starts_at_val: serde_json::Value = fmt_dt(e.starts_at).into();
         let ends_at: serde_json::Value = e
             .ends_at
-            .map(|d| serde_json::Value::String(d.to_rfc3339()))
+            .map(|d| serde_json::Value::String(fmt_dt(d)))
             .unwrap_or(serde_json::Value::Null);
 
         self.q(
@@ -1149,7 +1171,7 @@ impl<'a> WorkspaceDb<'a> {
                 id.clone().into(),
                 e.title.clone().into(),
                 e.description.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
-                e.starts_at.to_rfc3339().into(),
+                starts_at_val,
                 ends_at,
                 (if e.all_day { 1 } else { 0 }).into(),
                 e.location.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
@@ -1176,8 +1198,10 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn list_events_in_range(&self, from: &str, to: &str) -> Result<Vec<Event>> {
         let resp = self.q(
+            // datetime() normalizes a bare all-day date (→ midnight) and a UTC
+            // instant alike, against UTC bound params.
             "SELECT id, title, description, starts_at, ends_at, all_day, location, recurrence, attendees, color, source, related_todo_id, created_by, created_at, updated_at \
-             FROM events WHERE starts_at >= ?1 AND starts_at <= ?2 ORDER BY starts_at ASC",
+             FROM events WHERE datetime(starts_at) >= datetime(?1) AND datetime(starts_at) <= datetime(?2) ORDER BY datetime(starts_at) ASC",
             vec![from.into(), to.into()],
         ).await?;
         let rows: Vec<EventRow> = extract_rows(&resp)?;
@@ -1198,19 +1222,25 @@ impl<'a> WorkspaceDb<'a> {
             params.push(v.into());
             sets.push(format!("title = ?{}", params.len()));
         }
+        // Accept a UTC instant (timed event) OR a bare civil date "YYYY-MM-DD"
+        // (all-day event), matching what create_event stores.
+        let valid_dt = |v: &str| {
+            chrono::DateTime::parse_from_rfc3339(v).is_ok()
+                || chrono::NaiveDate::parse_from_str(v, "%Y-%m-%d").is_ok()
+        };
         if let Some(v) = starts_at {
-            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
+            if !valid_dt(v) {
                 return Err(worker::Error::RustError(
-                    "invalid starts_at format, expected RFC3339".into(),
+                    "invalid starts_at: expected RFC3339 or YYYY-MM-DD".into(),
                 ));
             }
             params.push(v.into());
             sets.push(format!("starts_at = ?{}", params.len()));
         }
         if let Some(v) = ends_at {
-            if chrono::DateTime::parse_from_rfc3339(v).is_err() {
+            if !valid_dt(v) {
                 return Err(worker::Error::RustError(
-                    "invalid ends_at format, expected RFC3339".into(),
+                    "invalid ends_at: expected RFC3339 or YYYY-MM-DD".into(),
                 ));
             }
             params.push(v.into());
@@ -1253,12 +1283,35 @@ impl<'a> WorkspaceDb<'a> {
     }
 }
 
+/// UTC instant ("...Z") for the start of the last-7-*local*-days window in `tz`,
+/// used by the "this week" recap/status counts so the boundary follows the
+/// workspace's calendar rather than UTC midnight.
+fn week_start_utc(tz: &str) -> String {
+    let tz = grumps_core::timeutil::tz_or_utc(tz);
+    let today = grumps_core::timeutil::today_in_tz(tz);
+    let (start, _) = grumps_core::timeutil::local_window_bounds_utc(
+        tz,
+        today - chrono::Duration::days(6),
+        today,
+    );
+    grumps_core::timeutil::to_utc_z(start)
+}
+
 fn event_row_to_event(r: EventRow) -> Event {
-    use chrono::{DateTime, TimeZone, Utc};
+    use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+    // Accept a UTC instant (timed event) or a bare civil date (all-day event,
+    // placed at that day's UTC midnight). Epoch is the last-resort fallback.
     let parse_dt = |s: &str| -> DateTime<Utc> {
-        DateTime::parse_from_rfc3339(s)
-            .map(|d| d.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc.timestamp_opt(0, 0).unwrap())
+        if let Ok(d) = DateTime::parse_from_rfc3339(s) {
+            return d.with_timezone(&Utc);
+        }
+        if let Some(ndt) = NaiveDate::parse_from_str(s, "%Y-%m-%d")
+            .ok()
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+        {
+            return Utc.from_utc_datetime(&ndt);
+        }
+        Utc.timestamp_opt(0, 0).unwrap()
     };
     Event {
         id: r.id,
@@ -1369,7 +1422,7 @@ impl<'a> WorkspaceDb<'a> {
             params.push(s.into());
             sql.push_str(&format!(" WHERE status = ?{}", params.len()));
         }
-        sql.push_str(" ORDER BY trigger_at ASC");
+        sql.push_str(" ORDER BY datetime(trigger_at) ASC");
         params.push(limit.into());
         sql.push_str(&format!(" LIMIT ?{}", params.len()));
         params.push(offset.into());
@@ -1386,7 +1439,7 @@ impl<'a> WorkspaceDb<'a> {
     ) -> Result<Vec<ScheduledAction>> {
         let resp = self.q(
             "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
-             FROM scheduled_actions WHERE status = 'pending' AND trigger_at <= ?1 ORDER BY trigger_at ASC LIMIT ?2",
+             FROM scheduled_actions WHERE status = 'pending' AND datetime(trigger_at) <= datetime(?1) ORDER BY datetime(trigger_at) ASC LIMIT ?2",
             vec![now_iso.into(), limit.into()],
         ).await?;
         let rows: Vec<ScheduledActionRow> = extract_rows(&resp)?;
@@ -1399,7 +1452,7 @@ impl<'a> WorkspaceDb<'a> {
             trigger_at: String,
         }
         let resp = self.q(
-            "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY trigger_at ASC LIMIT 1",
+            "SELECT trigger_at FROM scheduled_actions WHERE status = 'pending' ORDER BY datetime(trigger_at) ASC LIMIT 1",
             vec![],
         ).await?;
         let row: Option<Row> = extract_first(&resp)?;
@@ -1480,7 +1533,7 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
 }
 
 // =============================================
-// AgentSession CRUD (for Plan B — minimal here)
+// AgentSession CRUD
 // =============================================
 
 impl<'a> WorkspaceDb<'a> {

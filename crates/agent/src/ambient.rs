@@ -117,7 +117,15 @@ pub async fn analyze(
     recent_actions: &[RecentBotAction],
     modes: &AmbientModes,
 ) -> AmbientAnalysis {
-    if text.split_whitespace().count() < 3 {
+    // Skip trivially short messages. Whitespace-word count works for
+    // space-separated scripts; CJK (zh/ja/ko) has no spaces, so a substantive
+    // sentence would count as one "word" — approximate via char count there so
+    // those locales aren't silently excluded from ambient analysis.
+    let token_estimate = text
+        .split_whitespace()
+        .count()
+        .max(text.chars().count() / 4);
+    if token_estimate < 3 {
         return Default::default();
     }
     if text.len() > 2000 {
@@ -300,9 +308,12 @@ pub async fn apply_analysis<'a>(
         // Cooldown + rate limit check (KV)
         let kv = env.kv("KV").ok();
         let cooldown_key = format!("proactive:{workspace_slug}:lastfire");
+        // Rate-limit bucket resets on the workspace-local hour boundary.
+        let tz =
+            grumps_core::timeutil::tz_or_utc(&db.get_setting("timezone").await.unwrap_or_default());
         let hour_key = format!(
             "proactive:{workspace_slug}:{}",
-            chrono::Utc::now().format("%Y-%m-%d-%H")
+            chrono::Utc::now().with_timezone(&tz).format("%Y-%m-%d-%H")
         );
         let mut should_proceed = true;
         if let Some(ref kv) = kv {

@@ -2,7 +2,6 @@
 //! GET /api/w/:slug/admin/observability
 
 use crate::{d1_rest, db, middleware};
-use grumps_agent::db::AgentDb;
 use serde::Serialize;
 use worker::*;
 

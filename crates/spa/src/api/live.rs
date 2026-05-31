@@ -277,6 +277,13 @@ impl Api for LiveApi {
         )
         .await
     }
+    async fn update_timezone(&self, slug: &str, tz: &str) -> Result<(), String> {
+        self.patch(
+            &format!("/api/w/{}/settings/timezone", slug),
+            &serde_json::json!({"timezone": tz}),
+        )
+        .await
+    }
     async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String> {
         self.post(
             &format!("/api/w/{}/calendar/ical-token", slug),
