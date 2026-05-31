@@ -86,7 +86,7 @@ pub async fn route_message<'a>(
         match tools::dispatch(&ctx, &classified.intent, classified.args.clone()).await {
             Ok(result) => {
                 // Format a short confirmation reply
-                let msg = format_crud_confirmation(&classified.intent, &result);
+                let msg = format_crud_confirmation(locale, &classified.intent, &result);
                 sink.send(&msg).await?;
                 return Ok(RouteResult {
                     final_text: Some(msg),
@@ -111,16 +111,18 @@ pub async fn route_message<'a>(
     })
 }
 
-fn format_crud_confirmation(intent: &str, result: &serde_json::Value) -> String {
+fn format_crud_confirmation(locale: &str, intent: &str, result: &serde_json::Value) -> String {
+    use grumps_i18n::{t, Locale};
+    let loc = Locale::from_code(locale);
     match intent {
         "create_todo" => {
             let id = result.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-            format!("✅ Todo créée (#{id})")
+            t(loc, "crud.todo_created", &[("id", id)])
         }
-        "create_note" => "📝 Note créée".to_string(),
-        "create_event" => "📅 Event créé".to_string(),
-        "create_reminder" => "⏰ Rappel programmé".to_string(),
-        "list_todos" => "Voir la liste dans le workspace".to_string(),
-        _ => format!("Action '{intent}' exécutée"),
+        "create_note" => t(loc, "crud.note_created", &[]),
+        "create_event" => t(loc, "crud.event_created", &[]),
+        "create_reminder" => t(loc, "crud.reminder_scheduled", &[]),
+        "list_todos" => t(loc, "crud.list_todos", &[]),
+        _ => t(loc, "crud.action_done", &[("intent", intent)]),
     }
 }
