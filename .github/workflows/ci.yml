@@ -53,8 +53,11 @@ jobs:
       # tracked in docs/superpowers/2026-04-26-audit-followups.md; flip
       # this to `-- -D warnings` once that cleanup lands so regressions
       # become hard failures.
+      # `.cargo/config.toml` pins the default target to wasm32; the native
+      # checks must override it to the Linux host triple, otherwise dev-deps
+      # like rusqlite (bundled C SQLite) try to compile to wasm and fail.
       - name: clippy (native workspace)
-        run: cargo clippy --workspace --all-targets
+        run: cargo clippy --workspace --all-targets --target x86_64-unknown-linux-gnu
       - name: clippy (wasm32 worker + spa)
         run: |
           cargo clippy -p grumps-worker --target wasm32-unknown-unknown
@@ -72,12 +75,15 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
       - uses: Swatinem/rust-cache@v2
-      # `--lib` skips integration tests under `crates/worker/tests/` that
-      # require a live `wrangler dev` instance; those are gated behind
-      # `#[ignore]` anyway. CI only runs unit + doc tests across the
-      # workspace.
-      - name: cargo test (workspace lib + doctests)
-        run: cargo test --workspace --lib --tests --doc
+      # `--lib`/`--tests` cover unit + non-ignored integration tests under
+      # `crates/worker/tests/`; the live-`wrangler` ones are `#[ignore]`d.
+      # Native host triple overrides the wasm32 default in `.cargo/config.toml`
+      # (tests can't run on wasm32-unknown-unknown). `--doc` cannot be combined
+      # with `--lib`/`--tests` in one invocation, so doctests run separately.
+      - name: cargo test (workspace lib + integration tests)
+        run: cargo test --workspace --lib --tests --target x86_64-unknown-linux-gnu
+      - name: cargo doctests
+        run: cargo test --workspace --doc --target x86_64-unknown-linux-gnu
 
   i18n-validate:
     name: i18n locale parity
