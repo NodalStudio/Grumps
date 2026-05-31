@@ -1,15 +1,19 @@
-use leptos::prelude::*;
-use crate::api::CalendarItem;
 use super::item::CalItem;
+use crate::api::CalendarItem;
+use leptos::prelude::*;
 
 fn parse_hour(s: &str) -> Option<u32> {
     // e.g. "2026-04-19T14:30:00Z" -> 14
-    s.find('T').and_then(|i| s[i+1..].splitn(2, ':').next()).and_then(|h| h.parse().ok())
+    s.find('T')
+        .and_then(|i| s[i + 1..].splitn(2, ':').next())
+        .and_then(|h| h.parse().ok())
 }
 
 fn parse_date_parts(s: &str) -> Option<(i32, u32, u32)> {
     let parts: Vec<&str> = s.splitn(3, '-').collect();
-    if parts.len() < 3 { return None; }
+    if parts.len() < 3 {
+        return None;
+    }
     let y = parts[0].parse().ok()?;
     let m = parts[1].parse().ok()?;
     let d = parts[2][..2.min(parts[2].len())].parse().ok()?;
@@ -25,7 +29,9 @@ pub fn WeekView(
     today_month: u32,
     today_day: u32,
 ) -> impl IntoView {
-    const DAY_KEYS: [&str; 7] = ["dow.mon","dow.tue","dow.wed","dow.thu","dow.fri","dow.sat","dow.sun"];
+    const DAY_KEYS: [&str; 7] = [
+        "dow.mon", "dow.tue", "dow.wed", "dow.thu", "dow.fri", "dow.sat", "dow.sun",
+    ];
 
     view! {
         <div class="flex flex-col flex-1 overflow-hidden">

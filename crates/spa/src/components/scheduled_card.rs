@@ -1,25 +1,25 @@
-use leptos::prelude::*;
 use crate::api::ScheduledActionItem;
 use crate::i18n::{tr, tr_n};
+use leptos::prelude::*;
 
 fn type_icon(action_type: &str) -> &'static str {
     match action_type {
-        "message"    => "\u{00B6}",  // ¶
-        "reminder"   => "\u{25F7}",  // ◷
-        "recap"      => "\u{25A4}",  // ▤
-        "task"       => "\u{2610}",  // ☐
-        "webhook"    => "\u{229E}",  // ⊞
-        _            => "\u{25CA}",  // ◊
+        "message" => "\u{00B6}",  // ¶
+        "reminder" => "\u{25F7}", // ◷
+        "recap" => "\u{25A4}",    // ▤
+        "task" => "\u{2610}",     // ☐
+        "webhook" => "\u{229E}",  // ⊞
+        _ => "\u{25CA}",          // ◊
     }
 }
 
 fn status_color(status: &str) -> &'static str {
     match status {
-        "active"    => "var(--teal)",
-        "paused"    => "var(--ink-40)",
-        "done"      => "var(--ink-15)",
-        "failed"    => "var(--brick)",
-        _           => "var(--ink-40)",
+        "active" => "var(--teal)",
+        "paused" => "var(--ink-40)",
+        "done" => "var(--ink-15)",
+        "failed" => "var(--brick)",
+        _ => "var(--ink-40)",
     }
 }
 

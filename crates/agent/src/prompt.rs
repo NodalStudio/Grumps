@@ -6,13 +6,13 @@ use grumps_memory::MemoryEntry;
 #[derive(Debug, Clone)]
 pub struct PromptContext {
     pub workspace_name: String,
-    pub platform: String,            // "telegram" | "whatsapp" | "discord"
+    pub platform: String, // "telegram" | "whatsapp" | "discord"
     pub member_count: usize,
-    pub persona: String,             // "default" | "playful" | "formal"
-    pub language: String,            // "en" | "fr" | ...
+    pub persona: String,  // "default" | "playful" | "formal"
+    pub language: String, // "en" | "fr" | ...
     pub pinned_memories: Vec<MemoryEntry>,
     pub members: Vec<MemberShort>,
-    pub now_local: String,           // formatted local datetime
+    pub now_local: String, // formatted local datetime
     pub timezone: String,
     pub proactive_mode: bool,
     pub auto_memory: bool,
@@ -25,7 +25,7 @@ pub struct PromptContext {
 #[derive(Debug, Clone)]
 pub struct MemberShort {
     pub display_name: String,
-    pub role: String,                // "admin" | "member"
+    pub role: String, // "admin" | "member"
 }
 
 pub fn build_system_prompt(ctx: &PromptContext) -> String {
@@ -38,24 +38,32 @@ pub fn build_system_prompt(ctx: &PromptContext) -> String {
     let pinned_block = if ctx.pinned_memories.is_empty() {
         "(none yet)".to_string()
     } else {
-        ctx.pinned_memories.iter()
+        ctx.pinned_memories
+            .iter()
             .map(|m| {
-                let key_part = m.key.as_deref().map(|k| format!("[{k}] ")).unwrap_or_default();
+                let key_part = m
+                    .key
+                    .as_deref()
+                    .map(|k| format!("[{k}] "))
+                    .unwrap_or_default();
                 format!("- {}{}", key_part, m.value)
             })
-            .collect::<Vec<_>>().join("\n")
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     let members_block = if ctx.members.is_empty() {
         "(no members listed yet)".to_string()
     } else {
-        ctx.members.iter()
+        ctx.members
+            .iter()
             .map(|m| format!("- {} ({})", m.display_name, m.role))
-            .collect::<Vec<_>>().join("\n")
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     format!(
-r#"You are Grumps, an AI assistant living inside the messaging group "{ws_name}"
+        r#"You are Grumps, an AI assistant living inside the messaging group "{ws_name}"
 ({platform}). The group has {member_count} members. You serve the group, not individuals —
 all your messages are visible to everyone.
 
@@ -108,8 +116,8 @@ RULES:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use grumps_memory::{MemoryKind, MemorySource};
     use chrono::Utc;
+    use grumps_memory::{MemoryKind, MemorySource};
 
     fn sample_ctx() -> PromptContext {
         PromptContext {

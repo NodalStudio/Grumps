@@ -5,7 +5,9 @@ use crate::aggregate::CalendarItem;
 
 /// Fold a content line per RFC 5545 §3.1: break at 75 octets, continue with `\r\n ` (space).
 fn fold_line(line: &str) -> String {
-    if line.len() <= 75 { return line.to_string(); }
+    if line.len() <= 75 {
+        return line.to_string();
+    }
     let mut out = String::new();
     let bytes = line.as_bytes();
     let mut i = 0;
@@ -15,8 +17,12 @@ fn fold_line(line: &str) -> String {
         let max = if first { 75 } else { 74 };
         let mut end = (i + max).min(bytes.len());
         // Back off to avoid splitting a UTF-8 multibyte sequence
-        while end < bytes.len() && (bytes[end] & 0xC0) == 0x80 { end -= 1; }
-        if !first { out.push_str("\r\n "); }
+        while end < bytes.len() && (bytes[end] & 0xC0) == 0x80 {
+            end -= 1;
+        }
+        if !first {
+            out.push_str("\r\n ");
+        }
         out.push_str(std::str::from_utf8(&bytes[i..end]).unwrap_or(""));
         i = end;
         first = false;
@@ -36,17 +42,29 @@ pub fn generate_ical(workspace_name: &str, items: &[CalendarItem]) -> String {
     out.push_str("VERSION:2.0\r\n");
     out.push_str("PRODID:-//Grumps//Calendar 1.0//EN\r\n");
     push_prop(&mut out, format!("NAME:Grumps \u{2014} {workspace_name}"));
-    push_prop(&mut out, format!("X-WR-CALNAME:Grumps \u{2014} {workspace_name}"));
+    push_prop(
+        &mut out,
+        format!("X-WR-CALNAME:Grumps \u{2014} {workspace_name}"),
+    );
     out.push_str("X-PUBLISHED-TTL:PT15M\r\n");
 
     for item in items {
         out.push_str("BEGIN:VEVENT\r\n");
         push_prop(&mut out, format!("UID:{}@grumps.app", item.id));
-        push_prop(&mut out, format!("DTSTAMP:{}", format_ical_dt(&chrono::Utc::now())));
+        push_prop(
+            &mut out,
+            format!("DTSTAMP:{}", format_ical_dt(&chrono::Utc::now())),
+        );
         if item.all_day {
-            push_prop(&mut out, format!("DTSTART;VALUE=DATE:{}", format_ical_date(&item.starts_at)));
+            push_prop(
+                &mut out,
+                format!("DTSTART;VALUE=DATE:{}", format_ical_date(&item.starts_at)),
+            );
         } else {
-            push_prop(&mut out, format!("DTSTART:{}", format_ical_dt(&item.starts_at)));
+            push_prop(
+                &mut out,
+                format!("DTSTART:{}", format_ical_dt(&item.starts_at)),
+            );
             if let Some(end) = &item.ends_at {
                 push_prop(&mut out, format!("DTEND:{}", format_ical_dt(end)));
             }
@@ -131,7 +149,11 @@ mod tests {
         // Each physical line (split on \n) should be <= 75 octets
         for line in s.split('\n') {
             let line = line.trim_end_matches('\r');
-            assert!(line.len() <= 75, "line too long: {} bytes — {line}", line.len());
+            assert!(
+                line.len() <= 75,
+                "line too long: {} bytes — {line}",
+                line.len()
+            );
         }
         // Content should survive folding
         assert!(s.contains("seventy-five octet limit"));

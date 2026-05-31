@@ -1,9 +1,9 @@
 //! AgentDb trait — the minimal DB surface the agent tool layer needs.
 //! Worker implements this on WorkspaceDb via `crates/worker/src/agent_db_impl.rs`.
 
-use grumps_memory::{MemoryEntry, NewMemoryEntry};
 use grumps_calendar::{Event, NewEvent};
-use grumps_scheduler::{NewScheduledAction, ScheduledAction, AgentSession, SessionMessage};
+use grumps_memory::{MemoryEntry, NewMemoryEntry};
+use grumps_scheduler::{AgentSession, NewScheduledAction, ScheduledAction, SessionMessage};
 use serde::{Deserialize, Serialize};
 
 // ── Observability response types ──────────────────────────────────────────────
@@ -98,14 +98,26 @@ pub trait AgentDb {
     ) -> worker::Result<String>;
 
     /// List active reminders in a datetime range (remind_at between from and to).
-    async fn list_reminders_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<serde_json::Value>>;
+    async fn list_reminders_in_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> worker::Result<Vec<serde_json::Value>>;
 
     // --- scheduled actions ---
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> worker::Result<String>;
-    async fn list_scheduled_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<ScheduledAction>>;
+    async fn list_scheduled_in_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> worker::Result<Vec<ScheduledAction>>;
 
     // --- todos with deadlines (for calendar aggregation) ---
-    async fn list_todos_with_deadline(&self, from: &str, to: &str) -> worker::Result<Vec<serde_json::Value>>;
+    async fn list_todos_with_deadline(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> worker::Result<Vec<serde_json::Value>>;
 
     // --- settings ---
     async fn get_setting(&self, key: &str) -> worker::Result<String>;
@@ -113,8 +125,17 @@ pub trait AgentDb {
     async fn increment_int_setting(&self, key: &str, delta: i64) -> worker::Result<()>;
 
     // --- bot activity + quality signals ---
-    async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> worker::Result<Option<String>>;
-    async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> worker::Result<Vec<crate::ambient::RecentBotAction>>;
+    async fn log_bot_action(
+        &self,
+        kind: &str,
+        summary: &str,
+        target_id: Option<&str>,
+    ) -> worker::Result<Option<String>>;
+    async fn list_recent_bot_actions(
+        &self,
+        max_age_seconds: i64,
+        limit: i64,
+    ) -> worker::Result<Vec<crate::ambient::RecentBotAction>>;
     async fn log_quality_signal(
         &self,
         member_id: &str,
@@ -133,7 +154,10 @@ pub trait AgentDb {
         messages: &[SessionMessage],
         pending: Option<&serde_json::Value>,
     ) -> worker::Result<String>;
-    async fn get_active_agent_session(&self, member_id: &str) -> worker::Result<Option<AgentSession>>;
+    async fn get_active_agent_session(
+        &self,
+        member_id: &str,
+    ) -> worker::Result<Option<AgentSession>>;
 
     // --- LLM observability ---
     async fn log_llm_call(&self, record: &crate::telemetry::LlmCallRecord) -> worker::Result<()>;

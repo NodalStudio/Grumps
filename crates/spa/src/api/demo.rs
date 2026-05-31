@@ -33,13 +33,25 @@ impl Api for DemoApi {
 
     async fn get_todos(&self, _slug: &str, filter: &str) -> Result<Vec<TodoItem>, String> {
         let mut items = crate::demo::todos();
-        if filter != "all" { items.retain(|t| t.status == filter); }
+        if filter != "all" {
+            items.retain(|t| t.status == filter);
+        }
         Ok(items)
     }
-    async fn create_todo(&self, _slug: &str, title: &str, priority: i32) -> Result<TodoItem, String> {
+    async fn create_todo(
+        &self,
+        _slug: &str,
+        title: &str,
+        priority: i32,
+    ) -> Result<TodoItem, String> {
         Ok(crate::demo::new_todo(title, priority))
     }
-    async fn update_todo(&self, _slug: &str, _id: &str, _updates: &serde_json::Value) -> Result<(), String> {
+    async fn update_todo(
+        &self,
+        _slug: &str,
+        _id: &str,
+        _updates: &serde_json::Value,
+    ) -> Result<(), String> {
         Ok(())
     }
     async fn delete_todo(&self, _slug: &str, _id: &str) -> Result<(), String> {
@@ -50,14 +62,26 @@ impl Api for DemoApi {
         Ok(crate::demo::notes())
     }
     async fn get_note(&self, _slug: &str, id: &str) -> Result<NoteItem, String> {
-        crate::demo::notes().into_iter()
+        crate::demo::notes()
+            .into_iter()
             .find(|n| n.id == id)
             .ok_or_else(|| "demo: note not found".into())
     }
-    async fn create_note(&self, _slug: &str, title: &str, content: &str) -> Result<NoteItem, String> {
+    async fn create_note(
+        &self,
+        _slug: &str,
+        title: &str,
+        content: &str,
+    ) -> Result<NoteItem, String> {
         Ok(crate::demo::new_note(title, content))
     }
-    async fn update_note(&self, _slug: &str, _id: &str, _title: &str, _content: &str) -> Result<(), String> {
+    async fn update_note(
+        &self,
+        _slug: &str,
+        _id: &str,
+        _title: &str,
+        _content: &str,
+    ) -> Result<(), String> {
         Ok(())
     }
     async fn delete_note(&self, _slug: &str, _id: &str) -> Result<(), String> {
@@ -74,10 +98,19 @@ impl Api for DemoApi {
     async fn list_memory(&self, _slug: &str) -> Result<Vec<MemoryItem>, String> {
         Ok(crate::demo::memories())
     }
-    async fn create_memory(&self, _slug: &str, body: &serde_json::Value) -> Result<MemoryItem, String> {
+    async fn create_memory(
+        &self,
+        _slug: &str,
+        body: &serde_json::Value,
+    ) -> Result<MemoryItem, String> {
         Ok(crate::demo::new_memory(body))
     }
-    async fn update_memory(&self, _slug: &str, _id: &str, _body: &serde_json::Value) -> Result<(), String> {
+    async fn update_memory(
+        &self,
+        _slug: &str,
+        _id: &str,
+        _body: &serde_json::Value,
+    ) -> Result<(), String> {
         Ok(())
     }
     async fn delete_memory(&self, _slug: &str, _id: &str) -> Result<(), String> {
@@ -87,30 +120,56 @@ impl Api for DemoApi {
     async fn list_events(&self, _slug: &str) -> Result<Vec<EventItem>, String> {
         Ok(crate::demo::events())
     }
-    async fn create_event(&self, _slug: &str, body: &serde_json::Value) -> Result<EventItem, String> {
+    async fn create_event(
+        &self,
+        _slug: &str,
+        body: &serde_json::Value,
+    ) -> Result<EventItem, String> {
         Ok(crate::demo::new_event(body))
     }
-    async fn update_event(&self, _slug: &str, _id: &str, _body: &serde_json::Value) -> Result<(), String> {
+    async fn update_event(
+        &self,
+        _slug: &str,
+        _id: &str,
+        _body: &serde_json::Value,
+    ) -> Result<(), String> {
         Ok(())
     }
     async fn delete_event(&self, _slug: &str, _id: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn list_scheduled_actions(&self, _slug: &str) -> Result<Vec<ScheduledActionItem>, String> {
+    async fn list_scheduled_actions(
+        &self,
+        _slug: &str,
+    ) -> Result<Vec<ScheduledActionItem>, String> {
         Ok(crate::demo::scheduled_actions())
     }
-    async fn create_scheduled_action(&self, _slug: &str, body: &serde_json::Value) -> Result<ScheduledActionItem, String> {
+    async fn create_scheduled_action(
+        &self,
+        _slug: &str,
+        body: &serde_json::Value,
+    ) -> Result<ScheduledActionItem, String> {
         Ok(crate::demo::new_scheduled(body))
     }
-    async fn update_scheduled_action(&self, _slug: &str, _id: &str, _body: &serde_json::Value) -> Result<(), String> {
+    async fn update_scheduled_action(
+        &self,
+        _slug: &str,
+        _id: &str,
+        _body: &serde_json::Value,
+    ) -> Result<(), String> {
         Ok(())
     }
     async fn delete_scheduled_action(&self, _slug: &str, _id: &str) -> Result<(), String> {
         Ok(())
     }
 
-    async fn list_calendar(&self, _slug: &str, _from: &str, _to: &str) -> Result<Vec<CalendarItem>, String> {
+    async fn list_calendar(
+        &self,
+        _slug: &str,
+        _from: &str,
+        _to: &str,
+    ) -> Result<Vec<CalendarItem>, String> {
         Ok(crate::demo::calendar_items())
     }
     async fn get_settings(&self, _slug: &str) -> Result<WorkspaceSettings, String> {

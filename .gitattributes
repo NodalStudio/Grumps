@@ -1,0 +1,21 @@
+# Normalise line endings to LF for all text files, on every platform.
+# Without this, core.autocrlf=true checks files out as CRLF on Windows
+# while the repo stores LF, producing noisy "LF will be replaced by CRLF"
+# warnings and non-deterministic `cargo fmt` output.
+* text=auto eol=lf
+
+# Shell scripts must stay LF or they break on Linux/CI.
+*.sh text eol=lf
+
+# Treat binaries as binary so they are never line-ending normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.wasm binary

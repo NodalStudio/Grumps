@@ -1,14 +1,19 @@
+use crate::i18n::tr;
+use gloo_net::http::Request;
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
-use gloo_net::http::Request;
-use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
-use crate::i18n::tr;
+use wasm_bindgen::prelude::*;
 
 #[component]
 pub fn LoginPage() -> impl IntoView {
     let query = use_query_map();
-    let redirect = Signal::derive(move || query.read().get("redirect").unwrap_or_else(|| "/dashboard".to_string()));
+    let redirect = Signal::derive(move || {
+        query
+            .read()
+            .get("redirect")
+            .unwrap_or_else(|| "/dashboard".to_string())
+    });
 
     Effect::new(move |_| {
         let redirect_to = redirect.get();
@@ -66,8 +71,15 @@ fn install_tg_callback(redirect_to: String) {
             }
         });
     }) as Box<dyn FnMut(JsValue)>);
-    let window = match web_sys::window() { Some(w) => w, None => return };
-    let _ = js_sys::Reflect::set(&window, &"__grumpsTgAuth".into(), cb.as_ref().unchecked_ref());
+    let window = match web_sys::window() {
+        Some(w) => w,
+        None => return,
+    };
+    let _ = js_sys::Reflect::set(
+        &window,
+        &"__grumpsTgAuth".into(),
+        cb.as_ref().unchecked_ref(),
+    );
     cb.forget();
 
     if let Some(doc) = window.document() {
@@ -75,7 +87,8 @@ fn install_tg_callback(redirect_to: String) {
             container.set_inner_html("");
             if let Ok(script) = doc.create_element("script") {
                 let _ = script.set_attribute("async", "");
-                let _ = script.set_attribute("src", "https://telegram.org/js/telegram-widget.js?22");
+                let _ =
+                    script.set_attribute("src", "https://telegram.org/js/telegram-widget.js?22");
                 let _ = script.set_attribute("data-telegram-login", "HeyGrumpsBot");
                 let _ = script.set_attribute("data-size", "large");
                 let _ = script.set_attribute("data-radius", "2");
@@ -109,8 +122,11 @@ async fn verify_tg_widget(user: JsValue, redirect_to: &str) -> Result<(), String
     let base = crate::api::api_base();
     let resp = Request::post(&format!("{}/auth/telegram/verify", base))
         .credentials(web_sys::RequestCredentials::Include)
-        .json(&body).map_err(|e| e.to_string())?
-        .send().await.map_err(|e| e.to_string())?;
+        .json(&body)
+        .map_err(|e| e.to_string())?
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if resp.status() != 200 {
         return Err(format!("status {}", resp.status()));
     }

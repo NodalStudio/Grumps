@@ -1,7 +1,7 @@
-use leptos::prelude::*;
+use super::item::CalItem;
 use crate::api::CalendarItem;
 use crate::i18n::tr;
-use super::item::CalItem;
+use leptos::prelude::*;
 
 fn parse_date_key(s: &str) -> String {
     s.get(..10).unwrap_or(s).to_string()

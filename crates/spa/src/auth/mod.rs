@@ -50,4 +50,3 @@ pub fn read_csrf_cookie() -> String {
     }
     String::new()
 }
-

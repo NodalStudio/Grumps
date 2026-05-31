@@ -1,8 +1,8 @@
 //! Adapter implementing the agent's MessagingSink trait by sending to the
 //! workspace's chat platform via existing messaging_dispatch.
 
-use worker::*;
 use grumps_agent::router::MessagingSink;
+use worker::*;
 
 pub struct WorkerMessagingSink<'a> {
     pub env: &'a Env,

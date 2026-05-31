@@ -1,13 +1,18 @@
 //! Calendar aggregation : union of todos+events+reminders+scheduled actions.
 //! See spec § 9.1.
 
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
 use crate::Event;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
-pub enum CalendarSource { Todo, Event, Reminder, ScheduledAction }
+pub enum CalendarSource {
+    Todo,
+    Event,
+    Reminder,
+    ScheduledAction,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarItem {
@@ -69,7 +74,10 @@ pub fn aggregate(
                     all_day: true,
                     location: None,
                     color: "brick".into(),
-                    member_id: t.get("assigned_to").and_then(|v| v.as_str()).map(String::from),
+                    member_id: t
+                        .get("assigned_to")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     recurrence: None,
                     editable: true,
                     url: format!("/w/{}/todos", ws_slug),
@@ -94,8 +102,14 @@ pub fn aggregate(
                     all_day: false,
                     location: None,
                     color: "cream".into(),
-                    member_id: r.get("target_member").and_then(|v| v.as_str()).map(String::from),
-                    recurrence: r.get("recurrence").and_then(|v| v.as_str()).map(String::from),
+                    member_id: r
+                        .get("target_member")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    recurrence: r
+                        .get("recurrence")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     editable: true,
                     url: format!("/w/{}/scheduled", ws_slug),
                 });
@@ -119,8 +133,14 @@ pub fn aggregate(
                     all_day: false,
                     location: None,
                     color: "slate-300".into(),
-                    member_id: s.get("created_by").and_then(|v| v.as_str()).map(String::from),
-                    recurrence: s.get("recurrence").and_then(|v| v.as_str()).map(String::from),
+                    member_id: s
+                        .get("created_by")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
+                    recurrence: s
+                        .get("recurrence")
+                        .and_then(|v| v.as_str())
+                        .map(String::from),
                     editable: false,
                     url: format!("/w/{}/scheduled/{}", ws_slug, id),
                 });

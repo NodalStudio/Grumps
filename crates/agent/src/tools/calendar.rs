@@ -1,13 +1,17 @@
 //! Tool implementation: list_calendar.
 //! Aggregates events + todos-with-deadline + reminders + scheduled actions in a date range.
 
-use serde_json::Value;
 use super::ToolContext;
+use serde_json::Value;
 
 pub async fn list_calendar(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let from = args.get("from").and_then(|v| v.as_str())
+    let from = args
+        .get("from")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("list_calendar: missing 'from'".into()))?;
-    let to = args.get("to").and_then(|v| v.as_str())
+    let to = args
+        .get("to")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("list_calendar: missing 'to'".into()))?;
 
     let events = ctx.db.list_events_in_range(from, to).await?;

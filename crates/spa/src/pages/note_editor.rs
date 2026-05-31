@@ -1,12 +1,17 @@
-use leptos::prelude::*;
-use leptos::task::spawn_local;
-use leptos_router::hooks::use_params_map;
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::i18n::{tr, tr_p};
+use leptos::prelude::*;
+use leptos::task::spawn_local;
+use leptos_router::hooks::use_params_map;
 
 #[derive(Copy, Clone, PartialEq)]
-enum SaveState { Idle, Saving, Saved, Error }
+enum SaveState {
+    Idle,
+    Saving,
+    Saved,
+    Error,
+}
 
 #[component]
 pub fn NoteEditorPage() -> impl IntoView {

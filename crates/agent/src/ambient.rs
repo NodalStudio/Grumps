@@ -7,10 +7,10 @@
 //! Replaces the prior `auto_extract.rs` and `proactive.rs` modules.
 //! See spec § 6.2 (auto-extract) + § 11 (proactive) + new : quality signals.
 
-use worker::*;
-use serde::{Deserialize, Serialize};
 use crate::db::AgentDb;
 use crate::router::MessagingSink;
+use serde::{Deserialize, Serialize};
+use worker::*;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct AmbientAnalysis {
@@ -50,7 +50,7 @@ pub struct ProactiveSignal {
 pub struct FeedbackSignal {
     /// null if no feedback signal detected
     #[serde(default)]
-    pub signal: Option<String>,    // "silence_request" | "forget_request" | "correction" | "praise" | "thanks" | "confusion"
+    pub signal: Option<String>, // "silence_request" | "forget_request" | "correction" | "praise" | "thanks" | "confusion"
     #[serde(default)]
     pub confidence: f32,
     #[serde(default)]
@@ -64,15 +64,15 @@ pub struct FeedbackSignal {
 pub struct AmbientModes {
     pub auto_memory: bool,
     pub proactive_mode: bool,
-    pub feedback_detection: bool,    // currently always true ; opt-out via setting `quality_feedback_disabled`
+    pub feedback_detection: bool, // currently always true ; opt-out via setting `quality_feedback_disabled`
 }
 
 /// Recent bot action context (last ~30 min) — passed to classifier so it can attribute signals.
 pub struct RecentBotAction {
     pub activity_id: String,
-    pub activity_type: String,    // 'bot.proactive_intervention' | 'bot.auto_memory_save' | etc
+    pub activity_type: String, // 'bot.proactive_intervention' | 'bot.auto_memory_save' | etc
     pub age_seconds: i64,
-    pub summary: String,           // short human-readable
+    pub summary: String, // short human-readable
 }
 
 /// Run the unified classifier with telemetry recording.
@@ -93,7 +93,10 @@ pub async fn analyze_with_telemetry(
         "ambient",
         "gemini",
         "gemini-2.5-flash",
-        0, 0, 0, 0,
+        0,
+        0,
+        0,
+        0,
         latency_ms,
         true,
         None,
@@ -114,25 +117,39 @@ pub async fn analyze(
     recent_actions: &[RecentBotAction],
     modes: &AmbientModes,
 ) -> AmbientAnalysis {
-    if text.split_whitespace().count() < 3 { return Default::default(); }
-    if text.len() > 2000 { return Default::default(); }
+    if text.split_whitespace().count() < 3 {
+        return Default::default();
+    }
+    if text.len() > 2000 {
+        return Default::default();
+    }
     if !modes.auto_memory && !modes.proactive_mode && !modes.feedback_detection {
         return Default::default();
     }
 
-    let api_key = match env.secret("GEMINI_API_KEY") { Ok(k) => k.to_string(), Err(_) => return Default::default() };
+    let api_key = match env.secret("GEMINI_API_KEY") {
+        Ok(k) => k.to_string(),
+        Err(_) => return Default::default(),
+    };
     let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}");
 
     let recent_actions_block = if recent_actions.is_empty() {
         "(no recent bot actions)".to_string()
     } else {
-        recent_actions.iter()
-            .map(|a| format!("- {}s ago | {} | {}", a.age_seconds, a.activity_type, a.summary))
-            .collect::<Vec<_>>().join("\n")
+        recent_actions
+            .iter()
+            .map(|a| {
+                format!(
+                    "- {}s ago | {} | {}",
+                    a.age_seconds, a.activity_type, a.summary
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
     let prompt = format!(
-r#"You analyze a chat message in a group conversation where an AI assistant 'Grumps' lives.
+        r#"You analyze a chat message in a group conversation where an AI assistant 'Grumps' lives.
 Group members: {members_list}
 Pinned facts the bot knows: {pinned}
 Recent bot actions in this group:
@@ -175,8 +192,16 @@ Rules:
   Be conservative — set signal=null if not clearly directed at the bot. Reject if the message addresses another member, not Grumps.
 
 If the prompt explicitly mentions @grumps, that's still potentially feedback — analyze tone."#,
-        members_list = if members.is_empty() { "(none listed)".to_string() } else { members.join(", ") },
-        pinned = if pinned_summary.is_empty() { "(none)" } else { pinned_summary },
+        members_list = if members.is_empty() {
+            "(none listed)".to_string()
+        } else {
+            members.join(", ")
+        },
+        pinned = if pinned_summary.is_empty() {
+            "(none)"
+        } else {
+            pinned_summary
+        },
         recent_actions = recent_actions_block,
         text = text,
     );
@@ -191,16 +216,33 @@ If the prompt explicitly mentions @grumps, that's still potentially feedback —
     });
     let headers = Headers::new();
     headers.set("content-type", "application/json").ok();
-    let req = match Request::new_with_init(&url, RequestInit::new()
-        .with_method(Method::Post)
-        .with_headers(headers)
-        .with_body(Some(req_body.to_string().into()))) { Ok(r) => r, Err(_) => return Default::default() };
+    let req = match Request::new_with_init(
+        &url,
+        RequestInit::new()
+            .with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(req_body.to_string().into())),
+    ) {
+        Ok(r) => r,
+        Err(_) => return Default::default(),
+    };
 
-    let mut resp = match Fetch::Request(req).send().await { Ok(r) => r, Err(_) => return Default::default() };
-    if resp.status_code() >= 400 { return Default::default(); }
+    let mut resp = match Fetch::Request(req).send().await {
+        Ok(r) => r,
+        Err(_) => return Default::default(),
+    };
+    if resp.status_code() >= 400 {
+        return Default::default();
+    }
 
-    let parsed: serde_json::Value = match resp.json().await { Ok(p) => p, Err(_) => return Default::default() };
-    let text_resp = parsed.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()).unwrap_or("");
+    let parsed: serde_json::Value = match resp.json().await {
+        Ok(p) => p,
+        Err(_) => return Default::default(),
+    };
+    let text_resp = parsed
+        .pointer("/candidates/0/content/parts/0/text")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
 
     serde_json::from_str(text_resp.trim()).unwrap_or_else(|e| {
         console_log!("ambient classifier parse failed: {e}, raw: {text_resp}");
@@ -243,7 +285,13 @@ pub async fn apply_analysis<'a>(
             created_by: Some(member_id.to_string()),
         };
         if let Ok(mem_id) = db.create_memory(&entry).await {
-            db.log_bot_action("bot.auto_memory_save", &format!("saved {}", entry.value), Some(&mem_id)).await.ok();
+            db.log_bot_action(
+                "bot.auto_memory_save",
+                &format!("saved {}", entry.value),
+                Some(&mem_id),
+            )
+            .await
+            .ok();
         }
     }
 
@@ -252,23 +300,41 @@ pub async fn apply_analysis<'a>(
         // Cooldown + rate limit check (KV)
         let kv = env.kv("KV").ok();
         let cooldown_key = format!("proactive:{workspace_slug}:lastfire");
-        let hour_key = format!("proactive:{workspace_slug}:{}", chrono::Utc::now().format("%Y-%m-%d-%H"));
+        let hour_key = format!(
+            "proactive:{workspace_slug}:{}",
+            chrono::Utc::now().format("%Y-%m-%d-%H")
+        );
         let mut should_proceed = true;
         if let Some(ref kv) = kv {
             if kv.get(&cooldown_key).text().await.ok().flatten().is_some() {
                 should_proceed = false;
             } else {
-                let count: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
-                let max = db.get_int_setting("proactive_max_per_hour").await.unwrap_or(3) as u32;
-                if count >= max { should_proceed = false; }
+                let count: u32 = kv
+                    .get(&hour_key)
+                    .text()
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                let max = db
+                    .get_int_setting("proactive_max_per_hour")
+                    .await
+                    .unwrap_or(3) as u32;
+                if count >= max {
+                    should_proceed = false;
+                }
             }
         }
         if should_proceed {
             // Sonnet filter
             let pinned = db.list_pinned_memory().await.unwrap_or_default();
-            let pinned_summary = pinned.iter().take(20)
+            let pinned_summary = pinned
+                .iter()
+                .take(20)
                 .map(|m| format!("- {}", m.value))
-                .collect::<Vec<_>>().join("\n");
+                .collect::<Vec<_>>()
+                .join("\n");
             let system = format!(
 "You are Grumps, an AI assistant in a group chat. The classifier suggested you might want to chime in on this message:
 \"{raw_text}\"
@@ -288,18 +354,49 @@ Decide: do you have a SPECIFIC, USEFUL, NON-INTRUSIVE thing to say? If yes, repl
                 }],
                 ..Default::default()
             };
-            if let Ok(resp) = crate::llm::anthropic::call_with_telemetry(env, db, "proactive_filter", Some(member_id), None, &req).await {
-                let final_text = resp.content.iter().filter_map(|b| match b {
-                    crate::llm::anthropic::ContentBlock::Text { text } => Some(text.as_str()),
-                    _ => None,
-                }).collect::<Vec<_>>().join(" ").trim().to_string();
+            if let Ok(resp) = crate::llm::anthropic::call_with_telemetry(
+                env,
+                db,
+                "proactive_filter",
+                Some(member_id),
+                None,
+                &req,
+            )
+            .await
+            {
+                let final_text = resp
+                    .content
+                    .iter()
+                    .filter_map(|b| match b {
+                        crate::llm::anthropic::ContentBlock::Text { text } => Some(text.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .trim()
+                    .to_string();
                 if final_text.len() >= 5 {
                     sink.send(&final_text).await.ok();
-                    let action_id = db.log_bot_action("bot.proactive_intervention", &final_text, None).await.ok().flatten();
+                    let action_id = db
+                        .log_bot_action("bot.proactive_intervention", &final_text, None)
+                        .await
+                        .ok()
+                        .flatten();
                     if let Some(kv) = kv {
-                        kv.put(&cooldown_key, "1").map(|p| p.expiration_ttl(60).execute()).ok();
-                        let cnt: u32 = kv.get(&hour_key).text().await.ok().flatten().and_then(|s| s.parse().ok()).unwrap_or(0);
-                        kv.put(&hour_key, &(cnt + 1).to_string()).map(|p| p.expiration_ttl(7200).execute()).ok();
+                        kv.put(&cooldown_key, "1")
+                            .map(|p| p.expiration_ttl(60).execute())
+                            .ok();
+                        let cnt: u32 = kv
+                            .get(&hour_key)
+                            .text()
+                            .await
+                            .ok()
+                            .flatten()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
+                        kv.put(&hour_key, &(cnt + 1).to_string())
+                            .map(|p| p.expiration_ttl(7200).execute())
+                            .ok();
                     }
                     let _ = action_id;
                 }
@@ -311,9 +408,13 @@ Decide: do you have a SPECIFIC, USEFUL, NON-INTRUSIVE thing to say? If yes, repl
     if let Some(signal) = &analysis.feedback.signal {
         if analysis.feedback.confidence >= 0.5 {
             // Try to attribute to a recent action
-            let target = analysis.feedback.target_recent_action.as_ref()
+            let target = analysis
+                .feedback
+                .target_recent_action
+                .as_ref()
                 .and_then(|desc| {
-                    recent_actions.iter()
+                    recent_actions
+                        .iter()
                         .find(|a| a.summary.contains(desc.as_str()) || desc.contains(&a.summary))
                 });
             db.log_quality_signal(
@@ -324,7 +425,9 @@ Decide: do you have a SPECIFIC, USEFUL, NON-INTRUSIVE thing to say? If yes, repl
                 raw_text,
                 analysis.feedback.confidence as f64,
                 &analysis.feedback.reason,
-            ).await.ok();
+            )
+            .await
+            .ok();
         }
     }
 

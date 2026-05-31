@@ -1,16 +1,19 @@
-use worker::*;
+use crate::{d1_rest::D1RestClient, db, handler, provisioning};
+use grumps_agent::db::AgentDb as _;
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
 use grumps_nlu::parser;
-use grumps_agent::db::AgentDb as _;
-use crate::{db, d1_rest::D1RestClient, provisioning, handler};
+use worker::*;
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let discord = build_adapter(&ctx)?;
     let body = req.bytes().await?;
 
     // Discord signature verification (Ed25519 — MVP accepts all, see discord.rs TODO)
-    let signature = req.headers().get("X-Signature-Ed25519")?.unwrap_or_default();
+    let signature = req
+        .headers()
+        .get("X-Signature-Ed25519")?
+        .unwrap_or_default();
     if discord.verify_signature(&body, &signature).is_err() {
         return Response::error("Bad signature", 403);
     }
@@ -23,7 +26,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     // KV dedup
     let kv = ctx.kv("KV")?;
     let key = format!("msg:discord:{}", inbound.message_id);
-    if kv.get(&key).text().await?.is_some() { return Response::ok("ok"); }
+    if kv.get(&key).text().await?.is_some() {
+        return Response::ok("ok");
+    }
     kv.put(&key, "1")?.expiration_ttl(86400).execute().await?;
 
     // Resolve/provision workspace
@@ -32,18 +37,35 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let workspace = match db::lookup_workspace(&index_db, "discord", &inbound.channel_id).await? {
         Some(ws) => ws,
         None => {
-            let (slug, db_id) = provisioning::provision_workspace(&d1_client, &index_db, "discord", &inbound.channel_id).await?;
-            db::WorkspaceMetaRow { slug, d1_database_id: db_id, name: None, plan: "free".into(), locale: "en".into() }
+            let (slug, db_id) = provisioning::provision_workspace(
+                &d1_client,
+                &index_db,
+                "discord",
+                &inbound.channel_id,
+            )
+            .await?;
+            db::WorkspaceMetaRow {
+                slug,
+                d1_database_id: db_id,
+                name: None,
+                plan: "free".into(),
+                locale: "en".into(),
+            }
         }
     };
 
     let ws_db = db::WorkspaceDb::new(&d1_client, workspace.d1_database_id.clone());
-    let (member_id, is_first) = ws_db.upsert_member(&inbound.sender_id, &inbound.sender_name).await?;
+    let (member_id, is_first) = ws_db
+        .upsert_member(&inbound.sender_id, &inbound.sender_name)
+        .await?;
     let role = if is_first { "admin" } else { "member" };
     let _ = db::upsert_index_user(&index_db, &inbound.sender_id, &workspace.slug, role).await;
 
     // Discord adapter already normalizes <@APP_ID> to @grumps in parse_webhook
-    let text = match &inbound.text { Some(t) => t.as_str(), None => return Response::ok("ok") };
+    let text = match &inbound.text {
+        Some(t) => t.as_str(),
+        None => return Response::ok("ok"),
+    };
 
     let is_reply_to_bot = match &inbound.quoted_message_id {
         Some(qid) => ws_db.is_bot_message(qid).await.unwrap_or(false),
@@ -67,9 +89,27 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // Unified ambient classifier (auto-memory + proactive + quality-signal feedback)
     {
-        let auto_memory = ws_db.get_setting("auto_memory").await.ok().flatten().as_deref() == Some("true");
-        let proactive = ws_db.get_setting("proactive_mode").await.ok().flatten().as_deref() == Some("true");
-        let feedback_disabled = ws_db.get_setting("quality_feedback_disabled").await.ok().flatten().as_deref() == Some("true");
+        let auto_memory = ws_db
+            .get_setting("auto_memory")
+            .await
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("true");
+        let proactive = ws_db
+            .get_setting("proactive_mode")
+            .await
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("true");
+        let feedback_disabled = ws_db
+            .get_setting("quality_feedback_disabled")
+            .await
+            .ok()
+            .flatten()
+            .as_deref()
+            == Some("true");
         let modes = grumps_agent::ambient::AmbientModes {
             auto_memory,
             proactive_mode: proactive,
@@ -77,24 +117,64 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         };
         if auto_memory || proactive || !feedback_disabled {
             let upper = text.trim_start().to_uppercase();
-            let is_command = upper.starts_with("TODO:") || upper.starts_with("DONE:") || upper.starts_with("NOTE:") || upper.starts_with("REMIND:");
+            let is_command = upper.starts_with("TODO:")
+                || upper.starts_with("DONE:")
+                || upper.starts_with("NOTE:")
+                || upper.starts_with("REMIND:");
             if !is_command {
                 let members_short = ws_db.get_members().await.unwrap_or_default();
-                let member_names: Vec<String> = members_short.iter().filter_map(|m| m.display_name.clone()).collect();
+                let member_names: Vec<String> = members_short
+                    .iter()
+                    .filter_map(|m| m.display_name.clone())
+                    .collect();
                 let pinned = ws_db.list_pinned_memory().await.unwrap_or_default();
-                let pinned_summary: String = pinned.iter().take(10).map(|m| format!("- {}", m.value)).collect::<Vec<_>>().join("\n");
-                let recent = ws_db.list_recent_bot_actions(1800, 10).await.unwrap_or_default();
-                let analysis = grumps_agent::ambient::analyze_with_telemetry(&ctx.env, &ws_db, Some(&member_id), text, &member_names, &pinned_summary, &recent, &modes).await;
+                let pinned_summary: String = pinned
+                    .iter()
+                    .take(10)
+                    .map(|m| format!("- {}", m.value))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let recent = ws_db
+                    .list_recent_bot_actions(1800, 10)
+                    .await
+                    .unwrap_or_default();
+                let analysis = grumps_agent::ambient::analyze_with_telemetry(
+                    &ctx.env,
+                    &ws_db,
+                    Some(&member_id),
+                    text,
+                    &member_names,
+                    &pinned_summary,
+                    &recent,
+                    &modes,
+                )
+                .await;
                 let sink = crate::agent_sink::WorkerMessagingSink {
                     env: &ctx.env,
                     ws_slug: workspace.slug.clone(),
                 };
-                let _ = grumps_agent::ambient::apply_analysis(&ctx.env, &ws_db, &sink, &workspace.slug, &member_id, text, &analysis, &recent).await;
+                let _ = grumps_agent::ambient::apply_analysis(
+                    &ctx.env,
+                    &ws_db,
+                    &sink,
+                    &workspace.slug,
+                    &member_id,
+                    text,
+                    &analysis,
+                    &recent,
+                )
+                .await;
             }
         }
     }
 
-    let parse_result = parser::parse(text, inbound.is_mention_to_bot, inbound.is_direct_message, is_reply_to_bot, inbound.quoted_message_id.is_some());
+    let parse_result = parser::parse(
+        text,
+        inbound.is_mention_to_bot,
+        inbound.is_direct_message,
+        is_reply_to_bot,
+        inbound.quoted_message_id.is_some(),
+    );
 
     // LLM client (optional)
     let llm = crate::llm_client::LlmClient::from_env(&ctx.env).ok();
@@ -102,21 +182,32 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let result = handler::handle_message(
         Some(&ctx.env),
         text,
-        parse_result, &inbound.message_id,
-        inbound.quoted_message_id.as_deref(), inbound.quoted_message_text.as_deref(),
-        &inbound.sender_name, &ws_db, &member_id, &workspace.slug, &workspace.locale,
-        llm.as_ref(), &workspace.plan,
-    ).await?;
+        parse_result,
+        &inbound.message_id,
+        inbound.quoted_message_id.as_deref(),
+        inbound.quoted_message_text.as_deref(),
+        &inbound.sender_name,
+        &ws_db,
+        &member_id,
+        &workspace.slug,
+        &workspace.locale,
+        llm.as_ref(),
+        &workspace.plan,
+    )
+    .await?;
 
     // Send responses
     for msg in &result.messages {
-        let (url, body) = discord.build_send_request(&inbound.channel_id, msg)
+        let (url, body) = discord
+            .build_send_request(&inbound.channel_id, msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
         let headers = Headers::new();
         headers.set("Content-Type", "application/json")?;
         headers.set("Authorization", &format!("Bot {}", discord.bot_token))?;
         let mut init = RequestInit::new();
-        init.with_method(Method::Post).with_headers(headers).with_body(Some(body.into()));
+        init.with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.into()));
         let req = Request::new_with_init(&url, &init)?;
         let mut resp = Fetch::Request(req).send().await?;
         // Track bot message

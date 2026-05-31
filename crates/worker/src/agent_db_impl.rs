@@ -1,10 +1,13 @@
 //! impl AgentDb for WorkspaceDb.
 //! Bridges the agent's database trait to worker's existing WorkspaceDb methods.
 
-use grumps_agent::db::{AgentDb, MemberShort, LlmCostByModel, LlmLatencyByModel, LlmInvocationCount, LlmErrorEntry, QualitySignalCount};
-use grumps_memory::{MemoryEntry, NewMemoryEntry};
+use grumps_agent::db::{
+    AgentDb, LlmCostByModel, LlmErrorEntry, LlmInvocationCount, LlmLatencyByModel, MemberShort,
+    QualitySignalCount,
+};
 use grumps_calendar::{Event, NewEvent};
-use grumps_scheduler::{NewScheduledAction, ScheduledAction, AgentSession, SessionMessage};
+use grumps_memory::{MemoryEntry, NewMemoryEntry};
+use grumps_scheduler::{AgentSession, NewScheduledAction, ScheduledAction, SessionMessage};
 use worker::Result;
 
 use crate::db::WorkspaceDb;
@@ -25,11 +28,14 @@ impl AgentDb for WorkspaceDb<'_> {
 
     async fn list_active_members(&self) -> Result<Vec<MemberShort>> {
         let rows = self.get_members().await?;
-        Ok(rows.into_iter().map(|r| MemberShort {
-            id: r.id,
-            display_name: r.display_name,
-            role: r.role,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| MemberShort {
+                id: r.id,
+                display_name: r.display_name,
+                role: r.role,
+            })
+            .collect())
     }
 
     async fn create_todo_simple(
@@ -44,16 +50,18 @@ impl AgentDb for WorkspaceDb<'_> {
         let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".into());
         // For deadline, we store it in the todo. WorkspaceDb::insert_todo doesn't take deadline
         // directly — we insert then update the deadline column if present.
-        let (id, _seq) = self.insert_todo(
-            title,
-            priority,
-            &tags_json,
-            "", // assigned_to (member id — we only have name here, leave blank)
-            assignee_name.unwrap_or(""),
-            created_by.unwrap_or(""),
-            "agent",
-            "",
-        ).await?;
+        let (id, _seq) = self
+            .insert_todo(
+                title,
+                priority,
+                &tags_json,
+                "", // assigned_to (member id — we only have name here, leave blank)
+                assignee_name.unwrap_or(""),
+                created_by.unwrap_or(""),
+                "agent",
+                "",
+            )
+            .await?;
 
         // Store deadline if provided.
         if let Some(dl) = deadline {
@@ -74,7 +82,8 @@ impl AgentDb for WorkspaceDb<'_> {
             content,
             "agent",
             created_by.unwrap_or(""),
-        ).await
+        )
+        .await
     }
 
     async fn create_event(&self, e: &NewEvent) -> Result<String> {
@@ -93,10 +102,15 @@ impl AgentDb for WorkspaceDb<'_> {
         target_member: &str,
         created_by: &str,
     ) -> Result<String> {
-        self.insert_reminder(title, remind_at, recurrence, target_member, created_by).await
+        self.insert_reminder(title, remind_at, recurrence, target_member, created_by)
+            .await
     }
 
-    async fn list_reminders_in_range(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+    async fn list_reminders_in_range(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<serde_json::Value>> {
         self.list_reminders_active_in_range(from, to).await
     }
 
@@ -118,9 +132,16 @@ impl AgentDb for WorkspaceDb<'_> {
         Ok(results)
     }
 
-    async fn list_todos_with_deadline(&self, from: &str, to: &str) -> Result<Vec<serde_json::Value>> {
+    async fn list_todos_with_deadline(
+        &self,
+        from: &str,
+        to: &str,
+    ) -> Result<Vec<serde_json::Value>> {
         let rows = self.list_todos_with_deadline_in_range(from, to).await?;
-        Ok(rows.into_iter().map(|t| serde_json::to_value(&t).unwrap_or(serde_json::Value::Null)).collect())
+        Ok(rows
+            .into_iter()
+            .map(|t| serde_json::to_value(&t).unwrap_or(serde_json::Value::Null))
+            .collect())
     }
 
     async fn upsert_agent_session(
@@ -129,18 +150,28 @@ impl AgentDb for WorkspaceDb<'_> {
         messages: &[SessionMessage],
         pending: Option<&serde_json::Value>,
     ) -> Result<String> {
-        self.upsert_agent_session(member_id, messages, pending).await
+        self.upsert_agent_session(member_id, messages, pending)
+            .await
     }
 
     async fn get_active_agent_session(&self, member_id: &str) -> Result<Option<AgentSession>> {
         self.get_active_agent_session(member_id).await
     }
 
-    async fn log_bot_action(&self, kind: &str, summary: &str, target_id: Option<&str>) -> Result<Option<String>> {
+    async fn log_bot_action(
+        &self,
+        kind: &str,
+        summary: &str,
+        target_id: Option<&str>,
+    ) -> Result<Option<String>> {
         self.log_bot_action(kind, summary, target_id).await
     }
 
-    async fn list_recent_bot_actions(&self, max_age_seconds: i64, limit: i64) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
+    async fn list_recent_bot_actions(
+        &self,
+        max_age_seconds: i64,
+        limit: i64,
+    ) -> Result<Vec<grumps_agent::ambient::RecentBotAction>> {
         self.list_recent_bot_actions(max_age_seconds, limit).await
     }
 
@@ -154,11 +185,23 @@ impl AgentDb for WorkspaceDb<'_> {
         confidence: f64,
         reason: &str,
     ) -> Result<()> {
-        self.log_quality_signal(member_id, signal_type, target_activity_id, target_activity_type, raw_text, confidence, reason).await
+        self.log_quality_signal(
+            member_id,
+            signal_type,
+            target_activity_id,
+            target_activity_type,
+            raw_text,
+            confidence,
+            reason,
+        )
+        .await
     }
 
     async fn get_setting(&self, key: &str) -> Result<String> {
-        Ok(self.get_setting(key).await?.unwrap_or_else(|| "free".into()))
+        Ok(self
+            .get_setting(key)
+            .await?
+            .unwrap_or_else(|| "free".into()))
     }
 
     async fn get_int_setting(&self, key: &str) -> Result<i64> {

@@ -4,41 +4,50 @@
 //! Plan A scope : reminder, event_notify, recap.
 //! follow_up + agent_task come in Plan B (require agent loop).
 
-use worker::*;
-use grumps_scheduler::{ScheduledAction, ActionType};
-use crate::db::{WorkspaceDb, get_index_db, lookup_workspace_by_slug, WorkspaceMetaRow};
 use crate::d1_rest::D1RestClient;
+use crate::db::{get_index_db, lookup_workspace_by_slug, WorkspaceDb, WorkspaceMetaRow};
 use grumps_scheduler::recurrence;
+use grumps_scheduler::{ActionType, ScheduledAction};
+use worker::*;
 
 pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) -> Result<()> {
     let index = get_index_db(env)?;
-    let ws = lookup_workspace_by_slug(&index, ws_slug).await?
+    let ws = lookup_workspace_by_slug(&index, ws_slug)
+        .await?
         .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
     // Evaluate condition if present
     if let Some(cond_value) = &action.condition {
-        let condition: grumps_scheduler::Condition = match serde_json::from_value(cond_value.clone()) {
-            Ok(c) => c,
-            Err(e) => {
-                console_log!("execute_action: bad condition JSON for {}: {e}, treating as fail-open (true)", action.id);
-                // Bad JSON — mark failed and bail
-                db.mark_action_failed(&action.id, &format!("bad condition JSON: {e}")).await?;
-                return Ok(());
-            }
-        };
+        let condition: grumps_scheduler::Condition =
+            match serde_json::from_value(cond_value.clone()) {
+                Ok(c) => c,
+                Err(e) => {
+                    console_log!(
+                    "execute_action: bad condition JSON for {}: {e}, treating as fail-open (true)",
+                    action.id
+                );
+                    // Bad JSON — mark failed and bail
+                    db.mark_action_failed(&action.id, &format!("bad condition JSON: {e}"))
+                        .await?;
+                    return Ok(());
+                }
+            };
         let ctx = WorkerConditionContext { db: &db };
         if !grumps_scheduler::evaluate(&condition, &ctx) {
             // Condition not met — reschedule for later check or give up after 7d
-            let recheck_in = action.payload.get("recheck_in_seconds")
+            let recheck_in = action
+                .payload
+                .get("recheck_in_seconds")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(3600);
             let next = action.trigger_at + chrono::Duration::seconds(recheck_in);
             let give_up_at = action.created_at + chrono::Duration::days(7);
             if next > give_up_at {
                 console_log!("condition give-up for {}: 7d elapsed", action.id);
-                db.mark_action_failed(&action.id, "condition never met within 7d").await?;
+                db.mark_action_failed(&action.id, "condition never met within 7d")
+                    .await?;
             } else {
                 console_log!("condition not met for {}, recheck at {next}", action.id);
                 db.reschedule_action(&action.id, &next.to_rfc3339()).await?;
@@ -52,10 +61,14 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
         ActionType::Recap => execute_recap(env, &ws, &db, action).await,
         ActionType::FollowUp | ActionType::AgentTask => {
-            let instruction = action.payload.get("instruction")
+            let instruction = action
+                .payload
+                .get("instruction")
                 .and_then(|v| v.as_str())
                 .unwrap_or_else(|| {
-                    action.payload.get("prompt")
+                    action
+                        .payload
+                        .get("prompt")
                         .and_then(|v| v.as_str())
                         .unwrap_or(&action.title)
                 })
@@ -66,7 +79,12 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 ws_slug: ws_slug.to_string(),
             };
 
-            let language = db.get_setting("default_locale").await.ok().flatten().unwrap_or_else(|| "en".to_string());
+            let language = db
+                .get_setting("default_locale")
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "en".to_string());
             let ctx = grumps_agent::tools::ToolContext {
                 env,
                 workspace_slug: ws_slug,
@@ -115,33 +133,68 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     Ok(())
 }
 
-async fn execute_reminder(env: &Env, ws: &WorkspaceMetaRow, action: &ScheduledAction) -> Result<()> {
-    let text = action.payload.get("text").and_then(|v| v.as_str()).unwrap_or(&action.title);
+async fn execute_reminder(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    action: &ScheduledAction,
+) -> Result<()> {
+    let text = action
+        .payload
+        .get("text")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&action.title);
     let body = format!("⏰ Rappel : {text}");
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_event_notify(env: &Env, ws: &WorkspaceMetaRow, db: &WorkspaceDb<'_>, action: &ScheduledAction) -> Result<()> {
-    let event_id = action.payload.get("event_id").and_then(|v| v.as_str())
+async fn execute_event_notify(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
+    action: &ScheduledAction,
+) -> Result<()> {
+    let event_id = action
+        .payload
+        .get("event_id")
+        .and_then(|v| v.as_str())
         .ok_or_else(|| Error::RustError("event_notify missing event_id".into()))?;
-    let lead = action.payload.get("lead_minutes").and_then(|v| v.as_i64()).unwrap_or(15);
-    let event = db.get_event(event_id).await?
+    let lead = action
+        .payload
+        .get("lead_minutes")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(15);
+    let event = db
+        .get_event(event_id)
+        .await?
         .ok_or_else(|| Error::RustError(format!("event not found: {event_id}")))?;
-    let body = format!("📅 Dans {lead}min : {} ({})", event.title,
-        event.location.as_deref().unwrap_or("lieu non précisé"));
+    let body = format!(
+        "📅 Dans {lead}min : {} ({})",
+        event.title,
+        event.location.as_deref().unwrap_or("lieu non précisé")
+    );
     send_to_group(env, ws, &body).await
 }
 
-async fn execute_recap(env: &Env, ws: &WorkspaceMetaRow, _db: &WorkspaceDb<'_>, _action: &ScheduledAction) -> Result<()> {
+async fn execute_recap(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    _db: &WorkspaceDb<'_>,
+    _action: &ScheduledAction,
+) -> Result<()> {
     // Reuse existing recap logic from worker/src/cron.rs if it exists.
     // For Plan A, we send a placeholder recap. Plan B will integrate real LLM-generated recap.
-    let body = "📋 Recap hebdomadaire — placeholder (Plan B improves this with LLM-generated content).".to_string();
+    let body =
+        "📋 Recap hebdomadaire — placeholder (Plan B improves this with LLM-generated content)."
+            .to_string();
     send_to_group(env, ws, &body).await
 }
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
     use grumps_messaging::adapter::OutboundMessage;
-    let out = OutboundMessage { text: body.to_string(), reply_to: None };
+    let out = OutboundMessage {
+        text: body.to_string(),
+        reply_to: None,
+    };
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }
 
@@ -154,7 +207,11 @@ struct WorkerConditionContext<'a> {
 }
 
 impl<'a> grumps_scheduler::ConditionContext for WorkerConditionContext<'a> {
-    fn count_messages_matching(&self, _since: chrono::DateTime<chrono::Utc>, _keywords: &[String]) -> i64 {
+    fn count_messages_matching(
+        &self,
+        _since: chrono::DateTime<chrono::Utc>,
+        _keywords: &[String],
+    ) -> i64 {
         // V1 stub: no chat-message table in D1 (RAG lives in Vectorize).
         // Return 0 → conservative (NoMessageMatching fires when count < min, so 0 → fires).
         0

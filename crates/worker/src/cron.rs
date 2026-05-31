@@ -1,8 +1,8 @@
 // crates/worker/src/cron.rs
-use worker::*;
+use crate::{d1_rest::D1RestClient, db};
 use chrono::Datelike;
-use crate::{db, d1_rest::D1RestClient};
 use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use worker::*;
 
 /// Called by Cloudflare Cron Trigger. Iterates over all workspaces, fires due reminders and recaps.
 pub async fn handle_cron(env: &Env) -> Result<()> {
@@ -36,7 +36,10 @@ pub async fn handle_cron(env: &Env) -> Result<()> {
                 .unwrap_or_default();
             let msg_text = format!("\u{23f0} Reminder: {}{}", target_text, reminder.title);
 
-            let msg = OutboundMessage { text: msg_text, reply_to: None };
+            let msg = OutboundMessage {
+                text: msg_text,
+                reply_to: None,
+            };
             let (url, body) = wa
                 .build_send_request(&ws.platform_channel_id, &msg)
                 .map_err(|e| Error::RustError(format!("{:?}", e)))?;
@@ -56,11 +59,7 @@ pub async fn handle_cron(env: &Env) -> Result<()> {
                 .fire_reminder(&reminder.id, reminder.recurrence.as_deref())
                 .await?;
 
-            console_log!(
-                "Fired reminder {} in workspace {}",
-                reminder.id,
-                ws.slug
-            );
+            console_log!("Fired reminder {} in workspace {}", reminder.id, ws.slug);
         }
     }
 
@@ -106,21 +105,36 @@ async fn check_and_send_recaps(
             Ok(Some(v)) => v == "true",
             _ => true,
         };
-        if !enabled { continue; }
+        if !enabled {
+            continue;
+        }
 
         // KV dedup: at most one recap per day per workspace
         let recap_key = format!("recap:{}:{}", ws.slug, Utc::now().format("%Y-%m-%d"));
-        if kv.get(&recap_key).text().await?.is_some() { continue; }
+        if kv.get(&recap_key).text().await?.is_some() {
+            continue;
+        }
 
         // Get recap data
         let data = ws_db.get_recap_data().await?;
 
         // Only send if there's something to report
-        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 { continue; }
+        if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+            continue;
+        }
 
         // Format message
-        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data.high_priority.iter()
-            .map(|t| (t.seq_num, t.title.clone(), t.assigned_name.clone(), t.deadline.clone()))
+        let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
+            .high_priority
+            .iter()
+            .map(|t| {
+                (
+                    t.seq_num,
+                    t.title.clone(),
+                    t.assigned_name.clone(),
+                    t.deadline.clone(),
+                )
+            })
             .collect();
         let text = grumps_messaging::formatter::recap_message(
             &ws.slug,
@@ -134,7 +148,10 @@ async fn check_and_send_recaps(
         );
 
         // Send to WhatsApp group
-        let msg = OutboundMessage { text, reply_to: None };
+        let msg = OutboundMessage {
+            text,
+            reply_to: None,
+        };
         let (url, body) = wa
             .build_send_request(&ws.platform_channel_id, &msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
@@ -151,7 +168,10 @@ async fn check_and_send_recaps(
         let _ = Fetch::Request(req).send().await;
 
         // Mark as sent (expires after 24h)
-        kv.put(&recap_key, "1")?.expiration_ttl(86400).execute().await?;
+        kv.put(&recap_key, "1")?
+            .expiration_ttl(86400)
+            .execute()
+            .await?;
         console_log!("Sent recap for workspace {}", ws.slug);
     }
 

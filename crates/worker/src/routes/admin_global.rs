@@ -1,10 +1,10 @@
 //! Cross-workspace aggregated endpoints (super admin only).
 
-use worker::*;
-use serde::Serialize;
-use crate::middleware::{self, is_super_admin};
-use crate::db::{get_index_db, WorkspaceDb};
 use crate::d1_rest::D1RestClient;
+use crate::db::{get_index_db, WorkspaceDb};
+use crate::middleware::{self, is_super_admin};
+use serde::Serialize;
+use worker::*;
 
 #[derive(Serialize)]
 pub struct GlobalObservability {
@@ -73,16 +73,25 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
     let client = D1RestClient::from_env(&ctx.env)?;
 
     #[derive(serde::Deserialize)]
-    struct WsRow { slug: String, name: Option<String>, plan: String, d1_database_id: String }
+    struct WsRow {
+        slug: String,
+        name: Option<String>,
+        plan: String,
+        d1_database_id: String,
+    }
 
-    let workspaces: Vec<WsRow> = index.prepare(
-        "SELECT slug, name, plan, d1_database_id FROM workspaces_meta"
-    ).bind(&[])?.all().await?.results()?;
+    let workspaces: Vec<WsRow> = index
+        .prepare("SELECT slug, name, plan, d1_database_id FROM workspaces_meta")
+        .bind(&[])?
+        .all()
+        .await?
+        .results()?;
 
     let mut total_cost = 0f64;
     let mut total_calls = 0i64;
     let mut by_workspace: Vec<WorkspaceStats> = vec![];
-    let mut cost_by_model_map: std::collections::HashMap<(String, String), (f64, i64)> = std::collections::HashMap::new();
+    let mut cost_by_model_map: std::collections::HashMap<(String, String), (f64, i64)> =
+        std::collections::HashMap::new();
     let mut all_errors: Vec<GlobalError> = vec![];
     let mut all_signals: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
 
@@ -96,7 +105,9 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
         for c in &costs {
             ws_cost += c.cost_usd;
             ws_calls += c.call_count;
-            let entry = cost_by_model_map.entry((c.provider.clone(), c.model.clone())).or_insert((0.0, 0));
+            let entry = cost_by_model_map
+                .entry((c.provider.clone(), c.model.clone()))
+                .or_insert((0.0, 0));
             entry.0 += c.cost_usd;
             entry.1 += c.call_count;
         }
@@ -109,10 +120,16 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
         let mut total_sig = 0i64;
         for s in &signals {
             total_sig += s.count;
-            if s.signal_type == "praise" || s.signal_type == "thanks" { praise += s.count; }
+            if s.signal_type == "praise" || s.signal_type == "thanks" {
+                praise += s.count;
+            }
             *all_signals.entry(s.signal_type.clone()).or_insert(0) += s.count;
         }
-        let q_score = if total_sig > 0 { praise as f64 / total_sig as f64 } else { 1.0 };
+        let q_score = if total_sig > 0 {
+            praise as f64 / total_sig as f64
+        } else {
+            1.0
+        };
 
         by_workspace.push(WorkspaceStats {
             slug: ws.slug.clone(),
@@ -137,16 +154,31 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
     }
 
     // Sort + truncate
-    by_workspace.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+    by_workspace.sort_by(|a, b| {
+        b.cost_usd
+            .partial_cmp(&a.cost_usd)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     all_errors.sort_by(|a, b| b.created_at.cmp(&a.created_at));
     all_errors.truncate(20);
 
-    let mut cost_by_model: Vec<ModelCostAgg> = cost_by_model_map.into_iter()
-        .map(|((provider, model), (cost_usd, call_count))| ModelCostAgg { provider, model, cost_usd, call_count })
+    let mut cost_by_model: Vec<ModelCostAgg> = cost_by_model_map
+        .into_iter()
+        .map(|((provider, model), (cost_usd, call_count))| ModelCostAgg {
+            provider,
+            model,
+            cost_usd,
+            call_count,
+        })
         .collect();
-    cost_by_model.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+    cost_by_model.sort_by(|a, b| {
+        b.cost_usd
+            .partial_cmp(&a.cost_usd)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
-    let quality_signals: Vec<grumps_agent::db::QualitySignalCount> = all_signals.into_iter()
+    let quality_signals: Vec<grumps_agent::db::QualitySignalCount> = all_signals
+        .into_iter()
         .map(|(signal_type, count)| grumps_agent::db::QualitySignalCount { signal_type, count })
         .collect();
 
@@ -164,7 +196,9 @@ pub async fn observability(req: Request, ctx: RouteContext<()>) -> Result<Respon
     let json = serde_json::to_string(&payload).map_err(|e| Error::RustError(e.to_string()))?;
 
     if let Some(ref kv) = kv {
-        let _ = kv.put(cache_key, &json).map(|p| p.expiration_ttl(300).execute());
+        let _ = kv
+            .put(cache_key, &json)
+            .map(|p| p.expiration_ttl(300).execute());
     }
 
     let mut resp = Response::ok(json)?;
@@ -202,14 +236,28 @@ pub async fn force_fire_scheduled(req: Request, ctx: RouteContext<()>) -> Result
     let index_db = get_index_db(&ctx.env)?;
     let ws = match crate::db::lookup_workspace_by_slug(&index_db, &slug).await? {
         Some(w) => w,
-        None => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        None => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
 
     let client = D1RestClient::from_env(&ctx.env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
     let action = match db.get_scheduled_action(&id).await? {
         Some(a) => a,
-        None => return middleware::error_with_cors(&req, 404, "scheduled.not_found", "action not found"),
+        None => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "scheduled.not_found",
+                "action not found",
+            )
+        }
     };
 
     if let Err(e) = crate::scheduler_executor::execute_action(&ctx.env, &slug, &action).await {

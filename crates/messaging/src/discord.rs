@@ -12,17 +12,23 @@ use std::collections::HashMap;
 pub struct DiscordAdapter {
     pub bot_token: String,
     pub application_id: String,
-    pub public_key: String,  // For signature verification
+    pub public_key: String, // For signature verification
 }
 
 impl DiscordAdapter {
     pub fn new(bot_token: String, application_id: String, public_key: String) -> Self {
-        Self { bot_token, application_id, public_key }
+        Self {
+            bot_token,
+            application_id,
+            public_key,
+        }
     }
 }
 
 impl MessagingPlatform for DiscordAdapter {
-    fn platform_id(&self) -> &str { "discord" }
+    fn platform_id(&self) -> &str {
+        "discord"
+    }
 
     fn verify_signature(&self, _payload: &[u8], _signature: &str) -> Result<(), MessagingError> {
         // Discord uses Ed25519 signatures. Full verification requires ed25519-dalek crate.
@@ -49,19 +55,24 @@ impl MessagingPlatform for DiscordAdapter {
         };
 
         let text = msg.content.clone();
-        let sender_name = msg.author.as_ref()
+        let sender_name = msg
+            .author
+            .as_ref()
             .map(|a| a.username.clone())
             .unwrap_or("Unknown".into());
-        let sender_id = msg.author.as_ref()
+        let sender_id = msg
+            .author
+            .as_ref()
             .map(|a| a.id.clone())
             .unwrap_or_default();
 
         // Check if bot is mentioned
         let bot_mention = format!("<@{}>", self.application_id);
         let bot_mention_bang = format!("<@!{}>", self.application_id);
-        let is_mention = text.as_ref().map(|t| {
-            t.contains(&bot_mention) || t.contains(&bot_mention_bang)
-        }).unwrap_or(false);
+        let is_mention = text
+            .as_ref()
+            .map(|t| t.contains(&bot_mention) || t.contains(&bot_mention_bang))
+            .unwrap_or(false);
 
         // Check if this is a DM (guild_id is None for DMs)
         let is_dm = msg.guild_id.is_none();
@@ -70,7 +81,9 @@ impl MessagingPlatform for DiscordAdapter {
         let channel_id = msg.channel_id.clone().unwrap_or_default();
 
         // Check for reply
-        let (quoted_id, quoted_text) = msg.referenced_message.as_ref()
+        let (quoted_id, quoted_text) = msg
+            .referenced_message
+            .as_ref()
             .map(|r| (Some(r.id.clone()), r.content.clone()))
             .unwrap_or((None, None));
 
@@ -79,7 +92,7 @@ impl MessagingPlatform for DiscordAdapter {
         // Strip mention tags from text
         let clean_text = text.map(|t| {
             t.replace(&bot_mention, "@grumps")
-             .replace(&bot_mention_bang, "@grumps")
+                .replace(&bot_mention_bang, "@grumps")
         });
 
         Ok(Some(InboundMessage {
@@ -97,8 +110,15 @@ impl MessagingPlatform for DiscordAdapter {
         }))
     }
 
-    fn build_send_request(&self, channel_id: &str, message: &OutboundMessage) -> Result<(String, String), MessagingError> {
-        let url = format!("https://discord.com/api/v10/channels/{}/messages", channel_id);
+    fn build_send_request(
+        &self,
+        channel_id: &str,
+        message: &OutboundMessage,
+    ) -> Result<(String, String), MessagingError> {
+        let url = format!(
+            "https://discord.com/api/v10/channels/{}/messages",
+            channel_id
+        );
         let mut body = serde_json::json!({
             "content": message.text
         });
@@ -110,9 +130,14 @@ impl MessagingPlatform for DiscordAdapter {
         Ok((url, body.to_string()))
     }
 
-    fn handle_verification_challenge(&self, _params: &HashMap<String, String>) -> Result<String, MessagingError> {
+    fn handle_verification_challenge(
+        &self,
+        _params: &HashMap<String, String>,
+    ) -> Result<String, MessagingError> {
         // Discord doesn't use URL verification — it uses interaction endpoint verification
-        Err(MessagingError::VerificationFailed("Use Discord interaction verification".into()))
+        Err(MessagingError::VerificationFailed(
+            "Use Discord interaction verification".into(),
+        ))
     }
 }
 
@@ -164,7 +189,10 @@ mod tests {
                 "author": {"id": "user1", "username": "Alice"}
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert_eq!(msg.platform, "discord");
         assert!(msg.is_mention_to_bot);
         assert!(!msg.is_direct_message);
@@ -182,7 +210,10 @@ mod tests {
                 "author": {"id": "user1", "username": "Bob"}
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert!(msg.is_direct_message);
         assert!(msg.is_mention_to_bot);
     }
@@ -198,7 +229,10 @@ mod tests {
                 "referenced_message": {"id": "bot_msg_1", "content": "Task #1"}
             }
         });
-        let msg = adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().unwrap();
+        let msg = adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .unwrap();
         assert_eq!(msg.quoted_message_id, Some("bot_msg_1".into()));
         assert_eq!(msg.quoted_message_text, Some("Task #1".into()));
     }
@@ -206,12 +240,18 @@ mod tests {
     #[test]
     fn parse_ping() {
         let payload = serde_json::json!({"op": 10, "t": "PING"});
-        assert!(adapter().parse_webhook(&serde_json::to_vec(&payload).unwrap()).unwrap().is_none());
+        assert!(adapter()
+            .parse_webhook(&serde_json::to_vec(&payload).unwrap())
+            .unwrap()
+            .is_none());
     }
 
     #[test]
     fn build_send_request() {
-        let msg = OutboundMessage { text: "Hello".into(), reply_to: None };
+        let msg = OutboundMessage {
+            text: "Hello".into(),
+            reply_to: None,
+        };
         let (url, body) = adapter().build_send_request("ch1", &msg).unwrap();
         assert!(url.contains("ch1"));
         assert!(body.contains("Hello"));
@@ -219,7 +259,10 @@ mod tests {
 
     #[test]
     fn build_send_with_reply() {
-        let msg = OutboundMessage { text: "Done.".into(), reply_to: Some("msg42".into()) };
+        let msg = OutboundMessage {
+            text: "Done.".into(),
+            reply_to: Some("msg42".into()),
+        };
         let (_, body) = adapter().build_send_request("ch1", &msg).unwrap();
         assert!(body.contains("message_reference"));
         assert!(body.contains("msg42"));

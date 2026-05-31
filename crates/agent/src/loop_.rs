@@ -1,13 +1,13 @@
 //! The Sonnet agent loop : tool use, multi-turn, max 5 iterations.
 //! See spec § 8.3.
 
-use worker::*;
-use serde::Serialize;
-use grumps_i18n::{t, Locale};
-use grumps_core::billing::Plan;
 use crate::llm::anthropic::{self, AnthropicRequest, ContentBlock, Message};
+use crate::prompt::{self, MemberShort, PromptContext};
 use crate::tools::{self, ToolContext};
-use crate::prompt::{self, PromptContext, MemberShort};
+use grumps_core::billing::Plan;
+use grumps_i18n::{t, Locale};
+use serde::Serialize;
+use worker::*;
 
 const MAX_TURNS: u32 = 5;
 const MAX_TOKENS_PER_INVOCATION: u32 = 50_000;
@@ -21,16 +21,31 @@ pub struct LoopResult {
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
     // Check quota before doing anything
-    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx
+        .db
+        .get_setting("plan")
+        .await
+        .unwrap_or_else(|_| "free".into());
     let plan = Plan::from_str(&plan_str);
-    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let used = ctx
+        .db
+        .get_int_setting("agent_quota_used_month")
+        .await
+        .unwrap_or(0);
     let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
-        let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
+        let msg = t(
+            locale,
+            "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())],
+        );
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+        return Ok(LoopResult {
+            final_text: Some(msg),
+            turns: 0,
+            total_tokens: 0,
+        });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -38,7 +53,12 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
     let tools_json = tools::schemas::all_tools();
 
     // Load any existing session for this member
-    let existing = ctx.db.get_active_agent_session(ctx.member_id).await.ok().flatten();
+    let existing = ctx
+        .db
+        .get_active_agent_session(ctx.member_id)
+        .await
+        .ok()
+        .flatten();
     let mut messages: Vec<Message> = existing
         .map(|s| s.messages.iter().map(session_msg_to_anthropic).collect())
         .unwrap_or_default();
@@ -60,10 +80,21 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
             ..Default::default()
         };
 
-        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_react", Some(ctx.member_id), None, &req).await?;
-        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
-        total_tokens = total_tokens
-            .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
+        let resp = anthropic::call_with_telemetry(
+            ctx.env,
+            ctx.db,
+            "agent_react",
+            Some(ctx.member_id),
+            None,
+            &req,
+        )
+        .await?;
+        ctx.db
+            .increment_int_setting("agent_quota_used_month", 1)
+            .await
+            .ok();
+        total_tokens =
+            total_tokens.saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
         // Extract tool_use blocks and final text
         let mut tool_uses: Vec<(String, String, serde_json::Value)> = vec![];
@@ -82,10 +113,8 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         }
 
         // Always append the assistant's full content as the next history entry
-        let assistant_content_array: Vec<serde_json::Value> = resp.content
-            .iter()
-            .map(content_block_to_json)
-            .collect();
+        let assistant_content_array: Vec<serde_json::Value> =
+            resp.content.iter().map(content_block_to_json).collect();
         messages.push(Message {
             role: "assistant".into(),
             content: serde_json::Value::Array(assistant_content_array),
@@ -144,16 +173,31 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
 /// One-shot variant for autonomous runs (scheduled actions). No session persistence.
 pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<LoopResult> {
     // Check quota
-    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx
+        .db
+        .get_setting("plan")
+        .await
+        .unwrap_or_else(|_| "free".into());
     let plan = Plan::from_str(&plan_str);
-    let used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0);
+    let used = ctx
+        .db
+        .get_int_setting("agent_quota_used_month")
+        .await
+        .unwrap_or(0);
     let limit = i64::from(plan.agent_call_quota());
     if used >= limit {
         let locale = Locale::from_code(&ctx.language);
-        let msg = t(locale, "agent.quota_exceeded",
-            &[("limit", &limit.to_string()), ("plan", plan.as_str())]);
+        let msg = t(
+            locale,
+            "agent.quota_exceeded",
+            &[("limit", &limit.to_string()), ("plan", plan.as_str())],
+        );
         ctx.sink.send(&msg).await.ok();
-        return Ok(LoopResult { final_text: Some(msg), turns: 0, total_tokens: 0 });
+        return Ok(LoopResult {
+            final_text: Some(msg),
+            turns: 0,
+            total_tokens: 0,
+        });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
@@ -175,10 +219,21 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             tools: tools_json.clone(),
             ..Default::default()
         };
-        let resp = anthropic::call_with_telemetry(ctx.env, ctx.db, "agent_oneshot", Some(ctx.member_id), None, &req).await?;
-        ctx.db.increment_int_setting("agent_quota_used_month", 1).await.ok();
-        total_tokens = total_tokens
-            .saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
+        let resp = anthropic::call_with_telemetry(
+            ctx.env,
+            ctx.db,
+            "agent_oneshot",
+            Some(ctx.member_id),
+            None,
+            &req,
+        )
+        .await?;
+        ctx.db
+            .increment_int_setting("agent_quota_used_month", 1)
+            .await
+            .ok();
+        total_tokens =
+            total_tokens.saturating_add(resp.usage.input_tokens + resp.usage.output_tokens);
 
         let mut tool_uses: Vec<(String, String, serde_json::Value)> = vec![];
         let mut text_pieces: Vec<String> = vec![];
@@ -194,10 +249,8 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             last_text = Some(text_pieces.join("\n"));
         }
 
-        let assistant_content_array: Vec<serde_json::Value> = resp.content
-            .iter()
-            .map(content_block_to_json)
-            .collect();
+        let assistant_content_array: Vec<serde_json::Value> =
+            resp.content.iter().map(content_block_to_json).collect();
         messages.push(Message {
             role: "assistant".into(),
             content: serde_json::Value::Array(assistant_content_array),
@@ -257,28 +310,40 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     let now = chrono::Utc::now().to_rfc3339();
 
     // Quota : read from DB, derive from plan
-    let plan_str = ctx.db.get_setting("plan").await.unwrap_or_else(|_| "free".into());
+    let plan_str = ctx
+        .db
+        .get_setting("plan")
+        .await
+        .unwrap_or_else(|_| "free".into());
     let plan = Plan::from_str(&plan_str);
-    let agent_calls_used = ctx.db.get_int_setting("agent_quota_used_month").await.unwrap_or(0) as u32;
+    let agent_calls_used = ctx
+        .db
+        .get_int_setting("agent_quota_used_month")
+        .await
+        .unwrap_or(0) as u32;
     let agent_quota = plan.agent_call_quota();
     let agent_remaining = agent_quota.saturating_sub(agent_calls_used);
 
-    let web_used = ctx.db.get_int_setting("web_search_quota_used_month").await.unwrap_or(0) as u32;
+    let web_used = ctx
+        .db
+        .get_int_setting("web_search_quota_used_month")
+        .await
+        .unwrap_or(0) as u32;
     let web_quota = plan.web_search_quota();
     let web_remaining = web_quota.saturating_sub(web_used);
 
     Ok(PromptContext {
-        workspace_name: ctx.workspace_slug.to_string(),       // Plan C will fetch the real name
-        platform: "telegram".to_string(),                      // Plan C : look up from index DB
+        workspace_name: ctx.workspace_slug.to_string(), // Plan C will fetch the real name
+        platform: "telegram".to_string(),               // Plan C : look up from index DB
         member_count: members.len(),
-        persona: "default".to_string(),                        // Plan C : read from settings
+        persona: "default".to_string(), // Plan C : read from settings
         language: ctx.language.clone(),
         pinned_memories: pinned,
         members,
         now_local: now,
-        timezone: "UTC".to_string(),                           // Plan C : read from settings
-        proactive_mode: false,                                 // Plan C : read from settings
-        auto_memory: false,                                    // Plan C : read from settings
+        timezone: "UTC".to_string(), // Plan C : read from settings
+        proactive_mode: false,       // Plan C : read from settings
+        auto_memory: false,          // Plan C : read from settings
         agent_calls_remaining: agent_remaining,
         agent_calls_quota: agent_quota,
         web_search_remaining: web_remaining,

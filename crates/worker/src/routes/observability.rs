@@ -1,17 +1,20 @@
 //! Observability endpoint — aggregated LLM telemetry for admin dashboard.
 //! GET /api/w/:slug/admin/observability
 
-use worker::*;
-use serde::Serialize;
-use crate::{db, middleware, d1_rest};
+use crate::{d1_rest, db, middleware};
 use grumps_agent::db::AgentDb;
+use serde::Serialize;
+use worker::*;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx.param("slug").ok_or_else(|| Error::RustError("missing slug".into()))?;
+    let slug = ctx
+        .param("slug")
+        .ok_or_else(|| Error::RustError("missing slug".into()))?;
     let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug).await?
+    db::lookup_workspace_by_slug(&index_db, slug)
+        .await?
         .ok_or_else(|| Error::RustError("workspace not found".into()))
 }
 
@@ -51,10 +54,22 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
     };
     let ws = match resolve_workspace(&ctx).await {
         Ok(w) => w,
-        Err(_) => return middleware::error_with_cors(&req, 404, "workspace.not_found", "workspace not found"),
+        Err(_) => {
+            return middleware::error_with_cors(
+                &req,
+                404,
+                "workspace.not_found",
+                "workspace not found",
+            )
+        }
     };
     if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(&req, 403, "auth.not_member", "not a member of this workspace");
+        return middleware::error_with_cors(
+            &req,
+            403,
+            "auth.not_member",
+            "not a member of this workspace",
+        );
     }
 
     // Super admin only
@@ -67,10 +82,19 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
 
     // Run all aggregation queries concurrently (not true parallelism on WASM but at least sequential)
     let cost_by_model = ws_db.aggregate_llm_costs_30d().await.unwrap_or_default();
-    let latency_by_model = ws_db.aggregate_llm_latency_by_model().await.unwrap_or_default();
-    let invocation_types = ws_db.aggregate_llm_invocation_types().await.unwrap_or_default();
+    let latency_by_model = ws_db
+        .aggregate_llm_latency_by_model()
+        .await
+        .unwrap_or_default();
+    let invocation_types = ws_db
+        .aggregate_llm_invocation_types()
+        .await
+        .unwrap_or_default();
     let recent_errors = ws_db.list_recent_llm_errors(20).await.unwrap_or_default();
-    let quality_signals = ws_db.aggregate_quality_signals_30d().await.unwrap_or_default();
+    let quality_signals = ws_db
+        .aggregate_quality_signals_30d()
+        .await
+        .unwrap_or_default();
 
     // Derived totals
     let total_cost_usd: f64 = cost_by_model.iter().map(|c| c.cost_usd).sum();
@@ -81,17 +105,31 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
 
     // Quality score: (praise + thanks) / total signals
     let count_signal = |name: &str| -> i64 {
-        quality_signals.iter().find(|s| s.signal_type == name).map(|s| s.count).unwrap_or(0)
+        quality_signals
+            .iter()
+            .find(|s| s.signal_type == name)
+            .map(|s| s.count)
+            .unwrap_or(0)
     };
     let positive = count_signal("praise") + count_signal("thanks");
     let total_signals: i64 = quality_signals.iter().map(|s| s.count).sum();
-    let quality_score = if total_signals > 0 { positive as f64 / total_signals as f64 } else { 1.0 };
+    let quality_score = if total_signals > 0 {
+        positive as f64 / total_signals as f64
+    } else {
+        1.0
+    };
 
     // Cascade efficiency
-    let classifier_resolved = invocation_types.iter().find(|i| i.invocation_type == "classify").map(|i| i.count).unwrap_or(0);
-    let sonnet_escalated = invocation_types.iter()
+    let classifier_resolved = invocation_types
+        .iter()
+        .find(|i| i.invocation_type == "classify")
+        .map(|i| i.count)
+        .unwrap_or(0);
+    let sonnet_escalated = invocation_types
+        .iter()
         .filter(|i| i.invocation_type == "agent_react" || i.invocation_type == "agent_oneshot")
-        .map(|i| i.count).sum::<i64>();
+        .map(|i| i.count)
+        .sum::<i64>();
     // Savings estimate: each classify call saved ~(3.0 input + 15.0 output) * avg_tokens vs gemini (0.15+0.60)
     // Use a rough per-call delta of $0.002 (typical 500-token interaction on Sonnet vs Gemini Flash)
     let saved_usd = (classifier_resolved as f64) * 0.002;
