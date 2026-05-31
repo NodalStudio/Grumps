@@ -33,10 +33,7 @@ pub trait MessagingSink {
     /// platform supports buttons; otherwise the default sends plain text and
     /// returns `None`. Platforms without inline buttons (WhatsApp/Discord today)
     /// inherit the default.
-    async fn send_with_buttons(&self, text: &str, _buttons: &[ProposalButton]) -> Result<Option<String>> {
-        self.send(text).await?;
-        Ok(None)
-    }
+    async fn send_with_buttons(&self, text: &str, buttons: &[ProposalButton]) -> Result<Option<String>>;
 }
 
 pub async fn route_message<'a>(
