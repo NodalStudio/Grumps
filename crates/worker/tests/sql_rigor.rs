@@ -8,13 +8,17 @@ use rusqlite::Connection;
 
 fn conn() -> Connection {
     let c = Connection::open_in_memory().unwrap();
-    // todos / reminders / settings live in 0001; events in 0003.
+    // todos / settings live in 0001; events in 0003; scheduled_actions in 0004.
     c.execute_batch(include_str!("../../../migrations/workspace/0001_init.sql"))
         .expect("apply 0001_init");
     c.execute_batch(include_str!(
         "../../../migrations/workspace/0003_calendar.sql"
     ))
     .expect("apply 0003_calendar");
+    c.execute_batch(include_str!(
+        "../../../migrations/workspace/0004_scheduling.sql"
+    ))
+    .expect("apply 0004_scheduling");
     c
 }
 
@@ -69,17 +73,18 @@ fn event_all_day_and_timed_both_in_range() {
 }
 
 #[test]
-fn reminder_due_comparison_survives_t_vs_space() {
+fn scheduled_due_comparison_survives_t_vs_space() {
     let c = conn();
-    // remind_at is RFC3339 with 'T'/'Z'; a raw string `<=` against datetime('now')
+    // trigger_at is RFC3339 with 'T'/'Z'; a raw string `<=` against datetime('now')
     // (which has a space, no 'T') would break — datetime() normalizes both sides.
-    c.execute("INSERT INTO reminders (id, title, remind_at) VALUES ('r1', 'past', '2000-01-01T00:00:00Z')", []).unwrap();
-    c.execute("INSERT INTO reminders (id, title, remind_at) VALUES ('r2', 'future', '2999-01-01T00:00:00Z')", []).unwrap();
+    // Reminders now live here as scheduled_actions (action_type='reminder').
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, payload) VALUES ('s1', 'reminder', 'past', '2000-01-01T00:00:00Z', '{}')", []).unwrap();
+    c.execute("INSERT INTO scheduled_actions (id, action_type, title, trigger_at, payload) VALUES ('s2', 'reminder', 'future', '2999-01-01T00:00:00Z', '{}')", []).unwrap();
 
     let due = count(&c,
-        "SELECT COUNT(*) FROM reminders WHERE status='active' AND datetime(remind_at) <= datetime('now')",
+        "SELECT COUNT(*) FROM scheduled_actions WHERE status='pending' AND datetime(trigger_at) <= datetime('now')",
         &[]);
-    assert_eq!(due, 1, "only the past reminder is due");
+    assert_eq!(due, 1, "only the past scheduled action is due");
 }
 
 #[test]

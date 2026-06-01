@@ -19,7 +19,11 @@ impl HandlerResult {
     }
     pub fn one(text: String, reply_to: Option<String>) -> Self {
         Self {
-            messages: vec![OutboundMessage { text, reply_to }],
+            messages: vec![OutboundMessage {
+                text,
+                reply_to,
+                ..Default::default()
+            }],
         }
     }
     pub fn many(msgs: Vec<OutboundMessage>) -> Self {
@@ -43,8 +47,10 @@ pub async fn handle_message(
     ws_plan: &str,
 ) -> worker::Result<HandlerResult> {
     let locale = grumps_i18n::Locale::from_code(ws_locale);
-    // Agent fast-path: route @grumps mentions through the agent before structured parsing.
     if let Some(env) = env {
+        // Proactive proposals are confirmed/undone via Telegram inline buttons
+        // (handled in the webhook callback path), not by text replies.
+        // Agent fast-path: route @grumps mentions through the agent before structured parsing.
         if let Some(result) =
             try_route_via_agent(env, ws_db, workspace_slug, member_id, raw_text, ws_locale).await?
         {
@@ -94,7 +100,7 @@ pub async fn handle_message(
                     .flatten()
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "UTC".to_string());
-                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let tz = grumps_core::timeutil::tz_or_utc(&timezone);
                 let now_local = chrono::Utc::now()
                     .with_timezone(&tz)
                     .format("%Y-%m-%dT%H:%M:%S")
@@ -221,6 +227,7 @@ async fn handle_add_todos(
     messages.push(OutboundMessage {
         text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
         reply_to: Some(msg_id.to_string()),
+        ..Default::default()
     });
 
     // Individual task card per todo
@@ -263,7 +270,7 @@ async fn handle_add_todos(
         );
         messages.push(OutboundMessage {
             text: card,
-            reply_to: None,
+            ..Default::default()
         });
     }
 
@@ -283,9 +290,8 @@ async fn handle_complete_todos(
     for item in &items {
         match matcher::match_done(item, &open_todos) {
             matcher::MatchResult::Exact(m) => {
-                ws_db.complete_todo(&m.todo_id, member_id).await?;
-                ws_db
-                    .log_activity(member_id, "todo.completed", "todo", &m.todo_id, "chat")
+                let recurred = ws_db
+                    .complete_todo_with_followups(&m.todo_id, member_id, "chat")
                     .await?;
                 let seq_str = m.seq_num.to_string();
                 let mut line = grumps_i18n::t(
@@ -293,11 +299,8 @@ async fn handle_complete_todos(
                     "agent.todo.completed",
                     &[("seq", &seq_str), ("title", &m.title)],
                 );
-                if let Ok(Some(rec)) = ws_db.get_todo_recurrence(&m.todo_id).await {
-                    if let Ok(Some(todo)) = ws_db.get_todo_by_seq(m.seq_num).await {
-                        let _ = ws_db.create_next_recurrence(&todo, &rec).await;
-                        line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
-                    }
+                if recurred {
+                    line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                 }
                 lines.push(line);
             }
@@ -344,24 +347,16 @@ async fn handle_complete_single(
             let seq_str = seq.to_string();
             match ws_db.get_todo_by_seq(seq).await? {
                 Some(todo) => {
-                    ws_db.complete_todo(&todo.id, member_id).await?;
-                    ws_db
-                        .log_activity(member_id, "todo.completed", "todo", &todo.id, "chat")
+                    let recurred = ws_db
+                        .complete_todo_with_followups(&todo.id, member_id, "chat")
                         .await?;
                     let mut text = grumps_i18n::t(
                         locale,
                         "agent.todo.completed",
                         &[("seq", &seq_str), ("title", &todo.title)],
                     );
-                    if let Some(ref rec) = todo.recurrence {
-                        if !rec.is_empty() {
-                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(&grumps_i18n::t(
-                                locale,
-                                "agent.card.next_occurrence",
-                                &[],
-                            ));
-                        }
+                    if recurred {
+                        text.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
                     }
                     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
                 }
@@ -707,6 +702,200 @@ async fn try_route_via_agent(
     }
 }
 
+/// The inverse of a just-executed reversible action, for undo. Only the
+/// complete↔reopen pair is reversible today.
+fn inverse_action(
+    tool: &str,
+    result: &serde_json::Value,
+) -> Option<(&'static str, serde_json::Value)> {
+    let seq = result.get("seq_num").cloned()?;
+    match tool {
+        "complete_todo" => Some(("reopen_todo", serde_json::json!({ "seq_num": seq }))),
+        "reopen_todo" => Some(("complete_todo", serde_json::json!({ "seq_num": seq }))),
+        _ => None,
+    }
+}
+
+/// Build a reactive tool context for executing a single staged/undo tool call.
+fn reactive_ctx<'a>(
+    env: &'a Env,
+    ws_db: &'a WorkspaceDb<'a>,
+    ws_slug: &'a str,
+    member_id: &'a str,
+    sink: &'a crate::agent_sink::WorkerMessagingSink<'a>,
+    timezone: String,
+    ws_locale: &str,
+) -> grumps_agent::tools::ToolContext<'a> {
+    grumps_agent::tools::ToolContext {
+        env,
+        workspace_slug: ws_slug,
+        member_id,
+        sink,
+        db: ws_db,
+        language: ws_locale.to_string(),
+        timezone,
+        autonomy: grumps_agent::tools::Autonomy::Reactive,
+    }
+}
+
+/// Outcome of acting on a parked proactive proposal — maps to an i18n result key.
+/// Drives the Telegram inline-button callback path.
+pub(crate) enum ProposalOutcome {
+    Confirmed,
+    /// Confirmed, and a reversible inverse was parked — the caller should offer
+    /// an Undo button (saves re-reading KV to discover this).
+    ConfirmedUndoable,
+    Failed,
+    Cancelled,
+    Undone,
+    NothingToUndo,
+}
+
+impl ProposalOutcome {
+    fn i18n_key(&self) -> &'static str {
+        match self {
+            ProposalOutcome::Confirmed | ProposalOutcome::ConfirmedUndoable => {
+                "agent.proactive.confirmed"
+            }
+            ProposalOutcome::Failed => "agent.proactive.failed",
+            ProposalOutcome::Cancelled => "agent.proactive.cancelled",
+            ProposalOutcome::Undone => "agent.proactive.undone",
+            ProposalOutcome::NothingToUndo => "agent.proactive.nothing_to_undo",
+        }
+    }
+    /// The localized result string to show the group.
+    pub(crate) fn message(&self, ws_locale: &str) -> String {
+        grumps_i18n::t(
+            grumps_i18n::Locale::from_code(ws_locale),
+            self.i18n_key(),
+            &[],
+        )
+    }
+}
+
+/// Execute a parked proactive proposal (`pending` is its JSON payload, already
+/// read and cleared from KV by the caller). Runs the staged tool reactively,
+/// attributed to the original actor (`member_id` in the payload), parks the
+/// inverse for a short undo window, and re-arms the workspace DO.
+pub(crate) async fn execute_pending_proposal(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    ws_locale: &str,
+    pending: &serde_json::Value,
+) -> ProposalOutcome {
+    let tool = pending
+        .get("tool")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let args = pending
+        .get("args")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    let member_id = pending
+        .get("member_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("system")
+        .to_string();
+    if tool.is_empty() {
+        return ProposalOutcome::Failed;
+    }
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
+    let sink = crate::agent_sink::WorkerMessagingSink {
+        env,
+        ws_slug: ws_slug.to_string(),
+    };
+    let ctx = reactive_ctx(env, ws_db, ws_slug, &member_id, &sink, tz, ws_locale);
+    let result = grumps_agent::tools::dispatch(&ctx, &tool, args)
+        .await
+        .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        return ProposalOutcome::Failed;
+    }
+    // Park the inverse for a short undo window (offered via an Undo button).
+    let mut undoable = false;
+    if let Some((inv_tool, inv_args)) = inverse_action(&tool, &result) {
+        if let Ok(kv) = env.kv("KV") {
+            let undo = serde_json::json!({ "tool": inv_tool, "args": inv_args });
+            if let Ok(p) = kv.put(&format!("proactive:undo:{ws_slug}"), &undo.to_string()) {
+                undoable = p.expiration_ttl(900).execute().await.is_ok();
+            }
+        }
+    }
+    // Only re-arm the workspace DO when the tool actually changed the
+    // scheduled-action table; todo/note/memory mutations never affect it.
+    if matches!(tool.as_str(), "schedule_action" | "create_reminder") {
+        let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
+    }
+    if undoable {
+        ProposalOutcome::ConfirmedUndoable
+    } else {
+        ProposalOutcome::Confirmed
+    }
+}
+
+/// Run the parked inverse action (undo), triggered by the Undo button.
+pub(crate) async fn execute_undo(
+    env: &Env,
+    ws_db: &WorkspaceDb<'_>,
+    ws_slug: &str,
+    ws_locale: &str,
+) -> ProposalOutcome {
+    let kv = match env.kv("KV") {
+        Ok(k) => k,
+        Err(_) => return ProposalOutcome::NothingToUndo,
+    };
+    let undo_key = format!("proactive:undo:{ws_slug}");
+    let raw = match kv.get(&undo_key).text().await.ok().flatten() {
+        Some(r) => r,
+        None => return ProposalOutcome::NothingToUndo,
+    };
+    kv.delete(&undo_key).await.ok();
+    let parsed: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+    let tool = parsed
+        .get("tool")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let args = parsed
+        .get("args")
+        .cloned()
+        .unwrap_or_else(|| serde_json::json!({}));
+    if tool.is_empty() {
+        return ProposalOutcome::NothingToUndo;
+    }
+    let tz = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "UTC".to_string());
+    let member_id = "system".to_string();
+    let sink = crate::agent_sink::WorkerMessagingSink {
+        env,
+        ws_slug: ws_slug.to_string(),
+    };
+    let ctx = reactive_ctx(env, ws_db, ws_slug, &member_id, &sink, tz, ws_locale);
+    // Only claim the revert succeeded if the inverse tool actually completed —
+    // mirror execute_pending_proposal so a concurrently re-completed/deleted
+    // todo doesn't surface a false "Reverted." to the group.
+    let result = grumps_agent::tools::dispatch(&ctx, &tool, args)
+        .await
+        .unwrap_or_else(|e| serde_json::json!({ "error": e.to_string() }));
+    if result.get("ok").and_then(|v| v.as_bool()) != Some(true) {
+        return ProposalOutcome::Failed;
+    }
+    ProposalOutcome::Undone
+}
+
 /// Fast-path for silence/unsilence/explicit-memory commands addressed to @grumps.
 /// `lower` is the lowercased version of the full text; `text` is the original.
 async fn try_fast_commands(
@@ -873,7 +1062,7 @@ async fn handle_llm_result(
                 // Normalize to a civil date (YYYY-MM-DD) in the workspace tz; a
                 // deadline is a calendar day, not an instant. Unparseable → no
                 // deadline (better than storing relative text that never matches).
-                let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+                let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
                 todo.deadline_text = grumps_agent::tools::parse_user_date(&deadline, &tz);
             }
             if let Some(ref p) = nlu.entities.priority {
@@ -921,7 +1110,7 @@ async fn handle_llm_result(
             handle_add_note(note, ws_db, member_id, locale, plan).await
         }
         NluIntent::SetReminder => {
-            let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+            let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
             // Resolve the model's concrete local datetime to a UTC instant. If
             // it's missing or unparseable, ask for a time rather than store a
             // reminder that can never fire (datetime(NULL) never matches).
@@ -966,7 +1155,6 @@ async fn handle_llm_result(
                 title: title.clone(),
                 trigger_at: remind_at_utc,
                 recurrence: recurrence.clone(),
-                condition: None,
                 payload: serde_json::json!({ "text": title }),
                 target_chat: Some("group".to_string()),
                 created_by: Some(member_id.to_string()),
@@ -1030,5 +1218,29 @@ async fn handle_llm_result(
         )),
         NluIntent::Status => handle_status(ws_db, slug, locale).await,
         NluIntent::Irrelevant => Ok(HandlerResult::none()),
+    }
+}
+
+#[cfg(test)]
+mod proactive_tests {
+    use super::inverse_action;
+    use serde_json::json;
+
+    #[test]
+    fn complete_and_reopen_are_mutual_inverses() {
+        let done = json!({ "ok": true, "completed": true, "seq_num": 4, "title": "x" });
+        let (tool, args) = inverse_action("complete_todo", &done).unwrap();
+        assert_eq!(tool, "reopen_todo");
+        assert_eq!(args["seq_num"], 4);
+
+        let reopened = json!({ "ok": true, "reopened": true, "seq_num": 4, "title": "x" });
+        let (tool, _) = inverse_action("reopen_todo", &reopened).unwrap();
+        assert_eq!(tool, "complete_todo");
+    }
+
+    #[test]
+    fn non_reversible_or_missing_seq_has_no_inverse() {
+        assert!(inverse_action("create_todo", &json!({ "id": "z" })).is_none());
+        assert!(inverse_action("complete_todo", &json!({ "ok": false })).is_none());
     }
 }

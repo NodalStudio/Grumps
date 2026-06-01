@@ -1,18 +1,32 @@
 //! Tool registry + dispatch.
 
+pub mod args;
 pub mod calendar;
 pub mod chat;
 pub mod crud;
+pub mod members;
 pub mod memory;
 pub mod rag;
 pub mod rag_pipeline;
+pub mod registry;
 pub mod scheduler;
-pub mod schemas;
+pub mod todos;
 pub mod web;
+
+pub use registry::{anthropic_tools, dispatch};
 
 use crate::db::AgentDb;
 use crate::router::MessagingSink;
 use worker::Env;
+
+/// Whether the agent is acting because it was addressed (`Reactive`) or on its
+/// own initiative from ambient observation (`Proactive`). In `Proactive` mode a
+/// mutating tool is not executed outright — it is staged for the user to confirm.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Autonomy {
+    Reactive,
+    Proactive,
+}
 
 /// Context passed to each tool handler.
 pub struct ToolContext<'a> {
@@ -26,6 +40,9 @@ pub struct ToolContext<'a> {
     /// IANA timezone of the workspace (e.g. "Europe/Paris"). Used to convert
     /// the local wall-clock times the model emits into UTC for storage.
     pub timezone: String,
+    /// Reactive (addressed) vs proactive (self-initiated). Gates whether mutating
+    /// tools execute directly or are staged for confirmation.
+    pub autonomy: Autonomy,
 }
 
 /// Parse a datetime string produced by the model into UTC.
@@ -36,7 +53,6 @@ pub struct ToolContext<'a> {
 /// an explicit offset or a trailing `Z`, that is authoritative and respected.
 /// Returns `None` if the string cannot be parsed.
 pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTime<chrono::Utc>> {
-    use chrono::TimeZone;
     let s = s.trim();
     // 1. Explicit offset / Z → authoritative.
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
@@ -51,49 +67,29 @@ pub fn parse_user_datetime(s: &str, tz: &chrono_tz::Tz) -> Option<chrono::DateTi
     ];
     for fmt in FORMATS {
         if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, fmt) {
-            // Fold (fall-back): time occurs twice → `.single()` is None, take
-            // the earliest of the two instants.
-            if let Some(dt) = tz
-                .from_local_datetime(&naive)
-                .single()
-                .or_else(|| tz.from_local_datetime(&naive).earliest())
-            {
-                return Some(dt.with_timezone(&chrono::Utc));
-            }
-            // Gap (spring-forward): the named wall-clock time doesn't exist.
-            // Nudge past the gap (DST jumps are ≤ 1h in practice) so we still
-            // resolve to a sensible instant rather than failing.
-            let nudged = naive + chrono::Duration::hours(1);
-            return tz
-                .from_local_datetime(&nudged)
-                .earliest()
-                .map(|dt| dt.with_timezone(&chrono::Utc));
+            // Single source of the DST gap/fold resolution rule — shared with the
+            // worker/calendar paths so a stored instant means the same thing
+            // everywhere. Don't re-implement the spring-forward/fall-back handling
+            // here; see grumps_core::timeutil::local_naive_to_utc.
+            return Some(grumps_core::timeutil::local_naive_to_utc(*tz, naive));
         }
     }
     None
 }
 
-/// Dispatch a tool call to its handler.
-/// Returns a JSON value that becomes the tool_result content for the next Sonnet turn.
-pub async fn dispatch(
-    ctx: &ToolContext<'_>,
-    tool_name: &str,
+// Tool dispatch + the Anthropic tool list now live in `registry` (re-exported
+// above as `tools::dispatch` / `tools::anthropic_tools`). The registry is the
+// single source of truth: each tool's descriptor carries its MCP annotations,
+// which the proactive path consults to decide autonomous vs. propose-then-confirm.
+
+/// Deserialize a tool's JSON arguments into its typed [`args`] struct, mapping a
+/// shape mismatch to a tool-tagged error (fed back to the model as a tool_result).
+pub(crate) fn parse_args<T: serde::de::DeserializeOwned>(
     args: serde_json::Value,
-) -> worker::Result<serde_json::Value> {
-    match tool_name {
-        "query_memory" => memory::query_memory(ctx, args).await,
-        "save_memory" => memory::save_memory(ctx, args).await,
-        "query_chat_history" => rag::query_chat_history(ctx, args).await,
-        "create_todo" => crud::create_todo(ctx, args).await,
-        "create_note" => crud::create_note(ctx, args).await,
-        "create_event" => crud::create_event(ctx, args).await,
-        "create_reminder" => crud::create_reminder(ctx, args).await,
-        "schedule_action" => scheduler::schedule_action(ctx, args).await,
-        "list_calendar" => calendar::list_calendar(ctx, args).await,
-        "web_search" => web::web_search(ctx, args).await,
-        "send_message" => chat::send_message(ctx, args).await,
-        other => Err(worker::Error::RustError(format!("unknown tool: {other}"))),
-    }
+    tool: &str,
+) -> worker::Result<T> {
+    serde_json::from_value(args)
+        .map_err(|e| worker::Error::RustError(format!("{tool}: invalid arguments: {e}")))
 }
 
 /// Normalize a model-emitted deadline into a **civil date** `"YYYY-MM-DD"` in

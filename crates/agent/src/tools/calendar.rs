@@ -1,25 +1,21 @@
 //! Tool implementation: list_calendar.
-//! Aggregates events + todos-with-deadline + reminders + scheduled actions in a date range.
+//! Aggregates events + todos-with-deadline + scheduled actions in a date range.
+//! Reminders are scheduled actions (`action_type == "reminder"`) — they appear
+//! under `scheduled`, each carrying its `action_type`.
 
-use super::ToolContext;
+use super::{args, parse_args, ToolContext};
 use serde_json::Value;
 
-pub async fn list_calendar(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
-    let from = args
-        .get("from")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| worker::Error::RustError("list_calendar: missing 'from'".into()))?;
-    let to = args
-        .get("to")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| worker::Error::RustError("list_calendar: missing 'to'".into()))?;
+pub async fn list_calendar(ctx: &ToolContext<'_>, raw: Value) -> worker::Result<Value> {
+    let a: args::ListCalendarArgs = parse_args(raw, "list_calendar")?;
+    let (from, to) = (a.from.as_str(), a.to.as_str());
 
     let events = ctx.db.list_events_in_range(from, to).await?;
     let todos = ctx.db.list_todos_with_deadline(from, to).await?;
-    let reminders = ctx.db.list_reminders_in_range(from, to).await?;
     let scheduled = ctx.db.list_scheduled_in_range(from, to).await?;
 
     Ok(serde_json::json!({
+        "ok": true,
         "events": events.iter().map(|e| serde_json::json!({
             "id": e.id,
             "title": e.title,
@@ -29,7 +25,6 @@ pub async fn list_calendar(ctx: &ToolContext<'_>, args: Value) -> worker::Result
             "location": e.location,
         })).collect::<Vec<_>>(),
         "todos": todos,
-        "reminders": reminders,
         "scheduled": scheduled.iter().map(|a| serde_json::json!({
             "id": a.id,
             "title": a.title,

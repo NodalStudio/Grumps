@@ -79,6 +79,18 @@ pub fn workspace_migrations() -> Vec<Migration> {
             data: false,
             sql: include_str!("../../../migrations/workspace/0009_member_locale.sql"),
         },
+        Migration {
+            version: 10,
+            name: "drop_reminders",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0010_drop_reminders.sql"),
+        },
+        Migration {
+            version: 11,
+            name: "drop_condition",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0011_drop_condition.sql"),
+        },
     ]
 }
 

@@ -1,4 +1,6 @@
-//! Calendar aggregation : union of todos+events+reminders+scheduled actions.
+//! Calendar aggregation : union of todos + events + scheduled actions.
+//! Reminders are not a separate source — they are `scheduled_actions` rows with
+//! `action_type == "reminder"`, surfaced here as [`CalendarSource::Reminder`].
 //! See spec § 9.1.
 
 use crate::Event;
@@ -49,7 +51,6 @@ pub struct CalendarItem {
 pub fn aggregate(
     events: Vec<Event>,
     todos_json: Vec<serde_json::Value>,
-    reminders_json: Vec<serde_json::Value>,
     scheduled_json: Vec<serde_json::Value>,
     ws_slug: &str,
 ) -> Vec<CalendarItem> {
@@ -100,37 +101,9 @@ pub fn aggregate(
         }
     }
 
-    for r in reminders_json {
-        if let (Some(id), Some(title), Some(remind_at)) = (
-            r.get("id").and_then(|v| v.as_str()),
-            r.get("title").and_then(|v| v.as_str()),
-            r.get("remind_at").and_then(|v| v.as_str()),
-        ) {
-            if let Ok(dt) = DateTime::parse_from_rfc3339(remind_at) {
-                items.push(CalendarItem {
-                    id: format!("rmd:{id}"),
-                    source: CalendarSource::Reminder,
-                    title: title.to_string(),
-                    starts_at: dt.with_timezone(&Utc),
-                    ends_at: None,
-                    all_day: false,
-                    location: None,
-                    color: "cream".into(),
-                    member_id: r
-                        .get("target_member")
-                        .and_then(|v| v.as_str())
-                        .map(String::from),
-                    recurrence: r
-                        .get("recurrence")
-                        .and_then(|v| v.as_str())
-                        .map(String::from),
-                    editable: true,
-                    url: format!("/w/{}/scheduled", ws_slug),
-                });
-            }
-        }
-    }
-
+    // Scheduled actions. A reminder is just an action with
+    // `action_type == "reminder"` — it gets the reminder source/styling so the
+    // SPA renders it as before, now sourced from `scheduled_actions`.
     for s in scheduled_json {
         if let (Some(id), Some(title), Some(trigger_at)) = (
             s.get("id").and_then(|v| v.as_str()),
@@ -138,15 +111,24 @@ pub fn aggregate(
             s.get("trigger_at").and_then(|v| v.as_str()),
         ) {
             if let Ok(dt) = DateTime::parse_from_rfc3339(trigger_at) {
+                let is_reminder = s.get("action_type").and_then(|v| v.as_str()) == Some("reminder");
                 items.push(CalendarItem {
-                    id: format!("sch:{id}"),
-                    source: CalendarSource::ScheduledAction,
+                    id: format!("{}:{id}", if is_reminder { "rmd" } else { "sch" }),
+                    source: if is_reminder {
+                        CalendarSource::Reminder
+                    } else {
+                        CalendarSource::ScheduledAction
+                    },
                     title: title.to_string(),
                     starts_at: dt.with_timezone(&Utc),
                     ends_at: None,
                     all_day: false,
                     location: None,
-                    color: "slate-300".into(),
+                    color: if is_reminder {
+                        "cream".into()
+                    } else {
+                        "slate-300".into()
+                    },
                     member_id: s
                         .get("created_by")
                         .and_then(|v| v.as_str())
@@ -155,8 +137,12 @@ pub fn aggregate(
                         .get("recurrence")
                         .and_then(|v| v.as_str())
                         .map(String::from),
-                    editable: false,
-                    url: format!("/w/{}/scheduled/{}", ws_slug, id),
+                    editable: is_reminder,
+                    url: if is_reminder {
+                        format!("/w/{}/scheduled", ws_slug)
+                    } else {
+                        format!("/w/{}/scheduled/{}", ws_slug, id)
+                    },
                 });
             }
         }
@@ -173,7 +159,7 @@ mod tests {
 
     #[test]
     fn empty_aggregation() {
-        let items = aggregate(vec![], vec![], vec![], vec![], "test");
+        let items = aggregate(vec![], vec![], vec![], "test");
         assert!(items.is_empty());
     }
 
@@ -202,11 +188,32 @@ mod tests {
             "deadline": "2026-04-20T00:00:00Z",
             "status": "open",
         });
-        let items = aggregate(vec![evt], vec![todo], vec![], vec![], "ws1");
+        let items = aggregate(vec![evt], vec![todo], vec![], "ws1");
         assert_eq!(items.len(), 2);
         // Sorted : todo (Apr 20) before event (Apr 22)
         assert_eq!(items[0].id, "todo:t1");
         assert_eq!(items[1].id, "evt:e1");
+    }
+
+    #[test]
+    fn reminder_scheduled_action_renders_as_reminder() {
+        // A scheduled_action with action_type "reminder" → CalendarSource::Reminder
+        // (cream, editable, rmd: id); any other type → ScheduledAction.
+        let reminder = serde_json::json!({
+            "id": "s1", "title": "Take out trash",
+            "trigger_at": "2026-04-21T08:00:00Z", "action_type": "reminder",
+        });
+        let recap = serde_json::json!({
+            "id": "s2", "title": "Weekly recap",
+            "trigger_at": "2026-04-22T08:00:00Z", "action_type": "recap",
+        });
+        let items = aggregate(vec![], vec![], vec![reminder, recap], "ws1");
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0].id, "rmd:s1");
+        assert_eq!(items[0].source, CalendarSource::Reminder);
+        assert!(items[0].editable);
+        assert_eq!(items[1].id, "sch:s2");
+        assert_eq!(items[1].source, CalendarSource::ScheduledAction);
     }
 
     #[test]
@@ -220,7 +227,7 @@ mod tests {
             "deadline": "2026-04-20",
             "status": "open",
         });
-        let items = aggregate(vec![], vec![todo], vec![], vec![], "ws1");
+        let items = aggregate(vec![], vec![todo], vec![], "ws1");
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id, "todo:t9");
         assert!(items[0].all_day);

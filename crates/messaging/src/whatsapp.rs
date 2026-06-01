@@ -439,6 +439,7 @@ mod tests {
         let msg = OutboundMessage {
             text: "Hi there".into(),
             reply_to: None,
+            reply_markup: None,
         };
         let (url, _) = a.build_send_request("15551234567", &msg).unwrap();
         assert!(url.contains("12345678"));
@@ -452,6 +453,7 @@ mod tests {
         let msg = OutboundMessage {
             text: "Hello from Grumps".into(),
             reply_to: None,
+            reply_markup: None,
         };
         let (_, body) = a.build_send_request("15551234567", &msg).unwrap();
         assert!(body.contains("Hello from Grumps"));
@@ -464,6 +466,7 @@ mod tests {
         let msg = OutboundMessage {
             text: "Reply text".into(),
             reply_to: Some("origmsg99".into()),
+            reply_markup: None,
         };
         let (_, body) = a.build_send_request("15551234567", &msg).unwrap();
         assert!(body.contains("origmsg99"));

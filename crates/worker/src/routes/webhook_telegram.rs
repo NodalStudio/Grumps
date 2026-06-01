@@ -42,6 +42,14 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         return Response::error("Bad secret", 403);
     }
 
+    // Inline-button taps (proactive confirm/cancel/undo) arrive as callback_query,
+    // not as a message — route them before anything else.
+    if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
+        if let Some(cbq) = update.callback_query {
+            return handle_callback_query(&ctx, &tg, cbq).await;
+        }
+    }
+
     // Typed parse of my_chat_member — routes based on status transition.
     if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
         if let Some(mcm) = update.my_chat_member {
@@ -126,7 +134,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                             &chat_id,
                             &grumps_messaging::adapter::OutboundMessage {
                                 text: welcome,
-                                reply_to: None,
+                                ..Default::default()
                             },
                         )
                         .await;
@@ -292,6 +300,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                     &ws_db,
                     &sink,
                     &workspace.slug,
+                    &workspace.locale,
                     &member_id,
                     text,
                     &analysis,
@@ -406,7 +415,7 @@ async fn handle_first_add(
 
     let msg = grumps_messaging::adapter::OutboundMessage {
         text: welcome,
-        reply_to: None,
+        ..Default::default()
     };
     let _ = send_message(tg, &chat_id, &msg).await;
 
@@ -463,7 +472,7 @@ async fn handle_promotion(
 
     let msg = grumps_messaging::adapter::OutboundMessage {
         text,
-        reply_to: None,
+        ..Default::default()
     };
     let _ = send_message(tg, &chat_id, &msg).await;
 
@@ -481,6 +490,158 @@ async fn handle_promotion(
     .await;
 
     Response::ok("ok")
+}
+
+/// Handle a proactive confirm/cancel/undo inline-button tap. The action is
+/// driven by the opaque `callback_data` (`pa:confirm`/`pa:cancel`/`pa:undo`),
+/// never by message text, so it is language-independent. Always answers the
+/// callback (clears the client spinner) and returns 200 to avoid retry storms.
+async fn handle_callback_query(
+    ctx: &RouteContext<()>,
+    tg: &TelegramAdapter,
+    cbq: grumps_messaging::telegram::TgCallbackQuery,
+) -> Result<Response> {
+    let data = cbq.data.clone().unwrap_or_default();
+    let message = match &cbq.message {
+        Some(m) => m,
+        None => {
+            answer_callback(tg, &cbq.id, None).await;
+            return Response::ok("ok");
+        }
+    };
+    let chat_id = message.chat.id.to_string();
+    let message_id = message.message_id;
+
+    let index_db = db::get_index_db(&ctx.env)?;
+    let ws = match db::lookup_workspace(&index_db, "telegram", &chat_id).await? {
+        Some(w) => w,
+        None => {
+            answer_callback(tg, &cbq.id, None).await;
+            return Response::ok("ok");
+        }
+    };
+    let ws_locale = ws.locale.clone();
+    let client = D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
+    let kv = ctx.env.kv("KV").ok();
+
+    match data.as_str() {
+        "pa:confirm" | "pa:cancel" => {
+            let pending_key = format!("proactive:pending:{}", ws.slug);
+            let pending: Option<serde_json::Value> = match &kv {
+                Some(kv) => kv
+                    .get(&pending_key)
+                    .text()
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|r| serde_json::from_str(&r).ok()),
+                None => None,
+            };
+            // Stale proposal (expired in KV) or a tap on an older proposal message
+            // than the one currently pending → just clear the keyboard, no-op.
+            // Fail safe: only confirm if this tap is on the message that carries
+            // the *current* proposal. The id is parked as a JSON string, so
+            // compare stringly (tolerating a numeric encoding too); a missing id
+            // can't be matched and no-ops rather than confirming a stale action.
+            let matches_msg = pending
+                .as_ref()
+                .and_then(|p| p.get("chat_message_id"))
+                .and_then(|v| {
+                    v.as_str()
+                        .map(|s| s.to_string())
+                        .or_else(|| v.as_i64().map(|n| n.to_string()))
+                })
+                .map(|id| id == message_id.to_string())
+                .unwrap_or(false);
+            if pending.is_none() || !matches_msg {
+                edit_remove_markup(tg, &chat_id, message_id).await;
+                answer_callback(tg, &cbq.id, None).await;
+                return Response::ok("ok");
+            }
+            if let Some(kv) = &kv {
+                kv.delete(&pending_key).await.ok();
+            }
+
+            let outcome = if data == "pa:cancel" {
+                handler::ProposalOutcome::Cancelled
+            } else {
+                handler::execute_pending_proposal(
+                    &ctx.env,
+                    &ws_db,
+                    &ws.slug,
+                    &ws_locale,
+                    pending.as_ref().unwrap(),
+                )
+                .await
+            };
+
+            // Offer an Undo button iff the confirm parked a reversible inverse;
+            // execute_pending_proposal reports this directly (no KV re-read).
+            let undoable = matches!(outcome, handler::ProposalOutcome::ConfirmedUndoable);
+            if undoable {
+                let label = t(
+                    Locale::from_code(&ws_locale),
+                    "agent.proactive.btn_undo",
+                    &[],
+                );
+                let markup = serde_json::json!({ "inline_keyboard": [[{ "text": label, "callback_data": "pa:undo" }]] });
+                edit_set_markup(tg, &chat_id, message_id, Some(markup)).await;
+            } else {
+                edit_remove_markup(tg, &chat_id, message_id).await;
+            }
+            answer_callback(tg, &cbq.id, Some(&outcome.message(&ws_locale))).await;
+            Response::ok("ok")
+        }
+        "pa:undo" => {
+            let outcome = handler::execute_undo(&ctx.env, &ws_db, &ws.slug, &ws_locale).await;
+            edit_remove_markup(tg, &chat_id, message_id).await;
+            answer_callback(tg, &cbq.id, Some(&outcome.message(&ws_locale))).await;
+            Response::ok("ok")
+        }
+        _ => {
+            answer_callback(tg, &cbq.id, None).await;
+            Response::ok("ok")
+        }
+    }
+}
+
+async fn answer_callback(tg: &TelegramAdapter, callback_id: &str, text: Option<&str>) {
+    let (url, body) = tg.build_answer_callback_request(callback_id, text);
+    tg_fire(&url, body).await;
+}
+
+async fn edit_set_markup(
+    tg: &TelegramAdapter,
+    chat_id: &str,
+    message_id: i64,
+    markup: Option<serde_json::Value>,
+) {
+    let (url, body) = tg.build_edit_reply_markup_request(chat_id, message_id, markup);
+    tg_fire(&url, body).await;
+}
+
+async fn edit_remove_markup(tg: &TelegramAdapter, chat_id: &str, message_id: i64) {
+    edit_set_markup(tg, chat_id, message_id, None).await;
+}
+
+/// Fire a Telegram Bot API POST, logging (never propagating) failures — the
+/// webhook must return 200 regardless.
+async fn tg_fire(url: &str, body: String) {
+    let headers = Headers::new();
+    let _ = headers.set("Content-Type", "application/json");
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post)
+        .with_headers(headers)
+        .with_body(Some(body.into()));
+    match Request::new_with_init(url, &init) {
+        Ok(req) => {
+            if let Err(e) = Fetch::Request(req).send().await {
+                worker::console_log!("telegram callback POST failed: {}", e);
+            }
+        }
+        Err(e) => worker::console_log!("telegram callback request build failed: {}", e),
+    }
 }
 
 fn build_adapter(ctx: &RouteContext<()>) -> Result<TelegramAdapter> {

@@ -1,0 +1,59 @@
+Auto-merging crates/agent/src/ambient.rs
+Auto-merging crates/agent/src/loop_.rs
+Auto-merging crates/agent/src/router.rs
+CONFLICT (content): Merge conflict in crates/agent/src/router.rs
+Auto-merging crates/agent/src/tools/crud.rs
+CONFLICT (content): Merge conflict in crates/agent/src/tools/crud.rs
+Auto-merging crates/agent/src/tools/mod.rs
+Auto-merging crates/agent/src/tools/scheduler.rs
+CONFLICT (content): Merge conflict in crates/agent/src/tools/scheduler.rs
+Auto-merging crates/calendar/src/aggregate.rs
+Auto-merging crates/i18n/locales/ar.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/ar.json
+Auto-merging crates/i18n/locales/de.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/de.json
+Auto-merging crates/i18n/locales/en.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/en.json
+Auto-merging crates/i18n/locales/es.json
+Auto-merging crates/i18n/locales/fr.json
+Auto-merging crates/i18n/locales/hi.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/hi.json
+Auto-merging crates/i18n/locales/id.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/id.json
+Auto-merging crates/i18n/locales/it.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/it.json
+Auto-merging crates/i18n/locales/ja.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/ja.json
+Auto-merging crates/i18n/locales/ko.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/ko.json
+Auto-merging crates/i18n/locales/pt-BR.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/pt-BR.json
+Auto-merging crates/i18n/locales/ru.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/ru.json
+Auto-merging crates/i18n/locales/tr.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/tr.json
+Auto-merging crates/i18n/locales/zh-CN.json
+CONFLICT (content): Merge conflict in crates/i18n/locales/zh-CN.json
+Auto-merging crates/scheduler/src/recurrence.rs
+Auto-merging crates/worker/src/agent_db_impl.rs
+Auto-merging crates/worker/src/cron.rs
+Auto-merging crates/worker/src/db/workspace.rs
+CONFLICT (content): Merge conflict in crates/worker/src/db/workspace.rs
+Auto-merging crates/worker/src/handler.rs
+CONFLICT (content): Merge conflict in crates/worker/src/handler.rs
+Auto-merging crates/worker/src/lib.rs
+Auto-merging crates/worker/src/migrations.rs
+CONFLICT (content): Merge conflict in crates/worker/src/migrations.rs
+Auto-merging crates/worker/src/routes/admin_global.rs
+Auto-merging crates/worker/src/routes/auth.rs
+Auto-merging crates/worker/src/routes/calendar.rs
+CONFLICT (content): Merge conflict in crates/worker/src/routes/calendar.rs
+Auto-merging crates/worker/src/routes/scheduled.rs
+Auto-merging crates/worker/src/routes/webhook.rs
+Auto-merging crates/worker/src/routes/webhook_discord.rs
+Auto-merging crates/worker/src/routes/webhook_telegram.rs
+Auto-merging crates/worker/src/scheduler_executor.rs
+CONFLICT (content): Merge conflict in crates/worker/src/scheduler_executor.rs
+Auto-merging crates/worker/tests/sql_rigor.rs
+CONFLICT (content): Merge conflict in crates/worker/tests/sql_rigor.rs
+Automatic merge failed; fix conflicts and then commit the result.

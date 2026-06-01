@@ -1,0 +1,25 @@
+[package]
+name = "mcp-types"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Transport-free, WASM-friendly data types for the Model Context Protocol (MCP): tools, annotations, results, and JSON-Schema generation — no tokio, no networking."
+keywords = ["mcp", "llm", "tools", "json-schema", "wasm"]
+categories = ["data-structures", "api-bindings"]
+
+# Deliberately standalone: only serde + (optional) schemars. No tokio, no
+# transport, no app coupling — so it compiles to wasm32 and can be published
+# as a general-purpose MCP model crate. The official `rmcp` gates schema
+# generation behind its `server` feature (which pulls tokio) and its transport
+# does not build on wasm32; this crate reproduces just the model + schema gen.
+[dependencies]
+# `rc` enables Serialize/Deserialize for the `Arc<JsonObject>` schema fields.
+serde = { workspace = true, features = ["rc"] }
+serde_json = { workspace = true }
+schemars = { workspace = true, optional = true }
+
+[features]
+default = []
+# Enables JsonSchema derives on the model types plus `schema_for_type` and the
+# `Tool::with_*_schema` builders (generate an MCP inputSchema from a Rust type).
+schemars = ["dep:schemars"]

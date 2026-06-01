@@ -8,13 +8,32 @@ use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 use grumps_messaging::telegram::TelegramAdapter;
 use worker::*;
 
+/// Send a message to a workspace's chat group. Resolves the platform from the
+/// Index DB and routes through the matching adapter. Thin wrapper over
+/// [`send_to_workspace_with_markup`] that discards the returned message id.
 pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<()> {
+    send_to_workspace_with_markup(env, ws_slug, out)
+        .await
+        .map(|_| ())
+}
+
+/// Like [`send_to_workspace`] but returns the platform message id of the sent
+/// message when available (Telegram). Used for interactive proposals whose
+/// inline keyboard we may later edit/clear. WhatsApp/Discord aren't wired for
+/// sending yet (no inline buttons), so they error here.
+pub async fn send_to_workspace_with_markup(
+    env: &Env,
+    ws_slug: &str,
+    out: &OutboundMessage,
+) -> Result<Option<String>> {
     let index = get_index_db(env)?;
     let (platform, channel_id) = lookup_platform_channel(&index, ws_slug)
         .await?
         .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
     match platform.as_str() {
-        "telegram" => send_via_telegram(env, &channel_id, out).await,
+        "telegram" => send_via_telegram_returning_id(env, &channel_id, out).await,
+        // TODO(buttons): map reply_markup to WhatsApp interactive reply buttons /
+        // Discord message components, and wire these platforms for sending.
         "whatsapp" => Err(Error::RustError(
             "send_to_workspace: WhatsApp not wired yet — use the webhook path".into(),
         )),
@@ -25,7 +44,11 @@ pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) 
     }
 }
 
-async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<()> {
+async fn send_via_telegram_returning_id(
+    env: &Env,
+    chat_id: &str,
+    out: &OutboundMessage,
+) -> Result<Option<String>> {
     let adapter = TelegramAdapter::new(
         env.secret("TG_BOT_TOKEN")?.to_string(),
         env.var("TG_BOT_USERNAME")?.to_string(),
@@ -41,6 +64,13 @@ async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> R
         .with_headers(headers)
         .with_body(Some(body.into()));
     let req = Request::new_with_init(&url, &init)?;
-    Fetch::Request(req).send().await?;
-    Ok(())
+    let mut resp = Fetch::Request(req).send().await?;
+    // Parse `{ ok, result: { message_id } }`; treat any parse miss as "no id".
+    let json: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+    let id = json
+        .get("result")
+        .and_then(|r| r.get("message_id"))
+        .and_then(|m| m.as_i64())
+        .map(|id| id.to_string());
+    Ok(id)
 }

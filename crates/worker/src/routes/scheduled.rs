@@ -76,7 +76,6 @@ struct CreateBody {
     title: String,
     trigger_at: chrono::DateTime<chrono::Utc>,
     recurrence: Option<String>,
-    condition: Option<serde_json::Value>,
     payload: serde_json::Value,
 }
 
@@ -144,7 +143,6 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
         title: body.title,
         trigger_at: body.trigger_at,
         recurrence: body.recurrence,
-        condition: body.condition,
         payload: body.payload,
         target_chat: Some("group".into()),
         created_by,

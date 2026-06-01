@@ -121,7 +121,7 @@ async fn check_and_send_recaps(
         // Send to WhatsApp group
         let msg = OutboundMessage {
             text,
-            reply_to: None,
+            ..Default::default()
         };
         let (url, body) = wa
             .build_send_request(&ws.platform_channel_id, &msg)

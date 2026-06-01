@@ -28,7 +28,6 @@ pub struct ScheduledAction {
     pub title: String,
     pub trigger_at: DateTime<Utc>,
     pub recurrence: Option<String>, // RRULE
-    pub condition: Option<serde_json::Value>,
     pub payload: serde_json::Value,
     pub target_chat: String, // "group" only at launch
     pub status: ActionStatus,
@@ -45,7 +44,6 @@ pub struct NewScheduledAction {
     pub title: String,
     pub trigger_at: DateTime<Utc>,
     pub recurrence: Option<String>,
-    pub condition: Option<serde_json::Value>,
     pub payload: serde_json::Value,
     pub target_chat: Option<String>,
     pub created_by: Option<String>,

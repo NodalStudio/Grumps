@@ -16,9 +16,28 @@ pub struct RouteResult {
     pub already_sent: bool,
 }
 
+/// A tappable action button, platform-neutral. `id` becomes the platform's
+/// callback payload (e.g. Telegram `callback_data`); `label` is the i18n'd text.
+#[derive(Debug, Clone)]
+pub struct ProposalButton {
+    pub id: String,
+    pub label: String,
+}
+
 #[async_trait::async_trait(?Send)]
 pub trait MessagingSink {
     async fn send(&self, text: &str) -> Result<()>;
+
+    /// Send a message carrying tappable action buttons. Returns the platform
+    /// message id (so the caller can later edit/clear the keyboard) when the
+    /// platform supports buttons; otherwise the default sends plain text and
+    /// returns `None`. Platforms without inline buttons (WhatsApp/Discord today)
+    /// inherit the default.
+    async fn send_with_buttons(
+        &self,
+        text: &str,
+        buttons: &[ProposalButton],
+    ) -> Result<Option<String>>;
 }
 
 pub async fn route_message<'a>(
@@ -54,6 +73,7 @@ pub async fn route_message<'a>(
         db,
         language,
         timezone,
+        autonomy: tools::Autonomy::Reactive,
     };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).

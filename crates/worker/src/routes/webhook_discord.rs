@@ -1,3 +1,8 @@
+// Discord inbound is temporarily disabled (the route is not registered in
+// `lib.rs`). The handler is kept intact for when Discord is brought up to parity
+// with Telegram; until then nothing in-crate references it.
+#![allow(dead_code)]
+
 use crate::{d1_rest::D1RestClient, db, handler, provisioning};
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
@@ -157,6 +162,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                     &ws_db,
                     &sink,
                     &workspace.slug,
+                    &workspace.locale,
                     &member_id,
                     text,
                     &analysis,

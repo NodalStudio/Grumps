@@ -202,21 +202,12 @@ pub fn build_provider(env: &Env) -> Box<dyn WebSearchProvider> {
 /// Tool entry point.
 pub async fn web_search(
     ctx: &ToolContext<'_>,
-    args: serde_json::Value,
+    raw: serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let query = args
-        .get("query")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| Error::RustError("web_search: missing 'query'".into()))?;
-    let count = args
-        .get("count")
-        .and_then(|v| v.as_u64())
-        .unwrap_or(5)
-        .min(10) as u8;
-    let freshness = args
-        .get("freshness")
-        .and_then(|v| v.as_str())
-        .unwrap_or("all");
+    let a: crate::tools::args::WebSearchArgs = crate::tools::parse_args(raw, "web_search")?;
+    let query = a.query.as_str();
+    let count = a.count.unwrap_or(5).clamp(1, 10) as u8;
+    let freshness = a.freshness.as_ref().map(|f| f.as_str()).unwrap_or("all");
 
     // KV cache : 1h TTL on (query, freshness)
     let kv = ctx.env.kv("KV").ok();
@@ -250,6 +241,7 @@ pub async fn web_search(
             &[("limit", &limit.to_string()), ("plan", plan.as_str())],
         );
         return Ok(serde_json::json!({
+            "ok": false,
             "error": "quota_exceeded",
             "message": message,
             "used": used,
@@ -260,7 +252,7 @@ pub async fn web_search(
     // Call provider
     let provider = build_provider(ctx.env);
     let hits = provider.search(query, count, freshness).await?;
-    let result = serde_json::json!({ "query": query, "results": hits });
+    let result = serde_json::json!({ "ok": true, "query": query, "results": hits });
 
     // Cache + bump quota
     if let Some(ref kv) = kv {

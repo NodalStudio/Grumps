@@ -207,11 +207,17 @@ pub fn next_occurrence(rule: &Rrule, from: DateTime<Utc>, tz: Tz) -> Option<Date
     let minute = rule.by_minute.unwrap_or_else(|| from_local.minute());
     let tod = NaiveTime::from_hms_opt(hour, minute, 0)?;
 
+    // The day-by-day walk must span enough days to reach the next matching
+    // occurrence. Scale the horizon with INTERVAL so e.g. `FREQ=MONTHLY;
+    // INTERVAL=3;BYMONTHDAY=31` (whose next qualifying month may be a year-plus
+    // out, skipping short months) isn't cut off and silently marked done.
     let limit_days = match rule.freq {
         Freq::Daily => 31 * rule.interval as i64,
         Freq::Weekly => 7 * rule.interval as i64 * 4, // up to ~4 cycles
-        Freq::Monthly => 366,
-        Freq::Yearly => 366 * 4,
+        // +1 interval of slack so a BYMONTHDAY that misses short months can still
+        // land on a later qualifying period within the window.
+        Freq::Monthly => 366 * (rule.interval as i64 + 1),
+        Freq::Yearly => 366 * (rule.interval as i64 + 1),
     };
 
     let mut date = base_date;

@@ -64,6 +64,12 @@ pub trait AgentDb {
 
     // --- members ---
     async fn list_active_members(&self) -> worker::Result<Vec<MemberShort>>;
+    /// Last time a member was seen active (None if never seen). Backs the
+    /// read-only `get_member_activity` tool for activity-based judgement.
+    async fn get_member_last_seen(
+        &self,
+        member_id: &str,
+    ) -> worker::Result<Option<chrono::DateTime<chrono::Utc>>>;
 
     // --- todos / notes ---
     async fn create_todo_simple(
@@ -83,26 +89,18 @@ pub trait AgentDb {
         created_by: Option<&str>,
     ) -> worker::Result<String>;
 
+    /// Open/in-progress todos as `(id, title, seq_num)` for fuzzy completion.
+    async fn list_open_todos(&self) -> worker::Result<Vec<(String, String, i64)>>;
+    /// Recently completed todos as `(id, title, seq_num)` for fuzzy reopen.
+    async fn list_done_todos(&self) -> worker::Result<Vec<(String, String, i64)>>;
+    /// Mark a todo done.
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> worker::Result<()>;
+    /// Reopen a completed todo (the inverse of `complete_todo`).
+    async fn reopen_todo(&self, todo_id: &str) -> worker::Result<()>;
+
     // --- events ---
     async fn create_event(&self, e: &NewEvent) -> worker::Result<String>;
     async fn list_events_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<Event>>;
-
-    // --- reminders ---
-    async fn insert_reminder(
-        &self,
-        title: &str,
-        remind_at: &str,
-        recurrence: Option<&str>,
-        target_member: &str,
-        created_by: &str,
-    ) -> worker::Result<String>;
-
-    /// List active reminders in a datetime range (remind_at between from and to).
-    async fn list_reminders_in_range(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> worker::Result<Vec<serde_json::Value>>;
 
     // --- scheduled actions ---
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> worker::Result<String>;

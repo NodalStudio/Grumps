@@ -38,6 +38,13 @@ impl AgentDb for WorkspaceDb<'_> {
             .collect())
     }
 
+    async fn get_member_last_seen(
+        &self,
+        member_id: &str,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+        self.get_member_last_seen(member_id).await
+    }
+
     async fn create_todo_simple(
         &self,
         title: &str,
@@ -80,32 +87,33 @@ impl AgentDb for WorkspaceDb<'_> {
         .await
     }
 
+    async fn list_open_todos(&self) -> Result<Vec<(String, String, i64)>> {
+        self.list_open_todos_brief().await
+    }
+
+    async fn list_done_todos(&self) -> Result<Vec<(String, String, i64)>> {
+        self.list_done_todos_brief().await
+    }
+
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> Result<()> {
+        // Run the same follow-ups (activity log + recurrence) as the chat path,
+        // so a recurring todo completed via the agent still spawns its next
+        // occurrence.
+        self.complete_todo_with_followups(todo_id, completed_by, "agent")
+            .await?;
+        Ok(())
+    }
+
+    async fn reopen_todo(&self, todo_id: &str) -> Result<()> {
+        self.reopen_todo(todo_id).await
+    }
+
     async fn create_event(&self, e: &NewEvent) -> Result<String> {
         self.create_event(e).await
     }
 
     async fn list_events_in_range(&self, from: &str, to: &str) -> Result<Vec<Event>> {
         self.list_events_in_range(from, to).await
-    }
-
-    async fn insert_reminder(
-        &self,
-        title: &str,
-        remind_at: &str,
-        recurrence: Option<&str>,
-        target_member: &str,
-        created_by: &str,
-    ) -> Result<String> {
-        self.insert_reminder(title, remind_at, recurrence, target_member, created_by)
-            .await
-    }
-
-    async fn list_reminders_in_range(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> Result<Vec<serde_json::Value>> {
-        self.list_reminders_active_in_range(from, to).await
     }
 
     async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {

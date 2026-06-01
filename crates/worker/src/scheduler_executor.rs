@@ -17,27 +17,10 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     let client = D1RestClient::from_env(env)?;
     let db = WorkspaceDb::new(&client, ws.d1_database_id.clone());
 
-    // Condition gate. The DB-backed ConditionContext is still stubbed (it cannot
-    // run async D1 queries from the sync `ConditionContext` trait), so evaluating
-    // a real condition used to ALWAYS fail → reschedule forever → silently
-    // mark_failed after 7 days, i.e. the action never fired. Until conditions are
-    // genuinely evaluable (needs an async trait or pre-fetched context), a present
-    // condition no longer blocks execution — the action fires at trigger_at. We
-    // still validate the JSON shape so malformed payloads are surfaced.
-    if let Some(cond_value) = &action.condition {
-        if let Err(e) = serde_json::from_value::<grumps_scheduler::Condition>(cond_value.clone()) {
-            console_log!(
-                "execute_action {}: malformed condition JSON ({e}) — ignoring, executing",
-                action.id
-            );
-        } else {
-            console_log!(
-                "execute_action {}: condition present but not yet evaluated (stub) — executing",
-                action.id
-            );
-        }
-    }
-
+    // No structured condition gate: any "only if …" guard lives in the task's
+    // natural-language instruction and is judged by the agent at fire time
+    // (FollowUp/AgentTask run the full tool loop, with read-only tools like
+    // get_todo_status / get_member_activity to inspect live state).
     let send_result = match action.action_type {
         ActionType::Reminder => execute_reminder(env, &ws, action).await,
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
@@ -81,6 +64,8 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 db: &db,
                 language,
                 timezone,
+                // Scheduled tasks run with full authority (already user-scheduled).
+                autonomy: grumps_agent::tools::Autonomy::Reactive,
             };
 
             match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
@@ -254,12 +239,7 @@ async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<(
     use grumps_messaging::adapter::OutboundMessage;
     let out = OutboundMessage {
         text: body.to_string(),
-        reply_to: None,
+        ..Default::default()
     };
     crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
 }
-
-// The stubbed ConditionContext was removed: it could not evaluate conditions
-// (the trait is sync, D1 is async) and made conditional actions never fire.
-// See the condition gate in execute_action. Real evaluation needs an async
-// ConditionContext (or a pre-fetched context) — tracked as a follow-up.

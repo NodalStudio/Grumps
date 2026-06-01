@@ -76,7 +76,7 @@ pub async fn handle_send_otp(mut req: Request, ctx: RouteContext<()>) -> Result<
             "Your Grumps verification code: {}\n\nExpires in 5 minutes.",
             code
         ),
-        reply_to: None,
+        ..Default::default()
     };
     let (url, body_str) = wa
         .build_send_request(&phone, &msg)

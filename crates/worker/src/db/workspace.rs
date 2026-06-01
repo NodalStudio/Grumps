@@ -30,6 +30,18 @@ fn db_str_to_enum<T: serde::de::DeserializeOwned>(s: &str, fallback: T, context:
     }
 }
 
+/// Parse an instant stored in D1. Accepts SQLite's `datetime('now')` shape
+/// (`YYYY-MM-DD HH:MM:SS`, UTC) as well as RFC3339 with `T`/`Z`/offset.
+fn parse_db_instant(s: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    let s = s.trim();
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&chrono::Utc));
+    }
+    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+        .ok()
+        .map(|n| chrono::DateTime::from_naive_utc_and_offset(n, chrono::Utc))
+}
+
 // =============================================
 // Workspace DB (via D1 REST API)
 // =============================================
@@ -268,6 +280,96 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    /// Reopen a completed todo (the inverse of `complete_todo`), used to undo a
+    /// proactive completion.
+    pub async fn reopen_todo(&self, todo_id: &str) -> Result<()> {
+        self.q("UPDATE todos SET status = 'open', completed_at = NULL, completed_by = NULL, updated_at = datetime('now') WHERE id = ?1",
+            vec![todo_id.into()]).await?;
+        Ok(())
+    }
+
+    /// Complete a todo and run the standard follow-ups: log the activity and, if
+    /// the todo recurs, spawn its next occurrence. Returns whether a next
+    /// occurrence was created (so a caller can surface it). Shared by the chat
+    /// completion path and the agent `complete_todo` tool so completing a
+    /// recurring todo behaves identically regardless of which path completes it.
+    pub async fn complete_todo_with_followups(
+        &self,
+        todo_id: &str,
+        completed_by: &str,
+        source: &str,
+    ) -> Result<bool> {
+        self.complete_todo(todo_id, completed_by).await?;
+        self.log_activity(completed_by, "todo.completed", "todo", todo_id, source)
+            .await?;
+        if let Some(rec) = self.get_todo_recurrence(todo_id).await? {
+            if let Some(todo) = self.get_todo_by_id(todo_id).await? {
+                self.create_next_recurrence(&todo, &rec).await?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Open/in-progress todos as `(id, title, seq_num)`, for fuzzy completion
+    /// matching by the `complete_todo` tool.
+    pub async fn list_open_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
+        #[derive(Deserialize)]
+        struct R {
+            id: String,
+            title: String,
+            seq_num: i64,
+        }
+        let resp = self.q(
+            "SELECT id, title, seq_num FROM todos WHERE status IN ('open','in_progress') ORDER BY seq_num",
+            vec![],
+        ).await?;
+        Ok(extract_rows::<R>(&resp)?
+            .into_iter()
+            .map(|r| (r.id, r.title, r.seq_num))
+            .collect())
+    }
+
+    /// Recently completed todos as `(id, title, seq_num)`, for fuzzy matching by
+    /// the `reopen_todo` tool (most-recent first, capped).
+    pub async fn list_done_todos_brief(&self) -> Result<Vec<(String, String, i64)>> {
+        #[derive(Deserialize)]
+        struct R {
+            id: String,
+            title: String,
+            seq_num: i64,
+        }
+        let resp = self.q(
+            "SELECT id, title, seq_num FROM todos WHERE status = 'done' ORDER BY completed_at DESC LIMIT 25",
+            vec![],
+        ).await?;
+        Ok(extract_rows::<R>(&resp)?
+            .into_iter()
+            .map(|r| (r.id, r.title, r.seq_num))
+            .collect())
+    }
+
+    /// The last time a member was seen active, as a UTC instant (None if never
+    /// seen or unparseable). Backs the agent's read-only `get_member_activity` tool.
+    pub async fn get_member_last_seen(
+        &self,
+        member_id: &str,
+    ) -> Result<Option<chrono::DateTime<chrono::Utc>>> {
+        #[derive(Deserialize)]
+        struct R {
+            last_seen_at: Option<String>,
+        }
+        let resp = self
+            .q(
+                "SELECT last_seen_at FROM members WHERE id = ?1",
+                vec![member_id.into()],
+            )
+            .await?;
+        Ok(extract_first::<R>(&resp)?
+            .and_then(|r| r.last_seen_at)
+            .and_then(|s| parse_db_instant(&s)))
+    }
+
     pub async fn delete_todo(&self, todo_id: &str) -> Result<()> {
         self.q(
             "UPDATE todos SET status = 'deleted', updated_at = datetime('now') WHERE id = ?1",
@@ -470,97 +572,10 @@ impl<'a> WorkspaceDb<'a> {
         extract_rows(&resp)
     }
 
-    // --- Reminders ---
-
-    /// Insert a reminder.
-    pub async fn insert_reminder(
-        &self,
-        title: &str,
-        remind_at: &str,
-        recurrence: Option<&str>,
-        target_member: &str,
-        created_by: &str,
-    ) -> Result<String> {
-        let id = uuid::Uuid::new_v4().to_string();
-        self.q(
-            "INSERT INTO reminders (id, title, remind_at, recurrence, target_member, status, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, 'active', ?6, datetime('now'))",
-            vec![id.clone().into(), title.into(), remind_at.into(), recurrence.unwrap_or("").into(), target_member.into(), created_by.into()],
-        ).await?;
-        Ok(id)
-    }
-
-    /// Get active reminders that should fire now (remind_at <= now).
-    pub async fn get_due_reminders(&self) -> Result<Vec<ReminderRow>> {
-        let resp = self.q(
-            // Normalize both sides through datetime() so an ISO-8601 remind_at
-            // (with 'T' / 'Z' / offset) compares correctly against UTC now —
-            // a raw string `<=` breaks on the 'T'-vs-space separator.
-            "SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' AND datetime(remind_at) <= datetime('now')",
-            vec![],
-        ).await?;
-        extract_rows(&resp)
-    }
-
-    /// Mark a reminder as fired. If recurring, update remind_at to next occurrence.
-    pub async fn fire_reminder(&self, reminder_id: &str, recurrence: Option<&str>) -> Result<()> {
-        if let Some(rec) = recurrence {
-            if !rec.is_empty() {
-                let interval = if rec.contains("daily") || rec.contains("every day") {
-                    "+1 day"
-                } else if rec.contains("weekly")
-                    || rec.contains("every week")
-                    || rec.contains("every monday")
-                    || rec.contains("every tuesday")
-                    || rec.contains("every wednesday")
-                    || rec.contains("every thursday")
-                    || rec.contains("every friday")
-                    || rec.contains("every saturday")
-                    || rec.contains("every sunday")
-                {
-                    "+7 days"
-                } else {
-                    return self
-                        .q(
-                            "UPDATE reminders SET status = 'fired' WHERE id = ?1",
-                            vec![reminder_id.into()],
-                        )
-                        .await
-                        .map(|_| ());
-                };
-                self.q(
-                    &format!(
-                        "UPDATE reminders SET remind_at = datetime(remind_at, '{}') WHERE id = ?1",
-                        interval
-                    ),
-                    vec![reminder_id.into()],
-                )
-                .await?;
-                return Ok(());
-            }
-        }
-        self.q(
-            "UPDATE reminders SET status = 'fired' WHERE id = ?1",
-            vec![reminder_id.into()],
-        )
-        .await?;
-        Ok(())
-    }
-
-    /// List active reminders.
-    pub async fn get_active_reminders(&self) -> Result<Vec<ReminderRow>> {
-        let resp = self.q("SELECT id, title, remind_at, recurrence, target_member, created_by FROM reminders WHERE status = 'active' ORDER BY remind_at ASC", vec![]).await?;
-        extract_rows(&resp)
-    }
-
-    /// Cancel a reminder.
-    pub async fn cancel_reminder(&self, reminder_id: &str) -> Result<()> {
-        self.q(
-            "UPDATE reminders SET status = 'cancelled' WHERE id = ?1",
-            vec![reminder_id.into()],
-        )
-        .await?;
-        Ok(())
-    }
+    // Reminders are no longer a standalone table: a reminder is a
+    // `scheduled_actions` row with `action_type = 'reminder'`, created via the
+    // agent's create_reminder tool / SetReminder path and fired by the workspace
+    // Durable Object. The `reminders` table was dropped (migration 0010).
 
     // --- LLM call tracking ---
 
@@ -668,22 +683,6 @@ impl<'a> WorkspaceDb<'a> {
         Ok(row.and_then(|s| s.parse::<i64>().ok()).unwrap_or(0))
     }
 
-    /// List active reminders in a [from, to] date range (SQL-filtered).
-    pub async fn list_reminders_active_in_range(
-        &self,
-        from: &str,
-        to: &str,
-    ) -> Result<Vec<serde_json::Value>> {
-        let resp = self.q(
-            "SELECT id, title, remind_at, recurrence, target_member, created_by, status \
-             FROM reminders \
-             WHERE status = 'active' AND datetime(remind_at) >= datetime(?1) AND datetime(remind_at) <= datetime(?2) \
-             ORDER BY datetime(remind_at) ASC",
-            vec![from.into(), to.into()],
-        ).await?;
-        extract_rows::<serde_json::Value>(&resp)
-    }
-
     /// List pending scheduled actions in a [from, to] trigger_at range (SQL-filtered).
     pub async fn list_scheduled_active_in_range(
         &self,
@@ -771,13 +770,8 @@ impl<'a> WorkspaceDb<'a> {
             .await?;
         let new_notes: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
-        // Active reminders
-        let r = self
-            .q(
-                "SELECT COUNT(*) as cnt FROM reminders WHERE status = 'active'",
-                vec![],
-            )
-            .await?;
+        // Upcoming reminders (reminders are scheduled_actions of that type).
+        let r = self.q("SELECT COUNT(*) as cnt FROM scheduled_actions WHERE action_type = 'reminder' AND status = 'pending'", vec![]).await?;
         let reminders: i64 = extract_first::<Count>(&r)?.map(|c| c.cnt).unwrap_or(0);
 
         Ok(RecapData {
@@ -885,16 +879,6 @@ pub struct ActivityRow {
     pub target_id: Option<String>,
     pub source: String,
     pub created_at: String,
-}
-
-#[derive(Deserialize, Debug, Serialize)]
-pub struct ReminderRow {
-    pub id: String,
-    pub title: String,
-    pub remind_at: String,
-    pub recurrence: Option<String>,
-    pub target_member: Option<String>,
-    pub created_by: Option<String>,
 }
 
 #[derive(Deserialize, Debug, Serialize)]
@@ -1343,7 +1327,6 @@ pub struct ScheduledActionRow {
     pub title: String,
     pub trigger_at: String,
     pub recurrence: Option<String>,
-    pub condition: Option<String>,
     pub payload: String,
     pub target_chat: String,
     pub status: String,
@@ -1358,21 +1341,18 @@ impl<'a> WorkspaceDb<'a> {
     pub async fn create_scheduled_action(&self, a: &NewScheduledAction) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let action_type = enum_to_db_str(&a.action_type, "reminder");
-        let condition_json: serde_json::Value =
-            a.condition.clone().unwrap_or(serde_json::Value::Null);
         let payload_str = serde_json::to_string(&a.payload).unwrap_or_else(|_| "{}".into());
         let target = a.target_chat.clone().unwrap_or_else(|| "group".into());
 
         self.q(
-            "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, created_by) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload, target_chat, created_by) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             vec![
                 id.clone().into(),
                 action_type.into(),
                 a.title.clone().into(),
                 a.trigger_at.to_rfc3339().into(),
                 a.recurrence.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
-                if condition_json.is_null() { serde_json::Value::Null } else { serde_json::Value::String(condition_json.to_string()) },
                 payload_str.into(),
                 target.into(),
                 a.created_by.clone().map(serde_json::Value::String).unwrap_or(serde_json::Value::Null),
@@ -1399,7 +1379,7 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn get_scheduled_action(&self, id: &str) -> Result<Option<ScheduledAction>> {
         let resp = self.q(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions WHERE id = ?1",
             vec![id.into()],
         ).await?;
@@ -1414,7 +1394,7 @@ impl<'a> WorkspaceDb<'a> {
         offset: i64,
     ) -> Result<Vec<ScheduledAction>> {
         let mut sql = String::from(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions"
         );
         let mut params: Vec<serde_json::Value> = vec![];
@@ -1438,7 +1418,7 @@ impl<'a> WorkspaceDb<'a> {
         limit: i64,
     ) -> Result<Vec<ScheduledAction>> {
         let resp = self.q(
-            "SELECT id, action_type, title, trigger_at, recurrence, condition, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
+            "SELECT id, action_type, title, trigger_at, recurrence, payload, target_chat, status, last_fired_at, last_error, fire_count, created_by, created_at \
              FROM scheduled_actions WHERE status = 'pending' AND datetime(trigger_at) <= datetime(?1) ORDER BY datetime(trigger_at) ASC LIMIT ?2",
             vec![now_iso.into(), limit.into()],
         ).await?;
@@ -1517,10 +1497,6 @@ fn scheduled_row_to_action(r: ScheduledActionRow) -> ScheduledAction {
         title: r.title,
         trigger_at: parse_dt(&r.trigger_at),
         recurrence: r.recurrence,
-        condition: r
-            .condition
-            .as_deref()
-            .and_then(|s| serde_json::from_str(s).ok()),
         payload: serde_json::from_str(&r.payload).unwrap_or(serde_json::Value::Null),
         target_chat: r.target_chat,
         status: db_str_to_enum(&r.status, ActionStatus::Pending, "scheduled_actions.status"),

@@ -17,6 +17,43 @@ pub struct LoopResult {
     pub final_text: Option<String>,
     pub turns: u32,
     pub total_tokens: u32,
+    /// A mutating tool call the agent wanted to make while acting proactively,
+    /// captured instead of executed so a human can confirm it. `{tool, args}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staged_action: Option<serde_json::Value>,
+    /// When a proactive proposal was posted with confirm/cancel buttons, the
+    /// platform message id of that proposal — so the confirmation handler can
+    /// edit/clear its keyboard. `None` for reactive runs or text-only platforms.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub staged_message_id: Option<String>,
+}
+
+/// Post the agent's final text. When an action was staged (a proactive
+/// proposal), attach confirm/cancel inline buttons and return the platform
+/// message id so the confirmation handler can later edit/clear the keyboard.
+/// Otherwise send plain text.
+async fn post_final(ctx: &ToolContext<'_>, text: &str, staged: bool) -> Option<String> {
+    if staged {
+        let locale = Locale::from_code(&ctx.language);
+        let buttons = [
+            crate::router::ProposalButton {
+                id: "pa:confirm".into(),
+                label: t(locale, "agent.proactive.btn_confirm", &[]),
+            },
+            crate::router::ProposalButton {
+                id: "pa:cancel".into(),
+                label: t(locale, "agent.proactive.btn_cancel", &[]),
+            },
+        ];
+        ctx.sink
+            .send_with_buttons(text, &buttons)
+            .await
+            .ok()
+            .flatten()
+    } else {
+        ctx.sink.send(text).await.ok();
+        None
+    }
 }
 
 pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopResult> {
@@ -45,12 +82,14 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
             final_text: Some(msg),
             turns: 0,
             total_tokens: 0,
+            staged_action: None,
+            staged_message_id: None,
         });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
-    let tools_json = tools::schemas::all_tools();
+    let tools_json = tools::anthropic_tools();
 
     // Load any existing session for this member
     let existing = ctx
@@ -130,6 +169,8 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
                 final_text: last_text,
                 turns: turn,
                 total_tokens,
+                staged_action: None,
+                staged_message_id: None,
             });
         }
 
@@ -167,6 +208,8 @@ pub async fn run_loop(ctx: &ToolContext<'_>, user_message: &str) -> Result<LoopR
         final_text: Some(fallback),
         turns: MAX_TURNS,
         total_tokens,
+        staged_action: None,
+        staged_message_id: None,
     })
 }
 
@@ -197,12 +240,14 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
             final_text: Some(msg),
             turns: 0,
             total_tokens: 0,
+            staged_action: None,
+            staged_message_id: None,
         });
     }
 
     let prompt_ctx = build_prompt_context(ctx).await?;
     let system_prompt = prompt::build_system_prompt(&prompt_ctx);
-    let tools_json = tools::schemas::all_tools();
+    let tools_json = tools::anthropic_tools();
 
     let mut messages: Vec<Message> = vec![Message {
         role: "user".into(),
@@ -211,6 +256,9 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
 
     let mut total_tokens = 0u32;
     let mut last_text: Option<String> = None;
+    // In proactive mode the first mutating tool the model reaches for is staged
+    // (captured, not executed) so a human can confirm it.
+    let mut staged_action: Option<serde_json::Value> = None;
 
     for turn in 1..=MAX_TURNS {
         let req = AnthropicRequest {
@@ -257,21 +305,41 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         });
 
         if resp.stop_reason == "end_turn" || tool_uses.is_empty() {
-            if let Some(ref text) = last_text {
-                ctx.sink.send(text).await.ok();
-            }
+            let staged_message_id = match &last_text {
+                Some(text) => post_final(ctx, text, staged_action.is_some()).await,
+                None => None,
+            };
             return Ok(LoopResult {
                 final_text: last_text,
                 turns: turn,
                 total_tokens,
+                staged_action,
+                staged_message_id,
             });
         }
 
         let mut tool_results: Vec<serde_json::Value> = vec![];
         for (tu_id, tu_name, tu_input) in &tool_uses {
-            let result = match tools::dispatch(ctx, tu_name, tu_input.clone()).await {
-                Ok(v) => v,
-                Err(e) => serde_json::json!({ "error": e.to_string() }),
+            // Proactive + mutating → stage instead of execute. We capture the
+            // first such call and tell the model to propose-and-stop, so its
+            // final reply becomes the confirmation request posted to the group.
+            let stage = ctx.autonomy == tools::Autonomy::Proactive
+                && tools::registry::annotations(tu_name)
+                    .map(|a| a.read_only_hint != Some(true))
+                    .unwrap_or(false);
+            let result = if stage {
+                if staged_action.is_none() {
+                    staged_action = Some(serde_json::json!({ "tool": tu_name, "args": tu_input }));
+                }
+                serde_json::json!({
+                    "status": "needs_confirmation",
+                    "note": "NOT performed. You are acting proactively, so this change must be confirmed by a human first. In your final reply, briefly state what you propose to do and ask the group to confirm (e.g. reply 'oui'). Do not call further tools."
+                })
+            } else {
+                match tools::dispatch(ctx, tu_name, tu_input.clone()).await {
+                    Ok(v) => v,
+                    Err(e) => serde_json::json!({ "error": e.to_string() }),
+                }
             };
             tool_results.push(serde_json::json!({
                 "type": "tool_result",
@@ -293,6 +361,8 @@ pub async fn run_oneshot(ctx: &ToolContext<'_>, instruction: &str) -> Result<Loo
         final_text: last_text,
         turns: MAX_TURNS,
         total_tokens,
+        staged_action,
+        staged_message_id: None,
     })
 }
 
@@ -323,7 +393,7 @@ async fn build_prompt_context(ctx: &ToolContext<'_>) -> Result<PromptContext> {
     // timezone (carried on the ToolContext) is what the tool layer uses to
     // convert the model's local times back to UTC — single source of truth.
     let timezone = ctx.timezone.clone();
-    let tz: chrono_tz::Tz = timezone.parse().unwrap_or(chrono_tz::UTC);
+    let tz = grumps_core::timeutil::tz_or_utc(&timezone);
     let now_local = chrono::Utc::now()
         .with_timezone(&tz)
         .format("%Y-%m-%d %H:%M (%A)")
