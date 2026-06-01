@@ -8,16 +8,25 @@ use tw_merge::tw_merge;
 #[component]
 pub fn Switch(
     /// Current on/off state, owned by the parent.
-    #[prop(into)] checked: Signal<bool>,
+    #[prop(into)]
+    checked: Signal<bool>,
     /// Fired when the user toggles the control.
     on_change: impl Fn() + 'static,
     /// Accessible label (localized reactively by the caller so it tracks
     /// mid-session locale switches).
-    #[prop(into, optional)] aria_label: MaybeProp<String>,
+    #[prop(into, optional)]
+    aria_label: MaybeProp<String>,
     /// Extra classes merged onto the track.
-    #[prop(into, optional, default = String::new())] class: String,
+    #[prop(into, optional, default = String::new())]
+    class: String,
 ) -> impl IntoView {
-    let state = move || if checked.get() { "checked" } else { "unchecked" };
+    let state = move || {
+        if checked.get() {
+            "checked"
+        } else {
+            "unchecked"
+        }
+    };
     let track = tw_merge!(
         "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center \
          rounded-full border-2 border-ink px-[3px] transition-colors \
