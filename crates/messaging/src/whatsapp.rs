@@ -5,7 +5,7 @@
 // Reference spec: docs/superpowers/specs/2026-04-21-telegram-onboarding-ux-design.md
 
 use crate::adapter::*;
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use serde::Deserialize;
 use sha2::Sha256;
 use std::collections::HashMap;
@@ -206,7 +206,7 @@ pub struct WaCtx {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hmac::{Hmac, Mac};
+    use hmac::{Hmac, KeyInit, Mac};
     use sha2::Sha256;
 
     fn adapter() -> WhatsAppAdapter {
