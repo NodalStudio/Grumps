@@ -17,7 +17,8 @@ These turn out to be the same problem. The workspace is a single Cargo lockfile,
 
 1. Migrate the SPA from Leptos 0.7 to 0.8.
 2. Adopt [rust-ui](https://rust-ui.com) (copy-paste registry, Tailwind-based) as the accessible component base; replace the faked toggle with a real, accessible `Switch` re-styled to the design tokens. Establish the pattern for future controls.
-3. Bump all workspace dependencies "to the max" in a single coordinated move, lifting the worker-build pin as part of it.
+3. Upgrade the SPA from Tailwind v3 to v4 (CLI + CSS-based config).
+4. Bump all workspace dependencies "to the max" in a single coordinated move, lifting the worker-build pin as part of it.
 
 ## Non-goals (YAGNI)
 
@@ -40,14 +41,21 @@ Start with `Switch` (the bug). Pull `Select` / `Button` / `Input` / `Dialog` onl
 ### Coordinated dependency bump (lockstep on wasm-bindgen)
 
 1. **Workspace root** (`Cargo.toml` `[workspace.dependencies]`): `serde*`, `chrono` 0.4, `chrono-tz` 0.10 → latest, `uuid`, `thiserror` 2 → max.
-2. **SPA** (`crates/spa/Cargo.toml`): `leptos` / `leptos_router` 0.7 → 0.8, `gloo-*`, the `wasm-bindgen` / `js-sys` / `web-sys` chain, plus Tailwind v3 → v4 if rust-ui requires it.
+2. **SPA** (`crates/spa/Cargo.toml`): `leptos` / `leptos_router` 0.7 → 0.8, `gloo-*`, the `wasm-bindgen` / `js-sys` / `web-sys` chain. (Tailwind v3 → v4 is a confirmed goal — see its own section below.)
 3. **Worker** (`crates/worker/Cargo.toml`): `worker` 0.8 → latest with the `worker-build` pin lifted in `wrangler.toml`, `jsonwebtoken` 9, `rusqlite` 0.32, `reqwest` 0.12, crypto crates (`sha2` / `hmac` / `hex`). Other crates (`agent`, `nlu`, `messaging`, `memory`, `scheduler`, `calendar`, `core`): direct deps bumped to max.
 
 The single shared `wasm-bindgen` version means these cannot move independently; the bump is one operation, not three.
 
-### Tailwind v3 → v4
+### Tailwind v3 → v4 (confirmed, SPA-only)
 
-The SPA is currently Tailwind v3 (`@tailwind base/components/utilities` + `tailwind.config.js`). rust-ui likely assumes Tailwind v4 (`@import "tailwindcss"`, CSS-based config). Confirm at rust-ui setup; if required, migrate the SPA (and the landing build, which shares the design system) to v4 syntax. The CSS-variable tokens carry over unchanged.
+The SPA is currently Tailwind v3.4.19 (standalone CLI; `@tailwind base/components/utilities` + a JS `tailwind.config.js`). The landing does **not** use Tailwind (its `build.mjs` produces CSS independently), so this migration is scoped to the SPA alone — the landing is untouched.
+
+Migration work:
+
+- `crates/spa/input.css`: `@tailwind base/components/utilities` → `@import "tailwindcss"`.
+- `crates/spa/tailwind.config.js` → CSS-based `@theme` block: port `theme.extend.colors` (cream/ink/brick/teal/ochre/warm-gray), `fontFamily` (Bitter / DM Sans), and the `borderWidth.grumps: 2px` utility into the v4 CSS config. Content detection is automatic in v4 but the `src/**/*.rs` glob can stay configured.
+- Build toolchain: replace the standalone v3 `tailwindcss` binary with the v4 CLI (`@tailwindcss/cli`); update the build commands in `CLAUDE.md` and any build script accordingly.
+- The existing CSS-variable tokens in `@layer base` carry over unchanged.
 
 ## Verification (gates before merge)
 
@@ -62,7 +70,7 @@ The SPA is currently Tailwind v3 (`@tailwind base/components/utilities` + `tailw
 - **Worker pin won't align.** If lifting the pin breaks the wasm-bindgen chain, fall back: the worker stays at 0.8.1 and the SPA still migrates at the highest `wasm-bindgen` version common to both. They are coupled only through that crate.
 - **Leptos 0.7 → 0.8 breaking changes.** Signal API and `view!` changes touch every page and component. This is the bulk of the work; budget for a full SPA sweep, not a localized edit.
 - **rust-ui Leptos version lag.** If rust-ui does not yet target Leptos 0.8 cleanly, fall back to [RustForWeb/shadcn-ui](https://github.com/RustForWeb/shadcn-ui) or the headless [leptix](https://github.com/leptos-rs/awesome-leptos) (behavior + ARIA, we write all CSS).
-- **Tailwind v4 migration scope.** If v4 is required, it touches both the SPA and the landing build. Treat as a bounded sub-task with its own verification (visual diff of landing + SPA across locales).
+- **Tailwind v4 migration.** Scoped to the SPA only (landing does not use Tailwind). Main breaking changes: the JS config moves to CSS `@theme`, and some renamed/removed utilities may need fixups across `src/**/*.rs`. Verify with a visual diff of the SPA across locales (incl. RTL `ar`).
 
 ## Files (anticipated)
 
@@ -71,7 +79,9 @@ The SPA is currently Tailwind v3 (`@tailwind base/components/utilities` + `tailw
 - `crates/worker/Cargo.toml` — worker latest, jsonwebtoken/rusqlite/reqwest/crypto.
 - `crates/{agent,nlu,messaging,memory,scheduler,calendar,core}/Cargo.toml` — direct deps to max.
 - `wrangler.toml` — `worker-build` pin lifted from the `[build]` command (+ comment updated).
-- `crates/spa/input.css`, `crates/spa/tailwind.config.js` — Tailwind v4 migration if required.
+- `crates/spa/input.css` — `@import "tailwindcss"` + `@theme` config (Tailwind v4).
+- `crates/spa/tailwind.config.js` — removed/replaced by CSS-based v4 config.
+- `CLAUDE.md` — Tailwind v4 build commands (and any build script using the v3 CLI).
 - `crates/spa/src/components/` — copied rust-ui primitives (Switch first) + thin i18n wrappers.
 - `crates/spa/src/pages/settings.rs` — `Toggle` reimplemented on the Switch primitive (call sites unchanged).
 - All Leptos 0.7 → 0.8 API touch-ups across `crates/spa/src/`.
