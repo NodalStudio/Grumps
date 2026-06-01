@@ -119,7 +119,7 @@ Build the SPA bundle into `crates/spa/dist/` with:
 ```bash
 cd crates/spa
 mkdir -p dist
-tailwindcss -i ./input.css -o ./dist/styles.css --minify
+npx @tailwindcss/cli -i ./input.css -o ./dist/styles.css --minify
 MSYS_NO_PATHCONV=1 trunk build --release --public-url /demo/
 ```
 
