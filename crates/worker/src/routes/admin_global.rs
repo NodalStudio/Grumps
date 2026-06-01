@@ -294,25 +294,15 @@ pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     Ok(resp)
 }
 
-/// POST /api/admin/migrate-all — apply pending schema migrations to every
-/// workspace database (super-admin only). The on-demand backfill for databases
-/// provisioned before a new migration was added.
-pub async fn migrate_all(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    if !is_super_admin(&ctx.env, &claims) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_super_admin",
-            "super admin required",
-        );
-    }
-
-    let index = get_index_db(&ctx.env)?;
-    let client = D1RestClient::from_env(&ctx.env)?;
+/// Apply pending schema migrations to every workspace database. Iterates
+/// `workspaces_meta` and runs the idempotent runtime runner per database,
+/// collecting a per-workspace result. Returns `(migrations_applied, results)`.
+///
+/// Shared by the deploy-time `migrate_workspaces_internal` endpoint — the
+/// migration logic lives here, the auth lives at the callsite.
+async fn run_workspace_migrations(env: &Env) -> Result<(usize, Vec<serde_json::Value>)> {
+    let index = get_index_db(env)?;
+    let client = D1RestClient::from_env(env)?;
 
     #[derive(serde::Deserialize)]
     struct WsRow {
@@ -335,19 +325,40 @@ pub async fn migrate_all(req: Request, ctx: RouteContext<()>) -> Result<Response
                 results.push(serde_json::json!({ "slug": ws.slug, "applied": applied }));
             }
             Err(e) => {
-                worker::console_log!("[migrate-all] {} failed: {e}", ws.slug);
+                worker::console_log!("[migrate] {} failed: {e}", ws.slug);
                 results.push(serde_json::json!({ "slug": ws.slug, "error": e.to_string() }));
             }
         }
     }
+    Ok((applied_total, results))
+}
 
-    let mut resp = Response::from_json(&serde_json::json!({
+/// POST /internal/migrate-workspaces — apply pending schema migrations to every
+/// workspace database. Called by CI immediately after `wrangler deploy`, so it
+/// is gated by a shared `X-Migrate-Secret` header (constant-time compared to the
+/// `MIGRATE_SECRET` worker secret) rather than a user session — CI has no JWT.
+/// Performs only idempotent, additive migrations; no destructive SQL.
+pub async fn migrate_workspaces_internal(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let provided = req.headers().get("X-Migrate-Secret")?.unwrap_or_default();
+    let expected = ctx
+        .env
+        .secret("MIGRATE_SECRET")
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+    // Missing/empty secret on either side → always reject (never allow an
+    // unconfigured worker to be migrated by an empty header).
+    if expected.is_empty()
+        || !crate::auth_telegram::constant_time_eq(provided.as_bytes(), expected.as_bytes())
+    {
+        return middleware::error_with_cors(&req, 403, "auth.forbidden", "forbidden");
+    }
+
+    let (applied_total, results) = run_workspace_migrations(&ctx.env).await?;
+
+    Response::from_json(&serde_json::json!({
         "ok": true,
-        "workspaces": workspaces.len(),
+        "workspaces": results.len(),
         "migrations_applied": applied_total,
         "results": results,
-    }))?;
-    let origin = req.headers().get("Origin")?.unwrap_or_default();
-    middleware::add_cors(&mut resp, Some(&origin))?;
-    Ok(resp)
+    }))
 }

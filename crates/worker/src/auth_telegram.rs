@@ -84,7 +84,7 @@ pub fn verify_widget_hash(payload: &TelegramWidgetPayload, bot_token: &str) -> b
     constant_time_eq(expected.as_bytes(), payload.hash.as_bytes())
 }
 
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
@@ -188,5 +188,15 @@ mod tests {
         p.last_name = None;
         p.username = None;
         assert_eq!(p.display_name(), "telegram:1234567890");
+    }
+
+    // constant_time_eq also backs the /internal/migrate-workspaces secret gate.
+    #[test]
+    fn constant_time_eq_matches_and_rejects() {
+        assert!(constant_time_eq(b"s3cr3t", b"s3cr3t"));
+        assert!(!constant_time_eq(b"s3cr3t", b"S3cr3t"));
+        assert!(!constant_time_eq(b"s3cr3t", b"s3cr3t-longer"));
+        // An empty provided secret must never match a real one.
+        assert!(!constant_time_eq(b"", b"s3cr3t"));
     }
 }

@@ -8,7 +8,11 @@ routes = [
 ]
 
 [build]
-command = "cargo install -q worker-build && cd crates/worker && worker-build --release"
+# worker-build is pinned to match the `worker` 0.8.1 crate / wasm-bindgen
+# 0.2.118 (hard-pinned transitively via js-sys 0.3.95). The unversioned
+# `cargo install` grabs latest (0.8.3+), which demands wasm-bindgen >= 0.2.121
+# and fails the build. Bump this in lockstep when upgrading the worker crate.
+command = "cargo install -q --locked worker-build@0.8.1 && cd crates/worker && worker-build --release"
 
 # Public env vars exposed to the worker at runtime via `ctx.env.var(...)`.
 # These are NOT secrets — committed to wrangler.toml at deploy time.
@@ -22,6 +26,8 @@ TG_BOT_USERNAME = "HeyGrumpsBot"
 #   JWT_SECRET, TG_BOT_TOKEN, TG_WEBHOOK_SECRET, ANTHROPIC_API_KEY,
 #   GEMINI_API_KEY, WA_APP_SECRET, WA_ACCESS_TOKEN, CF_API_TOKEN,
 #   CF_ACCOUNT_ID, BRAVE_API_KEY (optional),
+#   MIGRATE_SECRET (shared secret CI presents to POST /internal/migrate-workspaces;
+#     mirror the same value into the GitHub `MIGRATE_SECRET` repo secret),
 #   SUPER_ADMIN_TELEGRAM_IDS (optional, comma-separated Telegram numeric ids
 #     — the Widget login does not expose phone numbers, so super-admin is
 #     identified by Telegram user id),
@@ -35,6 +41,10 @@ TG_BOT_USERNAME = "HeyGrumpsBot"
 binding = "INDEX_DB"
 database_name = "grumps-index"
 database_id = "332f7bf9-c782-43ed-a13e-4664eacf3f38"
+# Index-DB schema is applied by `wrangler d1 migrations apply grumps-index`
+# in CI (deploy-pages/ci `deploy-worker` job). Only forward `.sql` files live
+# in this dir — rollback scripts are kept out of it (scripts/sql/).
+migrations_dir = "migrations/index"
 
 [[kv_namespaces]]
 binding = "KV"
