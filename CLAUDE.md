@@ -174,20 +174,36 @@ PATH="/c/Users/mayer/.cargo/bin:$PATH" ~/.cargo/bin/cargo.exe test \
 ## D1 migrations
 
 Two separate migration directories, applied to different databases.
+**Both tiers deploy automatically from CI** — a push to `main` that passes
+CI runs the `deploy-worker` job (`.github/workflows/ci.yml`), which
+deploys the worker and then migrates both DB tiers. No manual step.
 
-- `migrations/index/` — applied to the global index DB (tables:
-  `users`, `workspaces_meta`, `user_workspaces`). **No runtime
-  mechanism.** Apply manually: `wrangler d1 execute <index-db>
-  --file=migrations/index/<file>.sql`.
+- `migrations/index/` — the single global index DB (tables: `users`,
+  `workspaces_meta`, `user_workspaces`). Applied via **wrangler-native
+  migrations**: `wrangler d1 migrations apply grumps-index --remote` (run
+  by CI). `wrangler.toml` points `INDEX_DB`'s `migrations_dir` at this
+  folder; wrangler tracks applied files in its own `d1_migrations` table,
+  so each file runs once. **Only forward `.sql` files belong here** —
+  rollback scripts live in `scripts/sql/` so wrangler never runs them.
 - `migrations/workspace/` — applied to every per-workspace D1 by the
   **runtime migration runner** (`crates/worker/src/migrations.rs`). The
   runner records applied versions in a `schema_migrations` table per
   database, so each migration runs exactly once. New workspaces are
-  migrated at provisioning; existing ones are backfilled on demand via
-  `POST /api/admin/migrate-all` (super-admin). A database that predates
-  the runner (schema present, no `schema_migrations`) is *baselined* —
-  its current versions are recorded without re-running, so ALTER-based
-  migrations don't double-apply.
+  migrated at provisioning; existing ones are backfilled by CI after
+  deploy via `POST /internal/migrate-workspaces` (secret-gated by the
+  `MIGRATE_SECRET` header — not super-admin, since CI has no JWT). A
+  database that predates the runner (schema present, no
+  `schema_migrations`) is *baselined* — its current versions are recorded
+  without re-running, so ALTER-based migrations don't double-apply.
+
+CI deploy needs three GitHub repo secrets: `CF_API_TOKEN`,
+`CF_ACCOUNT_ID`, and `MIGRATE_SECRET` (the last must match the worker's
+`MIGRATE_SECRET` set via `wrangler secret put`). The `CF_*` names match
+the project-wide convention (the worker reads `CF_API_TOKEN` /
+`CF_ACCOUNT_ID` at runtime too — same names, different stores: GitHub
+secrets for deploy, Cloudflare worker secrets for runtime). Other runtime
+worker secrets (`JWT_SECRET`, `TG_BOT_TOKEN`, …) are set out-of-band and
+are not touched by the deploy.
 
 ### Conventions
 
@@ -203,9 +219,10 @@ Two separate migration directories, applied to different databases.
   registration point — provisioning and backfill both flow through it.
 - Keep each statement well under the D1 subrequest/timeout limits; the
   runner sends one migration file per `/query` call.
-- To deploy a workspace migration: ship the code, then call
-  `POST /api/admin/migrate-all` once to backfill existing workspaces.
-  The index DB still has no runtime mechanism — apply those by hand.
+- To deploy a workspace migration: just push to `main`. CI deploys the
+  worker and then calls `POST /internal/migrate-workspaces` to backfill
+  existing workspaces. The index DB is handled in the same job by
+  `wrangler d1 migrations apply`.
 
 ## Admin model
 

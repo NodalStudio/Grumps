@@ -147,7 +147,11 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/api/admin/w/:slug/scheduled/:id/fire",
             routes::admin_global::force_fire_scheduled,
         )
-        .post_async("/api/admin/migrate-all", routes::admin_global::migrate_all)
+        // Deploy-time migration trigger (CI, secret-gated — not super-admin).
+        .post_async(
+            "/internal/migrate-workspaces",
+            routes::admin_global::migrate_workspaces_internal,
+        )
         // Stripe webhook
         .post_async(
             "/webhook/stripe",
