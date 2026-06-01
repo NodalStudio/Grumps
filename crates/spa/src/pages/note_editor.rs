@@ -51,7 +51,7 @@ pub fn NoteEditorPage() -> impl IntoView {
     view! {
         <Suspense fallback=|| view! { <div class="p-8" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
             {move || note.get().map(|data| {
-                if let Some(n) = (*data).clone() {
+                if let Some(n) = data.clone() {
                     set_content.set(n.content.clone().unwrap_or_default());
                     set_title.set(n.title.clone().unwrap_or_default());
                     let header_title = n.title.clone()

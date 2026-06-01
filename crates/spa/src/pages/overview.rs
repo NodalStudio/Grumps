@@ -87,7 +87,7 @@ pub fn OverviewPage() -> impl IntoView {
         <PageHeader title=move || {
             let s = slug();
             info.get()
-                .and_then(|data| (*data).clone())
+                .and_then(|data| data.clone())
                 .and_then(|d| d.name)
                 .unwrap_or(s)
         } subtitle=tr("page.overview.title") />
@@ -95,7 +95,7 @@ pub fn OverviewPage() -> impl IntoView {
             // Stat blocks
             <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || info.get().map(|data| {
-                    let c = (*data).clone().map(|d| d.stats).unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
+                    let c = data.clone().map(|d| d.stats).unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
                     view! {
                         <div class="flex border-2 border-ink rounded-sm overflow-hidden mb-6" style="background: var(--cream-light);">
                             <StatBlock number=c.open_todos label=tr("overview.stat.open_todos") color="var(--brick)" />
@@ -114,7 +114,7 @@ pub fn OverviewPage() -> impl IntoView {
                     <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.this_week")}</h3>
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || week_items.get().map(|data| {
-                            let items: Vec<CalendarItem> = (*data).clone();
+                            let items: Vec<CalendarItem> = data.clone();
                             let tz = crate::datetime::use_timezone();
                             let day_names = [
                                 tr("overview.day.short.mon"),
@@ -195,7 +195,7 @@ pub fn OverviewPage() -> impl IntoView {
                     <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.what_i_know")}</h3>
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || memories.get().map(|data| {
-                            let items: Vec<MemoryItem> = (*data).clone();
+                            let items: Vec<MemoryItem> = data.clone();
                             if items.is_empty() {
                                 return view! {
                                     <p class="text-sm" style="color: var(--ink-40);">{move || tr("overview.nothing_pinned")}</p>

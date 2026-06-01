@@ -140,7 +140,7 @@ pub fn CalendarPage() -> impl IntoView {
     let (items_sig, set_items_sig) = signal(Vec::<CalendarItem>::new());
     Effect::new(move |_| {
         if let Some(data) = cal_items.get() {
-            set_items_sig.set((*data).clone());
+            set_items_sig.set(data.clone());
         }
     });
 

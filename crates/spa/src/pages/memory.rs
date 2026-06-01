@@ -38,7 +38,7 @@ pub fn MemoryPage() -> impl IntoView {
             .get()
             .map(|data| {
                 let kf = kind_filter.get();
-                let all: Vec<MemoryItem> = (*data).clone();
+                let all: Vec<MemoryItem> = data.clone();
                 if kf == "all" {
                     all
                 } else {

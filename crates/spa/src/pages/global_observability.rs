@@ -298,7 +298,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
             // Main content
             <div class="flex-1 overflow-y-auto p-6 md:p-8">
                 {move || {
-                    let maybe = data.get().map(|w| (*w).clone());
+                    let maybe = data.get().map(|w| w.clone());
                     match maybe {
                         None => view! {
                             <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">{move || tr("common.loading")}</div>

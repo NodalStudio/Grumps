@@ -49,7 +49,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             .map(|data| {
                 let tf = type_filter.get();
                 let sf = status_filter.get();
-                let all: Vec<ScheduledActionItem> = (*data).clone();
+                let all: Vec<ScheduledActionItem> = data.clone();
                 all.into_iter()
                     .filter(|i| {
                         (tf == "all" || i.action_type == tf) && (sf == "all" || i.status == sf)

@@ -310,7 +310,7 @@ pub fn ObservabilityPage() -> impl IntoView {
         <div class="flex-1 overflow-y-auto p-6 md:p-8" style="background: var(--cream-light);">
             {move || {
                 // Check super admin gate first (once loaded)
-                if let Some(me) = gate.get().map(|m| (*m).clone()) {
+                if let Some(me) = gate.get().map(|m| m.clone()) {
                     let is_super = me.map(|m| m.is_super_admin).unwrap_or(false);
                     if !is_super {
                         if let Some(win) = web_sys::window() {
@@ -322,7 +322,7 @@ pub fn ObservabilityPage() -> impl IntoView {
                     }
                 }
 
-                let maybe = data.get().map(|w| (*w).clone());
+                let maybe = data.get().map(|w| w.clone());
                 match maybe {
                     None => view! {
                         <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Loading…"</div>

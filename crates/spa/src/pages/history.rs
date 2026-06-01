@@ -20,7 +20,7 @@ pub fn HistoryPage() -> impl IntoView {
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || history.get().map(|data| {
-                    let items: Vec<_> = (*data).clone();
+                    let items: Vec<_> = data.clone();
                     if items.is_empty() {
                         return view! {
                             <div class="text-center py-16">

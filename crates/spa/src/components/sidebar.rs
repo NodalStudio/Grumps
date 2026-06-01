@@ -45,7 +45,7 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                 // Super admin link — rendered only if user is super admin
                 {move || {
                     let is_super = admin_me.get()
-                        .and_then(|m| (*m).clone())
+                        .and_then(|m| m.clone())
                         .map(|m| m.is_super_admin)
                         .unwrap_or(false);
                     if is_super {
