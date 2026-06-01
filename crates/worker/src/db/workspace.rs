@@ -46,6 +46,17 @@ fn parse_db_instant(s: &str) -> Option<chrono::DateTime<chrono::Utc>> {
 // Workspace DB (via D1 REST API)
 // =============================================
 
+/// Calendar-month bucket key for the LLM-call quota counter, e.g.
+/// `llm_calls_2026_05`. Uses the real UTC calendar month. (The previous
+/// version approximated it from epoch seconds with `1970 + days/365` and
+/// `day_of_year/30`, which drifts off the calendar by ~a day per year and
+/// ignores leap years, so quota windows didn't line up with real months.)
+fn month_bucket_key() -> String {
+    use chrono::Datelike;
+    let now = chrono::Utc::now();
+    format!("llm_calls_{}_{:02}", now.year(), now.month())
+}
+
 pub struct WorkspaceDb<'a> {
     client: &'a D1RestClient,
     database_id: String,
@@ -570,19 +581,7 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Increment LLM call counter for this month. Uses settings table.
     pub async fn increment_llm_calls(&self) -> Result<i64> {
-        let month_key = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            // Approximate year/month from epoch seconds (good enough for monthly bucketing)
-            let days = secs / 86400;
-            let year = 1970 + days / 365;
-            let day_of_year = days % 365;
-            let month = day_of_year / 30 + 1;
-            format!("llm_calls_{}_{:02}", year, month.min(12))
-        };
+        let month_key = month_bucket_key();
 
         // Upsert counter
         self.q(
@@ -607,18 +606,7 @@ impl<'a> WorkspaceDb<'a> {
 
     /// Get current LLM call count for this month.
     pub async fn get_llm_calls_this_month(&self) -> Result<i64> {
-        let month_key = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let days = secs / 86400;
-            let year = 1970 + days / 365;
-            let day_of_year = days % 365;
-            let month = day_of_year / 30 + 1;
-            format!("llm_calls_{}_{:02}", year, month.min(12))
-        };
+        let month_key = month_bucket_key();
         #[derive(serde::Deserialize)]
         struct Row {
             value: String,

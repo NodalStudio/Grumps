@@ -18,12 +18,13 @@ UPDATE scheduled_actions SET recurrence = 'FREQ=WEEKLY;BYDAY=FR' WHERE recurrenc
 UPDATE scheduled_actions SET recurrence = 'FREQ=WEEKLY;BYDAY=SA' WHERE recurrence IS NOT NULL AND recurrence NOT LIKE 'FREQ=%' AND lower(recurrence) LIKE '%saturday%';
 UPDATE scheduled_actions SET recurrence = 'FREQ=WEEKLY;BYDAY=SU' WHERE recurrence IS NOT NULL AND recurrence NOT LIKE 'FREQ=%' AND lower(recurrence) LIKE '%sunday%';
 
--- Bare 'weekly' / 'every week' with no named day: derive the weekday from
--- trigger_at (strftime '%w' is 0=Sunday .. 6=Saturday).
+-- Bare 'weekly' / 'every week' with no named day: store FREQ=WEEKLY with no
+-- BYDAY. The scheduler resolves a BYDAY-less weekly rule to "same weekday as
+-- the trigger, every week", computed in the workspace timezone at run time.
+-- (Deriving BYDAY here via strftime('%w', trigger_at) would use the UTC
+-- weekday of the stored instant, which is off by a day for reminders set near
+-- local midnight in zones away from UTC.)
 UPDATE scheduled_actions
-SET recurrence = 'FREQ=WEEKLY;BYDAY=' || (CASE strftime('%w', trigger_at)
-    WHEN '0' THEN 'SU' WHEN '1' THEN 'MO' WHEN '2' THEN 'TU' WHEN '3' THEN 'WE'
-    WHEN '4' THEN 'TH' WHEN '5' THEN 'FR' WHEN '6' THEN 'SA' END)
+SET recurrence = 'FREQ=WEEKLY'
 WHERE recurrence IS NOT NULL AND recurrence NOT LIKE 'FREQ=%'
-  AND (lower(recurrence) LIKE '%weekly%' OR lower(recurrence) LIKE '%every week%')
-  AND strftime('%w', trigger_at) IS NOT NULL;
+  AND (lower(recurrence) LIKE '%weekly%' OR lower(recurrence) LIKE '%every week%');

@@ -135,8 +135,10 @@ fn migration_0006_normalizes_free_text_recurrence() {
     };
     assert_eq!(rec("a"), "FREQ=DAILY");
     assert_eq!(rec("b"), "FREQ=WEEKLY;BYDAY=MO");
-    // 2026-06-03 is a Wednesday → bare "weekly" derives the day from trigger_at.
-    assert_eq!(rec("c"), "FREQ=WEEKLY;BYDAY=WE");
+    // Bare "weekly" is stored without BYDAY; the scheduler resolves the weekday
+    // from trigger_at in the workspace timezone at run time (deriving it here
+    // via strftime would use the UTC weekday and drift a day near midnight).
+    assert_eq!(rec("c"), "FREQ=WEEKLY");
     // Already an RRULE → untouched.
     assert_eq!(rec("d"), "FREQ=DAILY");
 }

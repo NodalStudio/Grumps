@@ -35,10 +35,12 @@ async fn check_and_send_recaps(
         slug: String,
         d1_database_id: String,
         platform_channel_id: String,
+        #[serde(default)]
+        locale: String,
     }
 
     let ws_results = index_db
-        .prepare("SELECT slug, d1_database_id, platform_channel_id FROM workspaces_meta")
+        .prepare("SELECT slug, d1_database_id, platform_channel_id, locale FROM workspaces_meta")
         .all()
         .await?;
     let workspaces: Vec<WsRow> = ws_results.results()?;
@@ -109,7 +111,11 @@ async fn check_and_send_recaps(
             &high_prio,
             data.new_notes,
             data.reminders,
-            "en",
+            if ws.locale.is_empty() {
+                "en"
+            } else {
+                &ws.locale
+            },
         );
 
         // Send to WhatsApp group

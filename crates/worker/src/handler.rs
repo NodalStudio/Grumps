@@ -100,7 +100,7 @@ pub async fn handle_message(
                     .flatten()
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "UTC".to_string());
-                let tz: chrono_tz::Tz = grumps_core::timeutil::tz_or_utc(&timezone);
+                let tz = grumps_core::timeutil::tz_or_utc(&timezone);
                 let now_local = chrono::Utc::now()
                     .with_timezone(&tz)
                     .format("%Y-%m-%dT%H:%M:%S")
@@ -947,9 +947,11 @@ async fn try_fast_commands(
     ];
     if silence_triggers.iter().any(|t| lower.contains(t)) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
-        let _ = kv
-            .put(&silence_key, "1")
-            .map(|p| p.expiration_ttl(86400).execute());
+        // Await the write — a dropped `execute()` future never runs, so the
+        // silence window would never actually be recorded.
+        if let Ok(p) = kv.put(&silence_key, "1") {
+            let _ = p.expiration_ttl(86400).execute().await;
+        }
         return Ok(Some(HandlerResult::one(
             grumps_i18n::t(locale, "agent.silence.confirm", &[]),
             None,

@@ -125,7 +125,8 @@ async fn execute_reminder(
         .get("text")
         .and_then(|v| v.as_str())
         .unwrap_or(&action.title);
-    let body = format!("⏰ Rappel : {text}");
+    let loc = grumps_i18n::Locale::from_code(&ws.locale);
+    let body = grumps_i18n::t(loc, "agent.reminder.fire", &[("text", text)]);
     send_to_group(env, ws, &body).await
 }
 
@@ -149,10 +150,20 @@ async fn execute_event_notify(
         .get_event(event_id)
         .await?
         .ok_or_else(|| Error::RustError(format!("event not found: {event_id}")))?;
-    let body = format!(
-        "📅 Dans {lead}min : {} ({})",
-        event.title,
-        event.location.as_deref().unwrap_or("lieu non précisé")
+    let loc = grumps_i18n::Locale::from_code(&ws.locale);
+    let location = match event.location.as_deref() {
+        Some(l) if !l.is_empty() => l.to_string(),
+        _ => grumps_i18n::t(loc, "agent.event.location_unset", &[]),
+    };
+    let lead_str = lead.to_string();
+    let body = grumps_i18n::t(
+        loc,
+        "agent.event.notify",
+        &[
+            ("lead", lead_str.as_str()),
+            ("title", event.title.as_str()),
+            ("location", location.as_str()),
+        ],
     );
     send_to_group(env, ws, &body).await
 }
@@ -174,6 +185,17 @@ async fn execute_recap(
     let data = db.get_recap_data(&tz).await?;
     // Nothing worth reporting → stay silent rather than send an empty recap.
     if data.open == 0 && data.done_week == 0 && data.new_notes == 0 {
+        return Ok(());
+    }
+    // Dedup against the weekly cron recap (same key shape) so a workspace with
+    // both an automatic Monday recap and a scheduled recap can't get two.
+    let kv = env.kv("KV")?;
+    let recap_key = format!(
+        "recap:{}:{}",
+        ws.slug,
+        grumps_core::timeutil::tz_today_str(grumps_core::timeutil::tz_or_utc(&tz))
+    );
+    if kv.get(&recap_key).text().await?.is_some() {
         return Ok(());
     }
     let high_prio: Vec<(i64, String, Option<String>, Option<String>)> = data
@@ -203,7 +225,14 @@ async fn execute_recap(
         data.reminders,
         &locale,
     );
-    send_to_group(env, ws, &body).await
+    send_to_group(env, ws, &body).await?;
+    // Mark today's recap as sent so the cron path (and any other scheduled
+    // recap) skips it for the rest of the local day.
+    kv.put(&recap_key, "1")?
+        .expiration_ttl(86400)
+        .execute()
+        .await?;
+    Ok(())
 }
 
 async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {

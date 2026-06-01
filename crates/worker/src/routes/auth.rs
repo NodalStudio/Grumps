@@ -468,10 +468,11 @@ async fn touch_session_if_stale(env: &worker::Env, index_db: &worker::D1Database
         return;
     }
     let _ = crate::db::touch_session_last_seen(index_db, sid).await;
-    let _ = kv
-        .put(&key, "1")
-        .ok()
-        .map(|p| p.expiration_ttl(300).execute());
+    // Await the KV write — a dropped `execute()` future never runs, so the
+    // throttle key would never be set and every /auth/me would hit D1.
+    if let Ok(p) = kv.put(&key, "1") {
+        let _ = p.expiration_ttl(300).execute().await;
+    }
 }
 
 pub async fn handle_logout(req: Request, ctx: RouteContext<()>) -> Result<Response> {

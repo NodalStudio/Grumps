@@ -3,10 +3,6 @@ use crate::api::CalendarItem;
 use crate::i18n::tr;
 use leptos::prelude::*;
 
-fn parse_date_key(s: &str) -> String {
-    s.get(..10).unwrap_or(s).to_string()
-}
-
 #[component]
 pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
     view! {
@@ -27,11 +23,7 @@ pub fn AgendaView(items: ReadSignal<Vec<CalendarItem>>) -> impl IntoView {
                 let tz = crate::datetime::use_timezone();
                 let mut groups: Vec<(String, Vec<CalendarItem>)> = Vec::new();
                 for item in all {
-                    let key = if item.all_day {
-                        parse_date_key(&item.starts_at)
-                    } else {
-                        crate::datetime::date_key_in_tz(&item.starts_at, &tz)
-                    };
+                    let key = crate::datetime::item_day_key(&item.starts_at, item.all_day, &tz);
                     if let Some(last) = groups.last_mut() {
                         if last.0 == key {
                             last.1.push(item);
