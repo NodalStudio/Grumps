@@ -1,5 +1,6 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::switch::Switch;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -248,17 +249,7 @@ fn Toggle(
                 <div class="font-medium text-sm">{move || tr(label_key)}</div>
                 <div class="text-xs" style="color: var(--ink-40);">{move || tr(desc_key)}</div>
             </div>
-            <div
-                class="w-10 h-6 border-2 border-ink rounded-full relative cursor-pointer transition-colors shrink-0"
-                style:background=move || if value.get() { "var(--teal)" } else { "var(--cream)" }
-                on:click=move |_| on_toggle()
-            >
-                <div
-                    class="absolute w-3.5 h-3.5 rounded-full top-[1px] transition-all"
-                    style:background=move || if value.get() { "white" } else { "var(--ink)" }
-                    style:left=move || if value.get() { "18px" } else { "2px" }
-                ></div>
-            </div>
+            <Switch checked=value on_change=on_toggle aria_label=tr(label_key) />
         </div>
     }
 }
