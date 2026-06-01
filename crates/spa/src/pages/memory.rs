@@ -38,7 +38,7 @@ pub fn MemoryPage() -> impl IntoView {
             .get()
             .map(|data| {
                 let kf = kind_filter.get();
-                let all: Vec<MemoryItem> = (*data).clone();
+                let all: Vec<MemoryItem> = data.clone();
                 if kf == "all" {
                     all
                 } else {
@@ -135,7 +135,7 @@ pub fn MemoryPage() -> impl IntoView {
     view! {
         <PageHeader title=tr("page.memory.title") subtitle=tr("page.memory.subtitle")>
             <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
                 on:click=open_create
             >"+ "{move || tr("memory.action.add")}</button>
@@ -152,7 +152,7 @@ pub fn MemoryPage() -> impl IntoView {
                     let label_key: String = if k == "all" { "common.filter.all".into() } else { format!("memory.kind.{}", k) };
                     view! {
                         <button
-                            class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer transition-colors"
+                            class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer transition-colors"
                             class:bg-ink=move || kind_filter.get() == k
                             class:text-cream=move || kind_filter.get() == k2
                             style:border-color=move || if kind_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
@@ -209,7 +209,7 @@ pub fn MemoryPage() -> impl IntoView {
                     on:click=move |_| set_show_modal.set(false)
                 >
                     <div
-                        class="w-full max-w-md mx-4 border-2 border-ink rounded-sm p-6 flex flex-col gap-4"
+                        class="w-full max-w-md mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
                         style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                         on:click=|e| e.stop_propagation()
                     >
@@ -219,7 +219,7 @@ pub fn MemoryPage() -> impl IntoView {
                             <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.key")}</label>
                             <input
                                 type="text" placeholder=tr("memory.field.key.placeholder")
-                                class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                 on:input=move |ev| set_form_key.set(event_target_value(&ev))
                                 prop:value=form_key
                             />
@@ -230,7 +230,7 @@ pub fn MemoryPage() -> impl IntoView {
                             <textarea
                                 rows="3"
                                 placeholder=tr("memory.field.value.placeholder")
-                                class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none resize-none"
+                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden resize-none"
                                 on:input=move |ev| set_form_value.set(event_target_value(&ev))
                                 prop:value=form_value
                             ></textarea>
@@ -240,7 +240,7 @@ pub fn MemoryPage() -> impl IntoView {
                             <div class="flex flex-col gap-1 flex-1">
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.kind")}</label>
                                 <select
-                                    class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                     on:change=move |ev| set_form_kind.set(event_target_value(&ev))
                                     prop:value=form_kind
                                 >
@@ -255,7 +255,7 @@ pub fn MemoryPage() -> impl IntoView {
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.related")}</label>
                                 <input
                                     type="text" placeholder=tr("memory.field.member.placeholder")
-                                    class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                     on:input=move |ev| set_form_related.set(event_target_value(&ev))
                                     prop:value=form_related
                                 />
@@ -267,7 +267,7 @@ pub fn MemoryPage() -> impl IntoView {
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.expires")}</label>
                                 <input
                                     type="date"
-                                    class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                     on:input=move |ev| set_form_expires.set(event_target_value(&ev))
                                     prop:value=form_expires
                                 />
@@ -275,7 +275,7 @@ pub fn MemoryPage() -> impl IntoView {
                             <div class="flex items-center gap-2 pt-5">
                                 <input
                                     type="checkbox" id="mem-pinned"
-                                    class="w-4 h-4 border-2 border-ink rounded-sm cursor-pointer"
+                                    class="w-4 h-4 border-2 border-ink rounded-xs cursor-pointer"
                                     on:change=move |ev| {
                                         use wasm_bindgen::JsCast;
                                         let checked = ev.target().and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok()).map(|i| i.checked()).unwrap_or(false);
@@ -289,12 +289,12 @@ pub fn MemoryPage() -> impl IntoView {
 
                         <div class="flex gap-2 pt-2">
                             <button
-                                class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                                class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                                 style="background: var(--ink); color: var(--cream);"
                                 on:click=save.clone()
                             >{move || tr("common.save")}</button>
                             <button
-                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                                 style="background: transparent; color: var(--ink);"
                                 on:click=move |_| set_show_modal.set(false)
                             >{move || tr("common.cancel")}</button>
@@ -312,7 +312,7 @@ pub fn MemoryPage() -> impl IntoView {
                 on:click=move |_| set_confirm_delete.set(None)
             >
                 <div
-                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-sm p-6 flex flex-col gap-4"
+                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
                     style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                     on:click=|e| e.stop_propagation()
                 >
@@ -320,12 +320,12 @@ pub fn MemoryPage() -> impl IntoView {
                     <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <button
-                            class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-sm cursor-pointer"
+                            class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-xs cursor-pointer"
                             style="background: var(--brick); border-color: var(--brick); color: white;"
                             on:click=confirm_del.clone()
                         >{move || tr("common.delete")}</button>
                         <button
-                            class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                            class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                             on:click=move |_| set_confirm_delete.set(None)
                         >{move || tr("common.cancel")}</button>
                     </div>

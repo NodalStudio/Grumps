@@ -8,11 +8,11 @@ routes = [
 ]
 
 [build]
-# worker-build is pinned to match the `worker` 0.8.1 crate / wasm-bindgen
-# 0.2.118 (hard-pinned transitively via js-sys 0.3.95). The unversioned
-# `cargo install` grabs latest (0.8.3+), which demands wasm-bindgen >= 0.2.121
-# and fails the build. Bump this in lockstep when upgrading the worker crate.
-command = "cargo install -q --locked worker-build@0.8.1 && cd crates/worker && worker-build --release"
+# worker-build is pinned to match the `worker` 0.8.3 crate. The coordinated
+# wasm-bindgen 0.2.122 bump (shared with the SPA's leptos 0.8) satisfies
+# worker-build 0.8.3's wasm-bindgen >= 0.2.121 floor, so the old 0.8.1
+# stop-gap is gone. Bump this in lockstep when upgrading the worker crate.
+command = "cargo install -q --locked worker-build@0.8.3 && cd crates/worker && worker-build --release"
 
 # Public env vars exposed to the worker at runtime via `ctx.env.var(...)`.
 # These are NOT secrets — committed to wrangler.toml at deploy time.

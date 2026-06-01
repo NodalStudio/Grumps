@@ -1,6 +1,30 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* v4 auto-detection skips .rs files and gitignored dist/ — declare sources. */
+@source "./src/**/*.rs";
+@source "./index.html";
+
+/* Expose the existing :root design tokens (defined in @layer base below) as
+   Tailwind color/font utilities. @theme inline keeps the var() references so
+   inline `style="color: var(--ink)"` usages keep working unchanged. */
+@theme inline {
+  --color-cream: var(--cream);
+  --color-cream-light: var(--cream-light);
+  --color-ink: var(--ink);
+  --color-brick: var(--brick);
+  --color-brick-hover: var(--brick-hover);
+  --color-teal: var(--teal);
+  --color-teal-light: var(--teal-light);
+  --color-ochre: var(--ochre);
+  --color-ochre-light: var(--ochre-light);
+  --color-warm-gray: var(--warm-gray);
+  --color-warm-gray-light: var(--warm-gray-light);
+
+  --font-display: "Bitter", Georgia, serif;
+  --font-body: "DM Sans", -apple-system, sans-serif;
+
+  --border-width-grumps: 2px;
+}
 
 @layer base {
   :root {

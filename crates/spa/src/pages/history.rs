@@ -20,7 +20,7 @@ pub fn HistoryPage() -> impl IntoView {
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || history.get().map(|data| {
-                    let items: Vec<_> = (*data).clone();
+                    let items: Vec<_> = data.clone();
                     if items.is_empty() {
                         return view! {
                             <div class="text-center py-16">
@@ -44,17 +44,17 @@ pub fn HistoryPage() -> impl IntoView {
                                     };
                                     view! {
                                         <div class="flex gap-3.5 py-3.5 items-start" style="border-bottom: 1px solid var(--ink-08);">
-                                            <div class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style:background=dot_color></div>
+                                            <div class="w-2 h-2 rounded-full shrink-0 mt-1.5" style:background=dot_color></div>
                                             <div class="flex-1 text-[13px]">
                                                 <strong>{activity.actor.clone().unwrap_or_else(|| tr("common.someone"))}</strong>
                                                 " "
                                                 {let a = activity.action.clone(); move || tr(&a)}
                                                 {activity.target_id.clone().map(|id| view! { <span class="font-display font-semibold">" "{move || tr(&id)}</span> })}
-                                                <span class="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm" style="color: var(--ink-40); border-color: var(--ink-15);">
+                                                <span class="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-xs" style="color: var(--ink-40); border-color: var(--ink-15);">
                                                     {let s = activity.source.clone(); move || tr(&s)}
                                                 </span>
                                             </div>
-                                            <div class="text-[11px] flex-shrink-0" style="color: var(--ink-40);">{let t = activity.created_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</div>
+                                            <div class="text-[11px] shrink-0" style="color: var(--ink-40);">{let t = activity.created_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</div>
                                         </div>
                                     }
                                 }

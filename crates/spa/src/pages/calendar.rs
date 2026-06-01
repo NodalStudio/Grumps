@@ -140,7 +140,7 @@ pub fn CalendarPage() -> impl IntoView {
     let (items_sig, set_items_sig) = signal(Vec::<CalendarItem>::new());
     Effect::new(move |_| {
         if let Some(data) = cal_items.get() {
-            set_items_sig.set((*data).clone());
+            set_items_sig.set(data.clone());
         }
     });
 
@@ -201,14 +201,14 @@ pub fn CalendarPage() -> impl IntoView {
             // Navigation + view tabs
             <div class="flex items-center gap-2">
                 <button
-                    class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                    class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                     on:click=prev_month
                 >"< "{move || tr("calendar.prev")}</button>
                 <button
-                    class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                    class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                     on:click=next_month
                 >{move || tr("calendar.next")}" >"</button>
-                <div class="flex border-2 border-ink rounded-sm overflow-hidden ml-2">
+                <div class="flex border-2 border-ink rounded-xs overflow-hidden ml-2">
                     {view_tabs.into_iter().map(|(val, label_key)| {
                         let val = val.to_string();
                         let val2 = val.clone();

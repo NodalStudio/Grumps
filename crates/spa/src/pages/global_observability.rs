@@ -106,7 +106,7 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
                         view! {
                             <tr class="border-b" style="border-color: var(--ink-15);">
                                 <td class="py-1.5 pr-4 flex items-center gap-2">
-                                    <span class="inline-block w-3 h-3 border border-ink flex-shrink-0"
+                                    <span class="inline-block w-3 h-3 border border-ink shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>
@@ -298,7 +298,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
             // Main content
             <div class="flex-1 overflow-y-auto p-6 md:p-8">
                 {move || {
-                    let maybe = data.get().map(|w| (*w).clone());
+                    let maybe = data.get().map(|w| w.clone());
                     match maybe {
                         None => view! {
                             <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">{move || tr("common.loading")}</div>
