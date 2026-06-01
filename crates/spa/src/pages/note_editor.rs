@@ -72,14 +72,14 @@ pub fn NoteEditorPage() -> impl IntoView {
                                 }}
                             </span>
                             <button
-                                class="px-3 py-1.5 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                class="px-3 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                                 style="background: var(--cream-light);"
                                 on:click=move |_| set_editing.update(|e| *e = !*e)
                             >
                                 {move || if editing.get() { tr("page.note_editor.preview") } else { tr("page.note_editor.edit") }}
                             </button>
                             <button
-                                class="px-4 py-1.5 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                class="px-4 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                                 style="background: var(--ink); color: var(--cream);"
                                 disabled=move || save_state.get() == SaveState::Saving
                                 on:click=move |_| save.with_value(|f| f())
@@ -92,14 +92,14 @@ pub fn NoteEditorPage() -> impl IntoView {
                                 view! {
                                     <div class="flex flex-col gap-3">
                                         <input
-                                            class="w-full p-3 border-2 border-ink rounded-sm text-sm font-semibold outline-none"
+                                            class="w-full p-3 border-2 border-ink rounded-xs text-sm font-semibold outline-hidden"
                                             style="background: var(--cream);"
                                             placeholder=tr("common.title.placeholder")
                                             prop:value=title
                                             on:input=move |ev| set_title.set(event_target_value(&ev))
                                         />
                                         <textarea
-                                            class="w-full min-h-[400px] p-4 border-2 border-ink rounded-sm text-sm font-mono outline-none resize-y"
+                                            class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
                                             style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
                                             prop:value=content
                                             on:input=move |ev| set_content.set(event_target_value(&ev))
@@ -108,7 +108,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                                 }.into_any()
                             } else {
                                 view! {
-                                    <div class="prose max-w-none p-6 border-2 border-ink rounded-sm" style="background: var(--cream-light);">
+                                    <div class="prose max-w-none p-6 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
                                         <pre class="whitespace-pre-wrap text-sm">{content.get()}</pre>
                                     </div>
                                 }.into_any()

@@ -97,7 +97,7 @@ pub fn OverviewPage() -> impl IntoView {
                 {move || info.get().map(|data| {
                     let c = data.clone().map(|d| d.stats).unwrap_or(StatusCounts { open_todos: 0, done_this_week: 0, notes: 0, files: 0 });
                     view! {
-                        <div class="flex border-2 border-ink rounded-sm overflow-hidden mb-6" style="background: var(--cream-light);">
+                        <div class="flex border-2 border-ink rounded-xs overflow-hidden mb-6" style="background: var(--cream-light);">
                             <StatBlock number=c.open_todos label=tr("overview.stat.open_todos") color="var(--brick)" />
                             <StatBlock number=c.notes label=tr("overview.stat.notes") color="var(--ink)" />
                             <StatBlock number=c.files label=tr("overview.stat.files") color="var(--ink)" />
@@ -110,7 +110,7 @@ pub fn OverviewPage() -> impl IntoView {
             // Bottom widgets row
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 // Widget: this week's calendar
-                <div class="border-2 border-ink rounded-sm p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
+                <div class="border-2 border-ink rounded-xs p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
                     <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.this_week")}</h3>
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || week_items.get().map(|data| {
@@ -191,7 +191,7 @@ pub fn OverviewPage() -> impl IntoView {
                 </div>
 
                 // Widget: Ce que je sais sur le groupe
-                <div class="border-2 border-ink rounded-sm p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
+                <div class="border-2 border-ink rounded-xs p-4" style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;">
                     <h3 class="font-display text-base font-bold mb-3">{move || tr("overview.what_i_know")}</h3>
                     <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                         {move || memories.get().map(|data| {
@@ -206,7 +206,7 @@ pub fn OverviewPage() -> impl IntoView {
                                     {items.into_iter().map(|item| view! {
                                         <div class="flex items-start gap-2 text-sm">
                                             <span
-                                                class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-sm flex-shrink-0"
+                                                class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs shrink-0"
                                                 style="background: var(--brick); color: white;"
                                             >{item.kind.clone()}</span>
                                             <span style="color: var(--ink);">{let v = item.value.clone(); move || tr(&v)}</span>

@@ -12,7 +12,7 @@ pub fn CalItem(item: CalendarItem, compact: bool) -> impl IntoView {
 
     view! {
         <div
-            class="px-1 py-0.5 text-[11px] font-semibold rounded-sm truncate cursor-pointer"
+            class="px-1 py-0.5 text-[11px] font-semibold rounded-xs truncate cursor-pointer"
             style:background=color
             style="color: white; border-left: 3px solid rgba(0,0,0,0.3);"
             title=title_attr

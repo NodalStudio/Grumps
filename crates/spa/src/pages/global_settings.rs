@@ -12,17 +12,17 @@ pub fn GlobalSettingsPage() -> impl IntoView {
         <div class="min-h-screen p-8" style="background: var(--cream);">
             <h1 class="font-display text-3xl font-bold mb-6">{move || tr("settings.title")}</h1>
 
-            <section class="max-w-2xl border-2 border-ink rounded-sm p-6 mb-6" style="background: var(--cream-light);">
+            <section class="max-w-2xl border-2 border-ink rounded-xs p-6 mb-6" style="background: var(--cream-light);">
                 <h2 class="font-display text-lg font-bold mb-4">{move || tr("settings.account")}</h2>
                 <AccountForm session=session.clone()/>
             </section>
 
-            <section class="max-w-2xl border-2 border-ink rounded-sm p-6 mb-6" style="background: var(--cream-light);">
+            <section class="max-w-2xl border-2 border-ink rounded-xs p-6 mb-6" style="background: var(--cream-light);">
                 <h2 class="font-display text-lg font-bold mb-4">{move || tr("settings.linked_accounts")}</h2>
                 <LinkedAccounts/>
             </section>
 
-            <section class="max-w-2xl border-2 border-ink rounded-sm p-6" style="background: var(--cream-light);">
+            <section class="max-w-2xl border-2 border-ink rounded-xs p-6" style="background: var(--cream-light);">
                 <h2 class="font-display text-lg font-bold mb-4">{move || tr("settings.sessions")}</h2>
                 <SessionList/>
             </section>
@@ -58,12 +58,12 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
     view! {
         <label class="block mb-4">
             <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.display_name")}</span>
-            <input type="text" class="w-full p-2 border-2 border-ink rounded-sm" style="background: var(--cream);"
+            <input type="text" class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
                 prop:value=name on:input=move |ev| set_name.set(event_target_value(&ev))/>
         </label>
         <label class="block mb-4">
             <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.default_locale")}</span>
-            <select class="w-full p-2 border-2 border-ink rounded-sm" style="background: var(--cream);"
+            <select class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
                 on:change=move |ev| set_locale.set(event_target_value(&ev))>
                 {["en","es","pt-BR","fr","de","it","ru","tr","ar","hi","zh-CN","ja","ko","id"].iter().map(|code| {
                     let code = *code;
@@ -71,7 +71,7 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
                 }).collect_view()}
             </select>
         </label>
-        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm cursor-pointer"
+        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
             style="background: var(--ink); color: var(--cream);"
             on:click=save>{move || tr("common.save")}</button>
     }
@@ -142,21 +142,21 @@ fn SessionList() -> impl IntoView {
     view! {
         <ul class="space-y-3 mb-4">
             <For each=move || list.get() key=|s| s.id.clone() let:s>
-                <li class="p-3 border-2 border-ink rounded-sm flex justify-between items-center">
+                <li class="p-3 border-2 border-ink rounded-xs flex justify-between items-center">
                     <div>
                         <div class="font-bold">{s.device_label.clone().unwrap_or_default()} " · " {s.country_hint.clone().unwrap_or_default()}</div>
                         <div class="text-xs" style="color: var(--ink-40);">{move || tr_p("settings.last_active", &[("date", &s.last_seen_at)])}</div>
                     </div>
                     {if s.is_current {
-                        view! { <span class="text-xs font-bold uppercase tracking-wider px-2 py-1 border-2 border-ink rounded-sm">{move || tr("settings.this_device")}</span> }.into_any()
+                        view! { <span class="text-xs font-bold uppercase tracking-wider px-2 py-1 border-2 border-ink rounded-xs">{move || tr("settings.this_device")}</span> }.into_any()
                     } else {
                         let sid = s.id.clone();
-                        view! { <button class="text-xs font-bold uppercase tracking-wider px-2 py-1 border-2 border-ink rounded-sm cursor-pointer" on:click=move |_| revoke(sid.clone())>{move || tr("settings.log_out")}</button> }.into_any()
+                        view! { <button class="text-xs font-bold uppercase tracking-wider px-2 py-1 border-2 border-ink rounded-xs cursor-pointer" on:click=move |_| revoke(sid.clone())>{move || tr("settings.log_out")}</button> }.into_any()
                     }}
                 </li>
             </For>
         </ul>
-        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm cursor-pointer"
+        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
             style="background: var(--ink); color: var(--cream);"
             on:click=revoke_all>{move || tr("settings.log_out_all_others")}</button>
     }

@@ -213,7 +213,7 @@ jobs:
 
       - name: Install Tailwind + Trunk
         run: |
-          npm install --no-save tailwindcss@3
+          npm install --no-save tailwindcss@4.3.0 @tailwindcss/cli@4.3.0
           TRUNK_VERSION=v0.21.14
           curl -sSfL "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \
             | sudo tar -xz -C /usr/local/bin
@@ -223,7 +223,7 @@ jobs:
         working-directory: crates/spa
         run: |
           mkdir -p dist
-          npx tailwindcss -i ./input.css -o ./dist/styles.css --minify
+          npx @tailwindcss/cli -i ./input.css -o ./dist/styles.css --minify
           trunk build --release --public-url /demo/
 
       - name: Build landing (14 locales) + copy demo SPA into /demo
@@ -242,7 +242,7 @@ jobs:
           # copied into dist/demo/ by the landing build above.
           rm -rf dist
           mkdir -p dist
-          npx tailwindcss -i ./input.css -o ./dist/styles.css --minify
+          npx @tailwindcss/cli -i ./input.css -o ./dist/styles.css --minify
           trunk build --release --public-url /
 
       - name: Install real SPA at dist root with 404 fallback

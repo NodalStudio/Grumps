@@ -84,7 +84,7 @@ pub fn MonthView(
                                     view! {
                                         <div class="border-r border-ink/10 last:border-r-0 p-1 flex flex-col gap-0.5 min-h-[80px]">
                                             <div
-                                                class="text-xs font-bold self-start px-1 rounded-sm"
+                                                class="text-xs font-bold self-start px-1 rounded-xs"
                                                 style:background=if is_today { "var(--brick)" } else { "transparent" }
                                                 style:color=if is_today { "white" } else { "var(--ink)" }
                                             >{day}</div>

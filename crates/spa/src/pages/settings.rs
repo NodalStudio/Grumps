@@ -93,7 +93,7 @@ pub fn SettingsPage() -> impl IntoView {
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
                         <div class="font-medium text-sm">{move || tr("settings.row.language")}</div>
                         <select
-                            class="border-2 border-ink rounded-sm px-3 py-1.5 text-sm bg-transparent outline-none"
+                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
                             on:change=move |ev| {
                                 let new_locale = event_target_value(&ev);
                                 let slug_str = slug();
@@ -132,7 +132,7 @@ pub fn SettingsPage() -> impl IntoView {
                             <div class="text-xs" style="color: var(--ink-40);">{move || tr("settings.row.persona.desc")}</div>
                         </div>
                         <select
-                            class="border-2 border-ink rounded-sm px-3 py-1.5 text-sm bg-transparent outline-none"
+                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
                             on:change=move |ev| set_persona.set(event_target_value(&ev))
                             prop:value=persona
                         >
@@ -158,7 +158,7 @@ pub fn SettingsPage() -> impl IntoView {
                     </div>
                     <div class="pt-3 pb-1">
                         <button
-                            class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                            class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                             style="background: var(--ink); color: var(--cream);"
                             on:click=save_agent
                         >{move || tr("settings.save_agent")}</button>
@@ -173,22 +173,22 @@ pub fn SettingsPage() -> impl IntoView {
                         <div class="flex items-center gap-2">
                             <input
                                 type="text" readonly
-                                class="flex-1 border-2 border-ink rounded-sm px-3 py-1.5 text-xs bg-transparent outline-none font-mono"
+                                class="flex-1 border-2 border-ink rounded-xs px-3 py-1.5 text-xs bg-transparent outline-hidden font-mono"
                                 placeholder=tr("settings.ical.placeholder")
                                 prop:value=ical_url
                             />
                             <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-sm cursor-pointer flex-shrink-0"
+                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer shrink-0"
                                 on:click=copy_ical
                             >{move || tr("settings.ical.copy")}</button>
                         </div>
                         <div class="flex gap-2 mt-1">
                             <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-sm cursor-pointer"
+                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer"
                                 on:click=regen_ical
                             >{move || tr("settings.ical.regenerate")}</button>
                             <button
-                                class="px-3 py-1.5 text-xs font-semibold border rounded-sm cursor-pointer"
+                                class="px-3 py-1.5 text-xs font-semibold border rounded-xs cursor-pointer"
                                 style="border-color: var(--brick); color: var(--brick);"
                                 on:click=move |_| set_ical_url.set(String::new())
                             >{move || tr("settings.ical.revoke")}</button>
@@ -249,7 +249,7 @@ fn Toggle(
                 <div class="text-xs" style="color: var(--ink-40);">{move || tr(desc_key)}</div>
             </div>
             <div
-                class="w-10 h-6 border-2 border-ink rounded-full relative cursor-pointer transition-colors flex-shrink-0"
+                class="w-10 h-6 border-2 border-ink rounded-full relative cursor-pointer transition-colors shrink-0"
                 style:background=move || if value.get() { "var(--teal)" } else { "var(--cream)" }
                 on:click=move |_| on_toggle()
             >

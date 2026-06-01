@@ -143,7 +143,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     view! {
         <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
             <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
                 on:click=open_create
             >"+ "{move || tr("schedule.action.new")}</button>
@@ -160,7 +160,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.type.{}", k) };
                         view! {
                             <button
-                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer"
+                                class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer"
                                 class:bg-ink=move || type_filter.get() == k
                                 class:text-cream=move || type_filter.get() == k2
                                 style:border-color=move || if type_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
@@ -177,7 +177,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.status.{}", k) };
                         view! {
                             <button
-                                class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer"
+                                class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer"
                                 class:bg-ink=move || status_filter.get() == k
                                 class:text-cream=move || status_filter.get() == k2
                                 style:border-color=move || if status_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
@@ -233,7 +233,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     on:click=move |_| set_show_modal.set(false)
                 >
                     <div
-                        class="w-full max-w-md mx-4 border-2 border-ink rounded-sm p-6 flex flex-col gap-4"
+                        class="w-full max-w-md mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
                         style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                         on:click=|e| e.stop_propagation()
                     >
@@ -242,7 +242,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         <div class="flex flex-col gap-1">
                             <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.title")}</label>
                             <input type="text" placeholder=tr("schedule.field.title.placeholder")
-                                class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                 on:input=move |ev| set_form_title.set(event_target_value(&ev))
                                 prop:value=form_title
                             />
@@ -252,7 +252,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                             <div class="flex flex-col gap-1 flex-1">
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.type")}</label>
                                 <select
-                                    class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                     on:change=move |ev| set_form_type.set(event_target_value(&ev))
                                     prop:value=form_type
                                 >
@@ -266,7 +266,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                             <div class="flex flex-col gap-1 flex-1">
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.trigger_at")}</label>
                                 <input type="datetime-local"
-                                    class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none"
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                     on:input=move |ev| set_form_trigger.set(event_target_value(&ev))
                                     prop:value=form_trigger
                                 />
@@ -276,7 +276,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         <div class="flex flex-col gap-1">
                             <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.recurrence")}</label>
                             <input type="text" placeholder=tr("schedule.field.recurrence.placeholder")
-                                class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none font-mono"
+                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden font-mono"
                                 on:input=move |ev| set_form_recurrence.set(event_target_value(&ev))
                                 prop:value=form_recurrence
                             />
@@ -285,7 +285,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         <div class="flex flex-col gap-1">
                             <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.payload")}</label>
                             <textarea rows="3" placeholder="{}"
-                                class="border-2 border-ink rounded-sm px-3 py-2 text-sm bg-transparent outline-none resize-none font-mono"
+                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden resize-none font-mono"
                                 on:input=move |ev| set_form_payload.set(event_target_value(&ev))
                                 prop:value=form_payload
                             ></textarea>
@@ -293,12 +293,12 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
                         <div class="flex gap-2 pt-2">
                             <button
-                                class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-sm cursor-pointer"
+                                class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                                 style="background: var(--ink); color: var(--cream);"
                                 on:click=save.clone()
                             >{move || tr("common.save")}</button>
                             <button
-                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                                 on:click=move |_| set_show_modal.set(false)
                             >{move || tr("common.cancel")}</button>
                         </div>
@@ -315,7 +315,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                 on:click=move |_| set_confirm_delete.set(None)
             >
                 <div
-                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-sm p-6 flex flex-col gap-4"
+                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
                     style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
                     on:click=|e| e.stop_propagation()
                 >
@@ -323,12 +323,12 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <button
-                            class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-sm cursor-pointer"
+                            class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-xs cursor-pointer"
                             style="background: var(--brick); border-color: var(--brick); color: white;"
                             on:click=confirm_del.clone()
                         >{move || tr("common.delete")}</button>
                         <button
-                            class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                            class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                             on:click=move |_| set_confirm_delete.set(None)
                         >{move || tr("common.cancel")}</button>
                     </div>

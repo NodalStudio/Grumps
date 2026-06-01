@@ -106,7 +106,7 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
                         view! {
                             <tr class="border-b" style="border-color: var(--ink-15);">
                                 <td class="py-1.5 pr-4 flex items-center gap-2">
-                                    <span class="inline-block w-3 h-3 border border-ink flex-shrink-0"
+                                    <span class="inline-block w-3 h-3 border border-ink shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>

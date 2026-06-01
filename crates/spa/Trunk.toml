@@ -17,7 +17,7 @@ backend = "http://127.0.0.1:8787/health"
 [[hooks]]
 stage = "pre_build"
 command = "sh"
-command_arguments = ["-c", "npx tailwindcss -i ./input.css -o ./tailwind.out.css --minify 2>/dev/null || npx tailwindcss -i ./input.css -o ./tailwind.out.css"]
+command_arguments = ["-c", "npx @tailwindcss/cli -i ./input.css -o ./tailwind.out.css --minify 2>/dev/null || npx @tailwindcss/cli -i ./input.css -o ./tailwind.out.css"]
 
 [[hooks]]
 stage = "post_build"

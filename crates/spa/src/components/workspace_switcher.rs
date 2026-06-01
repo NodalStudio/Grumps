@@ -21,14 +21,14 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
 
     view! {
         <div class="relative">
-            <button class="w-full text-left p-3 border-2 border-ink rounded-sm cursor-pointer flex justify-between items-center"
+            <button class="w-full text-left p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
                 style="background: var(--cream-light);"
                 on:click=move |_| set_open.update(|v| *v = !*v)>
                 <span class="font-display text-sm font-bold">{current_label}</span>
                 <span class="text-xs" style="color: var(--ink-40);">"▼"</span>
             </button>
             <Show when=move || open.get()>
-                <ul class="absolute top-full left-0 right-0 mt-1 border-2 border-ink rounded-sm z-10" style="background: var(--cream-light);">
+                <ul class="absolute top-full left-0 right-0 mt-1 border-2 border-ink rounded-xs z-10" style="background: var(--cream-light);">
                     {workspaces.iter().cloned().map(|ws| view_row(ws, &cur_for_render)).collect_view()}
                     <li class="border-t-2 border-ink"></li>
                     <li><a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank" class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline">"+ Add Grumps to a group"</a></li>

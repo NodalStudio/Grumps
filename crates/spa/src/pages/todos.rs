@@ -67,7 +67,7 @@ pub fn TodosPage() -> impl IntoView {
     view! {
         <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
             <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer"
+                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                 style="background: var(--ink); color: var(--cream);"
                 on:click=focus_new_todo
             >"+ "{move || tr("todo.action.add")}</button>
@@ -82,7 +82,7 @@ pub fn TodosPage() -> impl IntoView {
                     let val4 = val.clone();
                     view! {
                         <button
-                            class="px-3 py-1 text-xs font-medium border rounded-sm cursor-pointer transition-colors"
+                            class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer transition-colors"
                             class:bg-ink=move || filter.get() == val
                             class:text-cream=move || filter.get() == val2
                             style:border-color=move || if filter.get() == val3 { "var(--ink)" } else { "var(--ink-15)" }
@@ -124,14 +124,14 @@ pub fn TodosPage() -> impl IntoView {
 
                                     view! {
                                         <div
-                                            class="todo-row flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-sm cursor-pointer"
+                                            class="todo-row flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-xs cursor-pointer"
                                             class:border-l-4=is_high
                                             class:todo-row-fading=move || is_toggling.get()
                                             style:border-left-color=move || if is_high { "var(--brick)" } else { "" }
                                             style="background: var(--cream-light); transition: opacity 280ms ease-out, transform 280ms ease-out, max-height 280ms ease-out, padding 280ms ease-out, margin 280ms ease-out, border-width 280ms ease-out;"
                                         >
                                             <div
-                                                class="todo-checkbox w-5 h-5 border-2 border-ink rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
+                                                class="todo-checkbox w-5 h-5 border-2 border-ink rounded-xs shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
                                                 style:background=move || if effective_done.get() { "var(--teal)" } else { "var(--cream-light)" }
                                                 style:border-color=move || if effective_done.get() { "var(--teal)" } else { "var(--ink)" }
                                                 style="transition: background 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out;"
@@ -177,12 +177,12 @@ pub fn TodosPage() -> impl IntoView {
             </Suspense>
 
             // Inline create
-            <div class="flex items-center gap-3 px-4 py-2.5 mt-3 border-2 border-dashed rounded-sm" style="border-color: var(--ink-15);">
+            <div class="flex items-center gap-3 px-4 py-2.5 mt-3 border-2 border-dashed rounded-xs" style="border-color: var(--ink-15);">
                 <span class="text-lg" style="color: var(--ink-40);">"+"</span>
                 <input
                     id="new-todo-input"
                     type="text"
-                    class="flex-1 border-none bg-transparent text-sm outline-none"
+                    class="flex-1 border-none bg-transparent text-sm outline-hidden"
                     style="font-family: var(--font-body); color: var(--ink);"
                     prop:placeholder=move || tr("todo.add.placeholder")
                     on:input=move |ev| set_new_title.set(event_target_value(&ev))

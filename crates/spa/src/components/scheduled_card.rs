@@ -38,11 +38,11 @@ pub fn ScheduledCard(
 
     view! {
         <div
-            class="flex flex-col gap-2 px-4 py-3 border-2 border-ink rounded-sm"
+            class="flex flex-col gap-2 px-4 py-3 border-2 border-ink rounded-xs"
             style="background: var(--cream-light); box-shadow: 3px 3px 0 #1A1A1A;"
         >
             <div class="flex items-start gap-2">
-                <span class="text-base flex-shrink-0 w-5 text-center" style="color: var(--ink-70);">{type_icon(&atype)}</span>
+                <span class="text-base shrink-0 w-5 text-center" style="color: var(--ink-70);">{type_icon(&atype)}</span>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-sm" style="color: var(--ink);">{item.title.clone()}</div>
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">
@@ -57,7 +57,7 @@ pub fn ScheduledCard(
                 </div>
                 // Status badge
                 <span
-                    class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-sm flex-shrink-0"
+                    class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-xs shrink-0"
                     style:background=move || status_color(&status)
                     style="color: white;"
                 >{let k = format!("schedule.status.{}", status2); move || tr(&k)}</span>
@@ -69,11 +69,11 @@ pub fn ScheduledCard(
 
             <div class="flex items-center gap-2 pt-1 border-t" style="border-color: var(--ink-08);">
                 <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-sm cursor-pointer"
+                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-xs cursor-pointer"
                     on:click=move |_| on_edit.run(item_edit.clone())
                 >{move || tr("common.edit")}</button>
                 <button
-                    class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-sm cursor-pointer"
+                    class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-xs cursor-pointer"
                     style="border-color: var(--brick); color: var(--brick); background: transparent;"
                     on:click=move |_| on_delete.run(item_id_del.clone())
                 >{move || tr("common.delete")}</button>

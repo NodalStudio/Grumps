@@ -104,7 +104,7 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
                         view! {
                             <tr class="border-b" style="border-color: var(--ink-15);">
                                 <td class="py-1.5 pr-4 flex items-center gap-2">
-                                    <span class="inline-block w-3 h-3 border border-ink flex-shrink-0"
+                                    <span class="inline-block w-3 h-3 border border-ink shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>
@@ -196,7 +196,7 @@ fn CascadeDonut(classifier: i64, sonnet: i64, saved_usd: f64) -> impl IntoView {
     view! {
         <div class="flex flex-col md:flex-row items-start gap-6">
             // Donut SVG
-            <svg width="160" height="160" viewBox="0 0 160 160" class="flex-shrink-0">
+            <svg width="160" height="160" viewBox="0 0 160 160" class="shrink-0">
                 <circle cx="80" cy="80" r="70" fill="var(--cream-light)" stroke="#1A1A1A" stroke-width="2"/>
                 // Gemini slice
                 {if classifier > 0 {

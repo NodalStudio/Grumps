@@ -22,7 +22,7 @@ pub fn LoginPage() -> impl IntoView {
 
     view! {
         <div class="min-h-screen flex items-center justify-center" style="background: var(--cream);">
-            <div class="w-96 border-2 border-ink rounded-sm" style="background: var(--cream-light);">
+            <div class="w-96 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
                 <div class="px-8 pt-8 pb-6 text-center border-b-2 border-ink">
                     <h1 class="font-display text-3xl font-extrabold uppercase tracking-tight">
                         "GRUMPS"<span class="text-brick">"."</span>
@@ -36,7 +36,7 @@ pub fn LoginPage() -> impl IntoView {
                     <div id="tg-widget-container" class="flex justify-center"></div>
 
                     <button
-                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm flex justify-between items-center"
+                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs flex justify-between items-center"
                         style="background: var(--ink); color: var(--cream); font-family: var(--font-body); opacity: 0.4; cursor: not-allowed;"
                         disabled=true
                     >
@@ -45,7 +45,7 @@ pub fn LoginPage() -> impl IntoView {
                     </button>
 
                     <button
-                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-sm flex justify-between items-center"
+                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs flex justify-between items-center"
                         style="background: var(--ink); color: var(--cream); font-family: var(--font-body); opacity: 0.4; cursor: not-allowed;"
                         disabled=true
                     >

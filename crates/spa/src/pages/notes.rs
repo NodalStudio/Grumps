@@ -17,7 +17,7 @@ pub fn NotesPage() -> impl IntoView {
 
     view! {
         <PageHeader title=tr("page.notes.title") subtitle=tr("page.notes.subtitle")>
-            <a href=format!("/w/{}/notes/new", slug()) class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-sm cursor-pointer" style="background: var(--ink); color: var(--cream);">"+ "{move || tr("note.action.new")}</a>
+            <a href=format!("/w/{}/notes/new", slug()) class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer" style="background: var(--ink); color: var(--cream);">"+ "{move || tr("note.action.new")}</a>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
@@ -40,7 +40,7 @@ pub fn NotesPage() -> impl IntoView {
                                     let href = format!("/w/{}/notes/{}", slug(), note.id);
                                     let pinned = note.pinned.unwrap_or(0) == 1;
                                     view! {
-                                        <a href=href class="block p-5 border-2 rounded-sm cursor-pointer transition-transform hover:-translate-y-0.5"
+                                        <a href=href class="block p-5 border-2 rounded-xs cursor-pointer transition-transform hover:-translate-y-0.5"
                                             style:border-color=move || if pinned { "var(--ochre)" } else { "var(--ink)" }
                                             style="background: var(--cream-light);">
                                             {if pinned { Some(view! { <div class="text-[11px] font-bold uppercase tracking-wider mb-2" style="color: var(--ochre);">{move || tr("note.pinned")}</div> }) } else { None }}
@@ -51,7 +51,7 @@ pub fn NotesPage() -> impl IntoView {
                                             <p class="text-[13px] line-clamp-3" style="color: var(--ink-70);">{let c = note.content.clone().unwrap_or_default(); move || tr(&c)}</p>
                                             <div class="flex items-center justify-between mt-3 pt-3 text-[11px] border-t" style="color: var(--ink-40); border-color: var(--ink-15);">
                                                 <span>{let t = note.created_at.clone(); move || crate::datetime::format_instant(&t, &crate::datetime::use_timezone(), crate::i18n::use_locale().code())}</span>
-                                                <span class="font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm" style="border-color: var(--ink-15);">{note.source.clone()}</span>
+                                                <span class="font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-xs" style="border-color: var(--ink-15);">{note.source.clone()}</span>
                                             </div>
                                         </a>
                                     }
