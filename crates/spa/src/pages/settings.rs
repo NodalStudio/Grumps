@@ -249,7 +249,7 @@ fn Toggle(
                 <div class="font-medium text-sm">{move || tr(label_key)}</div>
                 <div class="text-xs" style="color: var(--ink-40);">{move || tr(desc_key)}</div>
             </div>
-            <Switch checked=value on_change=on_toggle aria_label=tr(label_key) />
+            <Switch checked=value on_change=on_toggle aria_label=Signal::derive(move || tr(label_key)) />
         </div>
     }
 }

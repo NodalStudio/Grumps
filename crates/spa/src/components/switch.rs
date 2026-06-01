@@ -11,8 +11,9 @@ pub fn Switch(
     #[prop(into)] checked: Signal<bool>,
     /// Fired when the user toggles the control.
     on_change: impl Fn() + 'static,
-    /// Accessible label (already localized by the caller).
-    #[prop(into, optional, default = String::new())] aria_label: String,
+    /// Accessible label (localized reactively by the caller so it tracks
+    /// mid-session locale switches).
+    #[prop(into, optional)] aria_label: MaybeProp<String>,
     /// Extra classes merged onto the track.
     #[prop(into, optional, default = String::new())] class: String,
 ) -> impl IntoView {
@@ -29,7 +30,7 @@ pub fn Switch(
             type="button"
             role="switch"
             aria-checked=move || checked.get().to_string()
-            aria-label=aria_label
+            aria-label=move || aria_label.get().unwrap_or_default()
             data-state=state
             class=track
             on:click=move |_| on_change()
@@ -37,7 +38,7 @@ pub fn Switch(
             <span
                 data-state=state
                 class="pointer-events-none block size-4 rounded-full transition-transform \
-                       data-[state=checked]:translate-x-[18px] \
+                       data-[state=checked]:translate-x-[18px] data-[state=unchecked]:translate-x-0 \
                        data-[state=checked]:bg-cream data-[state=unchecked]:bg-ink"
             ></span>
         </button>
