@@ -63,7 +63,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
                         tabindex="-1"
                         class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline"
                     >
-                        {move || format!("+ {}", tr("workspace.add_to_group"))}
+                        {move || tr("workspace.add_to_group")}
                     </a>
                 }
             }}
@@ -79,7 +79,13 @@ fn view_row(ws: WorkspaceRef, current_slug: &str) -> impl IntoView {
         "discord" => "DC",
         _ => "",
     };
-    let shape = if ws.is_dm { "DM" } else { "GROUP" };
+    // Platform codes (TG/WA/DC) are brand abbreviations, not prose — left
+    // hardcoded. The shape label is a common noun, so it goes through i18n.
+    let shape = if ws.is_dm {
+        tr("workspace.type_dm")
+    } else {
+        tr("workspace.type_group")
+    };
     let badge = format!("{} {}", plat, shape);
     let name = ws
         .name

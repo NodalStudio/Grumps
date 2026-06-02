@@ -45,7 +45,12 @@ struct Teardown {
 }
 
 impl Teardown {
-    fn run_listeners_only(&self) {
+    /// Detach the DOM listeners only (used on a same-cycle effect re-run, where
+    /// trigger focus must persist). Consumes `self` so the compiler enforces
+    /// linear `Closure` ownership — the `Closure`s drop when `self` drops,
+    /// freeing the JS shims and guaranteeing they can't be reused after their
+    /// listener is removed.
+    fn run_listeners_only(self) {
         let _ = self
             .document
             .remove_event_listener_with_callback("keydown", self.keydown.as_ref().unchecked_ref());
@@ -98,6 +103,7 @@ pub fn DropdownMenu(
     children: ChildrenFn,
 ) -> impl IntoView {
     let panel_ref: NodeRef<leptos::html::Div> = NodeRef::new();
+    let trigger_ref: NodeRef<leptos::html::Button> = NodeRef::new();
 
     // Live teardown for the current open cycle. Held in a `StoredValue` (not the
     // effect's prev-value) so `on_cleanup` can run it if the component is
@@ -222,6 +228,10 @@ pub fn DropdownMenu(
                         if let Some(i) = cur {
                             items[i].click();
                         }
+                        // Intentional, not redundant: closes the menu for items
+                        // whose own handler does not (e.g. workspace rows that
+                        // navigate via `<a href>`), and is a harmless no-op for
+                        // items that already closed it.
                         open.set(false);
                     }
                     "Tab" => {
@@ -235,15 +245,28 @@ pub fn DropdownMenu(
             let _ = document
                 .add_event_listener_with_callback("keydown", keydown.as_ref().unchecked_ref());
 
-            // Document pointerdown: close when the press lands outside the panel.
-            // (The trigger's own click toggles via `stop_propagation`, so a
-            // press on the trigger does not reach this and re-toggle.)
+            // Document pointerdown: close when the press lands outside BOTH the
+            // panel and the trigger. The trigger must be treated as "inside":
+            // `stop_propagation` on its `click` handler does NOT stop this
+            // `pointerdown` (different event types), so without this guard a
+            // re-click on the trigger would fire pointerdown (close) then click
+            // (re-open) and the menu could never be dismissed by its own trigger.
+            // The trigger node is captured untracked and guarded — if it isn't
+            // mounted we simply skip the trigger check rather than panicking.
             let panel_node: web_sys::Node = panel.clone().unchecked_into();
             let pointerdown =
                 Closure::<dyn FnMut(web_sys::Event)>::new(move |ev: web_sys::Event| {
                     if let Some(target) = ev.target() {
                         let target_node: web_sys::Node = target.unchecked_into();
-                        if !panel_node.contains(Some(&target_node)) {
+                        let in_panel = panel_node.contains(Some(&target_node));
+                        let in_trigger = trigger_ref
+                            .get_untracked()
+                            .map(|btn| {
+                                let trigger_node: web_sys::Node = btn.unchecked_into();
+                                trigger_node.contains(Some(&target_node))
+                            })
+                            .unwrap_or(false);
+                        if !in_panel && !in_trigger {
                             open.set(false);
                         }
                     }
@@ -279,6 +302,7 @@ pub fn DropdownMenu(
     view! {
         <div class="relative inline-flex">
             <button
+                node_ref=trigger_ref
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded=move || open.get().to_string()
