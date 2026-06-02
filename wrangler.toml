@@ -67,3 +67,10 @@ class_name = "WorkspaceScheduler"
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["WorkspaceScheduler"]
+
+# Retain logs in Cloudflare (queryable in the dashboard, ~3 days) instead of
+# only the ephemeral `wrangler tail` stream. head_sampling_rate = 1.0 keeps
+# 100% of requests — drop it if volume ever gets expensive.
+[observability]
+enabled = true
+head_sampling_rate = 1.0

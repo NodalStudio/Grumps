@@ -23,6 +23,14 @@ mod scheduler_executor;
 
 pub use durable_objects::WorkspaceScheduler;
 
+/// Install a WASM panic hook so a panic surfaces a readable
+/// `panicked at 'msg', file:line` line in `wrangler tail` / Workers Logs
+/// instead of an opaque `RuntimeError: unreachable executed`.
+#[event(start)]
+fn start() {
+    console_error_panic_hook::set_once();
+}
+
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     if let Err(e) = cron::handle_cron(&env).await {
