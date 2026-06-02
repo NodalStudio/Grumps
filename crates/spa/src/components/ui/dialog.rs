@@ -135,6 +135,9 @@ pub fn Dialog(
                     let saved_focus: Option<HtmlElement> = document
                         .active_element()
                         .and_then(|e| e.dyn_into::<HtmlElement>().ok());
+                    // `Some("")` is the normal "no inline overflow set" case;
+                    // `set_property("overflow", "")` clears it correctly on
+                    // restore, so don't "fix" this to `None`.
                     let prior_overflow = document
                         .body()
                         .map(|b| b.style().get_property_value("overflow").unwrap_or_default());
@@ -190,7 +193,13 @@ pub fn Dialog(
             };
 
             // Move focus into the dialog: first focusable child, else the panel.
-            if let Some(panel) = panel_ref.get() {
+            // Read the panel ref UNTRACKED — the `backdrop_ref.get()` tracked
+            // read above already guarantees this effect re-runs once the DOM is
+            // ready (panel and backdrop resolve in the same render flush). If we
+            // tracked `panel_ref` too, a separate panel-mount tick could trigger
+            // a second effect run in the same open cycle, re-registering the
+            // keydown closure and calling focus() twice.
+            if let Some(panel) = panel_ref.get_untracked() {
                 let panel_el: &Element = panel.unchecked_ref();
                 match first_focusable(panel_el) {
                     Some(el) => {
