@@ -41,8 +41,11 @@ pub struct ToastHandle {
 impl ToastHandle {
     /// Push a toast with a fresh id and schedule its auto-dismiss.
     pub fn show(&self, kind: ToastKind, message: String) {
-        let id = self.next_id.get_untracked();
-        self.next_id.set(id + 1);
+        let mut id = 0u64;
+        self.next_id.update(|n| {
+            id = *n;
+            *n += 1;
+        });
         self.toasts
             .update(|list| list.push(Toast { id, kind, message }));
 
