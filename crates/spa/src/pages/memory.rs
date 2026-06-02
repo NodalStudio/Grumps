@@ -4,6 +4,7 @@ use crate::components::memory_card::MemoryCard;
 use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::checkbox::Checkbox;
 use crate::components::ui::field::Field;
+use crate::components::ui::select::Select;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -240,17 +241,17 @@ pub fn MemoryPage() -> impl IntoView {
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.kind")}</label>
-                                <select
-                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                    on:change=move |ev| set_form_kind.set(event_target_value(&ev))
-                                    prop:value=form_kind
+                                <Select
+                                    value=form_kind
+                                    aria_label=tr("memory.field.kind")
+                                    on_change=move |v: String| set_form_kind.set(v)
                                 >
                                     <option value="fact">{move || tr("memory.kind.fact")}</option>
                                     <option value="preference">{move || tr("memory.kind.preference")}</option>
                                     <option value="skill">{move || tr("memory.kind.skill")}</option>
                                     <option value="event">{move || tr("memory.kind.event")}</option>
                                     <option value="reminder">{move || tr("memory.kind.reminder")}</option>
-                                </select>
+                                </Select>
                             </div>
                             <div class="flex-1">
                                 <Field label=tr("memory.field.related") id="mem-related">

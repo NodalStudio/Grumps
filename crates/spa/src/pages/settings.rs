@@ -1,6 +1,7 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::ui::select::Select;
 use crate::components::ui::switch::Switch;
 use crate::i18n::tr;
 use leptos::prelude::*;
@@ -94,10 +95,10 @@ pub fn SettingsPage() -> impl IntoView {
                 <SettingsSection title_key="settings.section.general">
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
                         <div class="font-medium text-sm">{move || tr("settings.row.language")}</div>
-                        <select
-                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
-                            on:change=move |ev| {
-                                let new_locale = event_target_value(&ev);
+                        <Select
+                            value=workspace_locale
+                            aria_label=tr("settings.row.language")
+                            on_change=move |new_locale: String| {
                                 let slug_str = slug();
                                 let api = api_locale.clone();
                                 leptos::task::spawn_local(async move {
@@ -106,7 +107,6 @@ pub fn SettingsPage() -> impl IntoView {
                                     }
                                 });
                             }
-                            prop:value=workspace_locale
                         >
                             {grumps_i18n::Locale::ALL.iter().map(|loc| {
                                 let code = loc.code();
@@ -115,7 +115,7 @@ pub fn SettingsPage() -> impl IntoView {
                                     <option value=code>{native}</option>
                                 }
                             }).collect_view()}
-                        </select>
+                        </Select>
                     </div>
                     <SettingRow label_key="settings.row.timezone" value=crate::datetime::use_timezone() />
                 </SettingsSection>
@@ -133,15 +133,15 @@ pub fn SettingsPage() -> impl IntoView {
                             <div class="font-medium text-sm">{move || tr("settings.row.persona")}</div>
                             <div class="text-xs" style="color: var(--ink-40);">{move || tr("settings.row.persona.desc")}</div>
                         </div>
-                        <select
-                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
-                            on:change=move |ev| set_persona.set(event_target_value(&ev))
-                            prop:value=persona
+                        <Select
+                            value=persona
+                            aria_label=tr("settings.row.persona")
+                            on_change=move |v: String| set_persona.set(v)
                         >
                             <option value="grumps">{move || tr("settings.persona.grumps")}</option>
                             <option value="assistant">{move || tr("settings.persona.assistant")}</option>
                             <option value="coach">{move || tr("settings.persona.coach")}</option>
-                        </select>
+                        </Select>
                     </div>
                     <Toggle
                         label_key="settings.toggle.proactive"

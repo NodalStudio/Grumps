@@ -1,6 +1,7 @@
 use crate::auth::{read_csrf_cookie, use_session};
 use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::field::Field;
+use crate::components::ui::select::Select;
 use crate::i18n::{tr, tr_p};
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -66,13 +67,17 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
         </div>
         <label class="block mb-4">
             <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.default_locale")}</span>
-            <select class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
-                on:change=move |ev| set_locale.set(event_target_value(&ev))>
+            <Select
+                value=locale
+                aria_label=tr("settings.default_locale")
+                class="w-full"
+                on_change=move |v: String| set_locale.set(v)
+            >
                 {["en","es","pt-BR","fr","de","it","ru","tr","ar","hi","zh-CN","ja","ko","id"].iter().map(|code| {
                     let code = *code;
-                    view! { <option value=code selected=move || locale.get() == code>{code}</option> }
+                    view! { <option value=code>{code}</option> }
                 }).collect_view()}
-            </select>
+            </Select>
         </label>
         <Button variant=ButtonVariant::Primary class="uppercase tracking-wider" on_click=save>
             {move || tr("common.save")}

@@ -3,6 +3,7 @@ use crate::components::header::PageHeader;
 use crate::components::scheduled_card::ScheduledCard;
 use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::field::Field;
+use crate::components::ui::select::Select;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -250,17 +251,17 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
                                 <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.type")}</label>
-                                <select
-                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                    on:change=move |ev| set_form_type.set(event_target_value(&ev))
-                                    prop:value=form_type
+                                <Select
+                                    value=form_type
+                                    aria_label=tr("schedule.field.type")
+                                    on_change=move |v: String| set_form_type.set(v)
                                 >
                                     <option value="reminder">{move || tr("schedule.type.reminder")}</option>
                                     <option value="event_notify">{move || tr("schedule.type.event_notify")}</option>
                                     <option value="recap">{move || tr("schedule.type.recap")}</option>
                                     <option value="follow_up">{move || tr("schedule.type.follow_up")}</option>
                                     <option value="agent_task">{move || tr("schedule.type.agent_task")}</option>
-                                </select>
+                                </Select>
                             </div>
                             <div class="flex-1">
                                 <Field label=tr("schedule.field.trigger_at") id="sched-trigger">
