@@ -1,6 +1,8 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
-use crate::components::switch::Switch;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::ui::select::Select;
+use crate::components::ui::switch::Switch;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -18,6 +20,8 @@ pub fn SettingsPage() -> impl IntoView {
     let (ical_url, set_ical_url) = signal(String::new());
     let (workspace_locale, set_workspace_locale) = signal("en".to_string());
     let (refresh, set_refresh) = signal(0u32);
+
+    let toasts = crate::components::ui::toast::use_toasts();
 
     let api = use_api();
     let _settings = LocalResource::new(move || {
@@ -50,7 +54,7 @@ pub fn SettingsPage() -> impl IntoView {
         let proactive_val = proactive.get();
         let auto_mem = auto_memory.get();
         leptos::task::spawn_local(async move {
-            let _ = api
+            match api
                 .update_settings(
                     &s,
                     &serde_json::json!({
@@ -59,7 +63,11 @@ pub fn SettingsPage() -> impl IntoView {
                         "auto_memory": auto_mem,
                     }),
                 )
-                .await;
+                .await
+            {
+                Ok(_) => toasts.success(tr("toast.settings_saved")),
+                Err(_) => toasts.error(tr("toast.save_failed")),
+            }
         });
     };
 
@@ -71,6 +79,7 @@ pub fn SettingsPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             if let Ok(resp) = api.regenerate_ical_token(&s).await {
                 set_ical_url.set(resp.url);
+                toasts.success(tr("toast.ical_regenerated"));
             }
         });
     };
@@ -80,7 +89,12 @@ pub fn SettingsPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             if let Some(window) = web_sys::window() {
                 let clipboard = window.navigator().clipboard();
-                let _ = wasm_bindgen_futures::JsFuture::from(clipboard.write_text(&url)).await;
+                if wasm_bindgen_futures::JsFuture::from(clipboard.write_text(&url))
+                    .await
+                    .is_ok()
+                {
+                    toasts.success(tr("toast.copied"));
+                }
             }
         });
     };
@@ -93,10 +107,10 @@ pub fn SettingsPage() -> impl IntoView {
                 <SettingsSection title_key="settings.section.general">
                     <div class="flex items-center justify-between py-3" style="border-bottom: 1px solid var(--ink-08);">
                         <div class="font-medium text-sm">{move || tr("settings.row.language")}</div>
-                        <select
-                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
-                            on:change=move |ev| {
-                                let new_locale = event_target_value(&ev);
+                        <Select
+                            value=workspace_locale
+                            aria_label=tr("settings.row.language")
+                            on_change=move |new_locale: String| {
                                 let slug_str = slug();
                                 let api = api_locale.clone();
                                 leptos::task::spawn_local(async move {
@@ -105,7 +119,6 @@ pub fn SettingsPage() -> impl IntoView {
                                     }
                                 });
                             }
-                            prop:value=workspace_locale
                         >
                             {grumps_i18n::Locale::ALL.iter().map(|loc| {
                                 let code = loc.code();
@@ -114,7 +127,7 @@ pub fn SettingsPage() -> impl IntoView {
                                     <option value=code>{native}</option>
                                 }
                             }).collect_view()}
-                        </select>
+                        </Select>
                     </div>
                     <SettingRow label_key="settings.row.timezone" value=crate::datetime::use_timezone() />
                 </SettingsSection>
@@ -132,15 +145,15 @@ pub fn SettingsPage() -> impl IntoView {
                             <div class="font-medium text-sm">{move || tr("settings.row.persona")}</div>
                             <div class="text-xs" style="color: var(--ink-40);">{move || tr("settings.row.persona.desc")}</div>
                         </div>
-                        <select
-                            class="border-2 border-ink rounded-xs px-3 py-1.5 text-sm bg-transparent outline-hidden"
-                            on:change=move |ev| set_persona.set(event_target_value(&ev))
-                            prop:value=persona
+                        <Select
+                            value=persona
+                            aria_label=tr("settings.row.persona")
+                            on_change=move |v: String| set_persona.set(v)
                         >
                             <option value="grumps">{move || tr("settings.persona.grumps")}</option>
                             <option value="assistant">{move || tr("settings.persona.assistant")}</option>
                             <option value="coach">{move || tr("settings.persona.coach")}</option>
-                        </select>
+                        </Select>
                     </div>
                     <Toggle
                         label_key="settings.toggle.proactive"
@@ -158,41 +171,46 @@ pub fn SettingsPage() -> impl IntoView {
                         <a href="#" class="text-sm font-semibold" style="color: var(--teal);">{move || tr("settings.consent_link")}</a>
                     </div>
                     <div class="pt-3 pb-1">
-                        <button
-                            class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
-                            style="background: var(--ink); color: var(--cream);"
-                            on:click=save_agent
-                        >{move || tr("settings.save_agent")}</button>
+                        <Button variant=ButtonVariant::Primary on_click=save_agent>
+                            {move || tr("settings.save_agent")}
+                        </Button>
                     </div>
                 </SettingsSection>
 
                 // Calendar
                 <SettingsSection title_key="settings.section.calendar">
                     <div class="py-3 flex flex-col gap-2" style="border-bottom: 1px solid var(--ink-08);">
-                        <div class="font-medium text-sm">{move || tr("settings.ical.label")}</div>
+                        <label for="settings-ical-url" class="font-medium text-sm">{move || tr("settings.ical.label")}</label>
                         <div class="text-xs mb-2" style="color: var(--ink-40);">{move || tr("settings.ical.desc")}</div>
                         <div class="flex items-center gap-2">
                             <input
+                                id="settings-ical-url"
                                 type="text" readonly
                                 class="flex-1 border-2 border-ink rounded-xs px-3 py-1.5 text-xs bg-transparent outline-hidden font-mono"
                                 placeholder=tr("settings.ical.placeholder")
                                 prop:value=ical_url
                             />
-                            <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer shrink-0"
-                                on:click=copy_ical
-                            >{move || tr("settings.ical.copy")}</button>
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                class="shrink-0"
+                                on_click=copy_ical
+                            >{move || tr("settings.ical.copy")}</Button>
                         </div>
                         <div class="flex gap-2 mt-1">
-                            <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer"
-                                on:click=regen_ical
-                            >{move || tr("settings.ical.regenerate")}</button>
-                            <button
-                                class="px-3 py-1.5 text-xs font-semibold border rounded-xs cursor-pointer"
-                                style="border-color: var(--brick); color: var(--brick);"
-                                on:click=move |_| set_ical_url.set(String::new())
-                            >{move || tr("settings.ical.revoke")}</button>
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                on_click=regen_ical
+                            >{move || tr("settings.ical.regenerate")}</Button>
+                            <Button
+                                variant=ButtonVariant::Danger
+                                size=ButtonSize::Sm
+                                on_click=move |_| {
+                                    set_ical_url.set(String::new());
+                                    toasts.success(tr("toast.ical_revoked"));
+                                }
+                            >{move || tr("settings.ical.revoke")}</Button>
                         </div>
                     </div>
                 </SettingsSection>

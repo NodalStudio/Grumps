@@ -1,3 +1,4 @@
+use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::tr;
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -35,23 +36,25 @@ pub fn LoginPage() -> impl IntoView {
                 <div class="px-8 py-7 space-y-3">
                     <div id="tg-widget-container" class="flex justify-center"></div>
 
-                    <button
-                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs flex justify-between items-center"
-                        style="background: var(--ink); color: var(--cream); font-family: var(--font-body); opacity: 0.4; cursor: not-allowed;"
+                    <Button
+                        variant=ButtonVariant::Secondary
+                        class="w-full p-3 uppercase tracking-wider justify-between bg-ink text-cream border-2 border-ink"
                         disabled=true
+                        on_click=move |_| {}
                     >
                         <span>{move || tr("login.wa_button")}</span>
                         <span class="text-[10px] tracking-widest">{move || tr("login.coming_soon")}</span>
-                    </button>
+                    </Button>
 
-                    <button
-                        class="w-full p-3 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs flex justify-between items-center"
-                        style="background: var(--ink); color: var(--cream); font-family: var(--font-body); opacity: 0.4; cursor: not-allowed;"
+                    <Button
+                        variant=ButtonVariant::Secondary
+                        class="w-full p-3 uppercase tracking-wider justify-between bg-ink text-cream border-2 border-ink"
                         disabled=true
+                        on_click=move |_| {}
                     >
                         <span>{move || tr("login.dc_button")}</span>
                         <span class="text-[10px] tracking-widest">{move || tr("login.coming_soon")}</span>
-                    </button>
+                    </Button>
 
                     <p class="text-center text-xs mt-6 pt-6 border-t-2 border-ink" style="color: var(--ink-40); line-height: 1.5;">
                         {move || tr("login.footer")}

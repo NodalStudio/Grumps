@@ -1,5 +1,8 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::checkbox::Checkbox;
+use crate::components::ui::tabs::{TabItem, Tabs};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -9,7 +12,7 @@ use wasm_bindgen::JsCast;
 pub fn TodosPage() -> impl IntoView {
     let params = use_params_map();
     let slug = Memo::new(move |_| params.read().get("slug").unwrap_or_default());
-    let (filter, set_filter) = signal("open".to_string());
+    let filter = RwSignal::new("open".to_string());
     let (refresh_counter, set_refresh) = signal(0u32);
     // Optimistic-toggle set: while the API call is in flight + fade-out runs,
     // these ids render in the "next" status so the user sees the transition
@@ -45,11 +48,23 @@ pub fn TodosPage() -> impl IntoView {
     // Click handler closure cloned per row inside the `For` children.
     let _ = &api3;
 
-    let filters: Vec<(&'static str, &'static str)> = vec![
-        ("open", "todo.filter.open"),
-        ("all", "todo.filter.all"),
-        ("done", "todo.filter.done"),
-        ("mine", "todo.filter.mine"),
+    let filter_tabs = vec![
+        TabItem {
+            value: "open".into(),
+            label_key: "todo.filter.open".into(),
+        },
+        TabItem {
+            value: "all".into(),
+            label_key: "todo.filter.all".into(),
+        },
+        TabItem {
+            value: "done".into(),
+            label_key: "todo.filter.done".into(),
+        },
+        TabItem {
+            value: "mine".into(),
+            label_key: "todo.filter.mine".into(),
+        },
     ];
 
     let focus_new_todo = move |_| {
@@ -66,31 +81,18 @@ pub fn TodosPage() -> impl IntoView {
 
     view! {
         <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
-            <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                style="background: var(--ink); color: var(--cream);"
-                on:click=focus_new_todo
-            >"+ "{move || tr("todo.action.add")}</button>
+            <Button variant=ButtonVariant::Primary on_click=focus_new_todo>
+                "+ "{move || tr("todo.action.add")}
+            </Button>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             // Filter bar
-            <div class="flex gap-2 items-center mb-5 flex-wrap">
-                {filters.into_iter().map(|(val, label_key)| {
-                    let val = val.to_string();
-                    let val2 = val.clone();
-                    let val3 = val.clone();
-                    let val4 = val.clone();
-                    view! {
-                        <button
-                            class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer transition-colors"
-                            class:bg-ink=move || filter.get() == val
-                            class:text-cream=move || filter.get() == val2
-                            style:border-color=move || if filter.get() == val3 { "var(--ink)" } else { "var(--ink-15)" }
-                            on:click=move |_| set_filter.set(val4.clone())
-                        >{move || tr(label_key)}</button>
-                    }
-                }).collect_view()}
-            </div>
+            <Tabs
+                value=filter
+                tabs=filter_tabs
+                aria_label=Signal::derive(move || tr("todo.filter.aria"))
+                class="mb-5"
+            />
 
             // Todo list
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
@@ -118,6 +120,7 @@ pub fn TodosPage() -> impl IntoView {
                                     let slug_for_click = slug.get();
                                     // Reactive: looks up whether this row is currently mid-toggle.
                                     let id_for_check = id.clone();
+                                    let id_for_dom = id.clone();
                                     let is_toggling = Signal::derive(move || toggling.with(|v| v.iter().any(|x| x == &id_for_check)));
                                     // Effective "done" state for visuals = original XOR toggling.
                                     let effective_done = Signal::derive(move || was_done ^ is_toggling.get());
@@ -125,18 +128,14 @@ pub fn TodosPage() -> impl IntoView {
                                     view! {
                                         <div
                                             class="todo-row flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-xs cursor-pointer"
-                                            class:border-l-4=is_high
+                                            class:border-s-4=is_high
                                             class:todo-row-fading=move || is_toggling.get()
-                                            style:border-left-color=move || if is_high { "var(--brick)" } else { "" }
+                                            style:border-inline-start-color=move || if is_high { "var(--brick)" } else { "" }
                                             style="background: var(--cream-light); transition: opacity 280ms ease-out, transform 280ms ease-out, max-height 280ms ease-out, padding 280ms ease-out, margin 280ms ease-out, border-width 280ms ease-out;"
                                         >
-                                            <div
-                                                class="todo-checkbox w-5 h-5 border-2 border-ink rounded-xs shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
-                                                style:background=move || if effective_done.get() { "var(--teal)" } else { "var(--cream-light)" }
-                                                style:border-color=move || if effective_done.get() { "var(--teal)" } else { "var(--ink)" }
-                                                style="transition: background 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out;"
-                                                on:click=move |ev| {
-                                                    ev.stop_propagation();
+                                            <Checkbox
+                                                checked=effective_done
+                                                on_change=move || {
                                                     if is_toggling.get() { return; } // de-bounce double-clicks
                                                     let api = api_for_click.clone();
                                                     let s = slug_for_click.clone();
@@ -152,9 +151,10 @@ pub fn TodosPage() -> impl IntoView {
                                                         set_toggling.update(|v| v.retain(|x| x != &id_c));
                                                     });
                                                 }
-                                            >
-                                                <span style="transition: opacity 140ms ease-out;" style:opacity=move || if effective_done.get() { "1" } else { "0" }>"✓"</span>
-                                            </div>
+                                                id=format!("todo-{}", id_for_dom)
+                                                aria_label=tr("todos.toggle_done")
+                                                class="size-5 shrink-0 mt-0.5"
+                                            />
                                             <div class="flex-1 min-w-0">
                                                 <div class="font-semibold text-sm"
                                                      class:line-through=move || effective_done.get()

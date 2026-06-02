@@ -1,4 +1,5 @@
 use crate::api::ScheduledActionItem;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::i18n::{tr, tr_n};
 use leptos::prelude::*;
 
@@ -68,15 +69,18 @@ pub fn ScheduledCard(
             </div>
 
             <div class="flex items-center gap-2 pt-1 border-t" style="border-color: var(--ink-08);">
-                <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-xs cursor-pointer"
-                    on:click=move |_| on_edit.run(item_edit.clone())
-                >{move || tr("common.edit")}</button>
-                <button
-                    class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-xs cursor-pointer"
-                    style="border-color: var(--brick); color: var(--brick); background: transparent;"
-                    on:click=move |_| on_delete.run(item_id_del.clone())
-                >{move || tr("common.delete")}</button>
+                <Button
+                    variant=ButtonVariant::Secondary
+                    size=ButtonSize::Sm
+                    class="text-[11px] font-semibold px-2 py-0.5 border"
+                    on_click=move |_| on_edit.run(item_edit.clone())
+                >{move || tr("common.edit")}</Button>
+                <Button
+                    variant=ButtonVariant::Danger
+                    size=ButtonSize::Sm
+                    class="ml-auto text-[11px] font-semibold px-2 py-0.5"
+                    on_click=move |_| on_delete.run(item_id_del.clone())
+                >{move || tr("common.delete")}</Button>
             </div>
         </div>
     }

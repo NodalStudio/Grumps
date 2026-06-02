@@ -1,5 +1,7 @@
 use crate::auth::{use_session, WorkspaceRef};
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::dialog::Dialog;
 use crate::i18n::tr;
 use leptos::prelude::*;
 
@@ -58,7 +60,7 @@ fn EmptyState() -> impl IntoView {
 
 #[component]
 fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
-    let (show_help, set_show_help) = signal(false);
+    let show_help = RwSignal::new(false);
     view! {
         <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
             {workspaces.into_iter().map(|ws| {
@@ -87,71 +89,61 @@ fn Grid(workspaces: Vec<WorkspaceRef>) -> impl IntoView {
             }).collect_view()}
             <button
                 type="button"
-                on:click=move |_| set_show_help.set(true)
+                on:click=move |_| show_help.set(true)
                 class="block p-6 border-2 border-dashed rounded-xs text-center cursor-pointer transition-colors hover:border-ink w-full"
                 style="border-color: var(--ink-15); background: transparent;">
                 <h3 class="font-display text-sm font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("dashboard.add_another")}</h3>
             </button>
         </div>
-        <Show when=move || show_help.get()>
-            <AddGroupHelp on_close=Callback::new(move |_| set_show_help.set(false)) />
-        </Show>
+        <AddGroupHelp open=show_help />
     }
 }
 
 #[component]
-fn AddGroupHelp(on_close: Callback<()>) -> impl IntoView {
-    let close1 = on_close;
-    let close2 = on_close;
+fn AddGroupHelp(open: RwSignal<bool>) -> impl IntoView {
     view! {
-        <div
-            class="fixed inset-0 z-50 flex items-center justify-center"
-            style="background: rgba(26,26,26,0.5);"
-            on:click=move |_| close1.run(())
+        <Dialog
+            open=open
+            on_close=move || open.set(false)
+            labelledby="add-group-title"
         >
-            <div
-                class="w-full max-w-lg mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
-                style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
-                on:click=|e| e.stop_propagation()
-            >
-                <h2 class="font-display text-xl font-bold">{move || tr("dashboard.add_modal.title")}</h2>
-                <p class="text-sm" style="color: var(--ink-70);">{move || tr("dashboard.add_modal.intro")}</p>
+            <h2 id="add-group-title" class="font-display text-xl font-bold">{move || tr("dashboard.add_modal.title")}</h2>
+            <p class="text-sm" style="color: var(--ink-70);">{move || tr("dashboard.add_modal.intro")}</p>
 
-                <div class="border-2 border-ink rounded-xs p-4 flex flex-col gap-2" style="background: var(--cream-light);">
-                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.tg_heading")}</h3>
-                    <ol class="list-decimal pl-5 text-sm flex flex-col gap-1" style="color: var(--ink-70);">
-                        <li>{move || tr("dashboard.add_modal.tg_step1")}</li>
-                        <li>{move || tr("dashboard.add_modal.tg_step2")}</li>
-                        <li>{move || tr("dashboard.add_modal.tg_step3")}</li>
-                        <li>{move || tr("dashboard.add_modal.tg_step4")}</li>
-                    </ol>
-                    <a href="https://t.me/HeyGrumpsBot" target="_blank" rel="noopener"
-                       class="self-start mt-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
-                       style="background: var(--ink); color: var(--cream); font-family: var(--font-body);">
-                        {move || tr("dashboard.add_modal.tg_open")}
-                    </a>
-                </div>
-
-                <div class="border-2 border-dashed rounded-xs p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
-                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_heading")}</h3>
-                    <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_soon")}</span>
-                </div>
-                <div class="border-2 border-dashed rounded-xs p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
-                    <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_heading")}</h3>
-                    <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_soon")}</span>
-                </div>
-
-                <div class="flex justify-end">
-                    <button
-                        type="button"
-                        on:click=move |_| close2.run(())
-                        class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
-                        style="background: var(--cream); color: var(--ink);">
-                        {move || tr("common.close")}
-                    </button>
-                </div>
+            <div class="border-2 border-ink rounded-xs p-4 flex flex-col gap-2" style="background: var(--cream-light);">
+                <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.tg_heading")}</h3>
+                <ol class="list-decimal ps-5 text-sm flex flex-col gap-1" style="color: var(--ink-70);">
+                    <li>{move || tr("dashboard.add_modal.tg_step1")}</li>
+                    <li>{move || tr("dashboard.add_modal.tg_step2")}</li>
+                    <li>{move || tr("dashboard.add_modal.tg_step3")}</li>
+                    <li>{move || tr("dashboard.add_modal.tg_step4")}</li>
+                </ol>
+                <a href="https://t.me/HeyGrumpsBot" target="_blank" rel="noopener"
+                   class="self-start mt-2 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
+                   style="background: var(--ink); color: var(--cream); font-family: var(--font-body);">
+                    {move || tr("dashboard.add_modal.tg_open")}
+                </a>
             </div>
-        </div>
+
+            <div class="border-2 border-dashed rounded-xs p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
+                <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_heading")}</h3>
+                <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.wa_soon")}</span>
+            </div>
+            <div class="border-2 border-dashed rounded-xs p-4 flex justify-between items-center" style="border-color: var(--ink-15); color: var(--ink-40);">
+                <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_heading")}</h3>
+                <span class="text-xs font-semibold uppercase tracking-wider">{move || tr("dashboard.add_modal.dc_soon")}</span>
+            </div>
+
+            <div class="flex justify-end">
+                <Button
+                    variant=ButtonVariant::Secondary
+                    class="bg-cream"
+                    on_click=move |_| open.set(false)
+                >
+                    {move || tr("common.close")}
+                </Button>
+            </div>
+        </Dialog>
     }
 }
 

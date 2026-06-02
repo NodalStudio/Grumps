@@ -1,4 +1,7 @@
 use crate::auth::{read_csrf_cookie, use_session};
+use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::field::Field;
+use crate::components::ui::select::Select;
 use crate::i18n::{tr, tr_p};
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -56,24 +59,29 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
     };
 
     view! {
-        <label class="block mb-4">
-            <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.display_name")}</span>
-            <input type="text" class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
-                prop:value=name on:input=move |ev| set_name.set(event_target_value(&ev))/>
-        </label>
+        <div class="mb-4">
+            <Field label=tr("settings.display_name") id="acct-display-name">
+                <input id="acct-display-name" type="text" class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
+                    prop:value=name on:input=move |ev| set_name.set(event_target_value(&ev))/>
+            </Field>
+        </div>
         <label class="block mb-4">
             <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.default_locale")}</span>
-            <select class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
-                on:change=move |ev| set_locale.set(event_target_value(&ev))>
+            <Select
+                value=locale
+                aria_label=tr("settings.default_locale")
+                full_width=true
+                on_change=move |v: String| set_locale.set(v)
+            >
                 {["en","es","pt-BR","fr","de","it","ru","tr","ar","hi","zh-CN","ja","ko","id"].iter().map(|code| {
                     let code = *code;
-                    view! { <option value=code selected=move || locale.get() == code>{code}</option> }
+                    view! { <option value=code>{code}</option> }
                 }).collect_view()}
-            </select>
+            </Select>
         </label>
-        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
-            style="background: var(--ink); color: var(--cream);"
-            on:click=save>{move || tr("common.save")}</button>
+        <Button variant=ButtonVariant::Primary class="uppercase tracking-wider" on_click=save>
+            {move || tr("common.save")}
+        </Button>
     }
 }
 

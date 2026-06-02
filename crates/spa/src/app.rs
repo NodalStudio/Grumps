@@ -10,11 +10,13 @@ use crate::pages;
 pub fn App() -> impl IntoView {
     provide_locale();
     crate::api::provide_api();
+    let _toasts = crate::components::ui::toast::provide_toasts();
     if crate::demo::is_demo() {
         crate::demo::install_postmessage_nav();
     }
     let base: String = crate::demo::router_base();
     view! {
+        <crate::components::ui::toast::ToastViewport/>
         <Router base=base>
             <Routes fallback=|| view! { <div class="p-8 font-display text-2xl">{move || crate::i18n::tr("common.404")}</div> }>
                 <Route path=path!("/login") view=pages::login::LoginPage />

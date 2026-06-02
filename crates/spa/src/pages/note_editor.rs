@@ -1,5 +1,7 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::ui::field::Field;
 use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -63,7 +65,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                             title=header_title
                             subtitle=tr_p("page.note_editor.created", &[("date", &created_at)])
                         >
-                            <span class="text-xs mr-2" style="color: var(--ink-40);">
+                            <span class="text-xs me-2" style="color: var(--ink-40);">
                                 {move || match save_state.get() {
                                     SaveState::Idle => String::new(),
                                     SaveState::Saving => tr("page.note_editor.saving"),
@@ -71,39 +73,46 @@ pub fn NoteEditorPage() -> impl IntoView {
                                     SaveState::Error => tr("page.note_editor.save_error"),
                                 }}
                             </span>
-                            <button
-                                class="px-3 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                                style="background: var(--cream-light);"
-                                on:click=move |_| set_editing.update(|e| *e = !*e)
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                class="text-sm bg-cream-light"
+                                on_click=move |_| set_editing.update(|e| *e = !*e)
                             >
                                 {move || if editing.get() { tr("page.note_editor.preview") } else { tr("page.note_editor.edit") }}
-                            </button>
-                            <button
-                                class="px-4 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                                style="background: var(--ink); color: var(--cream);"
-                                disabled=move || save_state.get() == SaveState::Saving
-                                on:click=move |_| save.with_value(|f| f())
+                            </Button>
+                            <Button
+                                variant=ButtonVariant::Primary
+                                class="py-1.5"
+                                disabled=Signal::derive(move || save_state.get() == SaveState::Saving)
+                                on_click=move |_| save.with_value(|f| f())
                             >
                                 {move || tr("page.note_editor.save")}
-                            </button>
+                            </Button>
                         </PageHeader>
                         <div class="flex-1 overflow-y-auto p-8">
                             {move || if editing.get() {
                                 view! {
                                     <div class="flex flex-col gap-3">
-                                        <input
-                                            class="w-full p-3 border-2 border-ink rounded-xs text-sm font-semibold outline-hidden"
-                                            style="background: var(--cream);"
-                                            placeholder=tr("common.title.placeholder")
-                                            prop:value=title
-                                            on:input=move |ev| set_title.set(event_target_value(&ev))
-                                        />
-                                        <textarea
-                                            class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
-                                            style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
-                                            prop:value=content
-                                            on:input=move |ev| set_content.set(event_target_value(&ev))
-                                        ></textarea>
+                                        <Field label=tr("common.title.label") id="note-title">
+                                            <input
+                                                id="note-title"
+                                                class="w-full p-3 border-2 border-ink rounded-xs text-sm font-semibold outline-hidden"
+                                                style="background: var(--cream);"
+                                                placeholder=tr("common.title.placeholder")
+                                                prop:value=title
+                                                on:input=move |ev| set_title.set(event_target_value(&ev))
+                                            />
+                                        </Field>
+                                        <Field label=tr("page.note_editor.content_label") id="note-content">
+                                            <textarea
+                                                id="note-content"
+                                                class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
+                                                style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
+                                                prop:value=content
+                                                on:input=move |ev| set_content.set(event_target_value(&ev))
+                                            ></textarea>
+                                        </Field>
                                     </div>
                                 }.into_any()
                             } else {
