@@ -3,6 +3,7 @@ use crate::components::header::PageHeader;
 use crate::components::memory_card::MemoryCard;
 use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::checkbox::Checkbox;
+use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
 use crate::i18n::tr;
@@ -16,9 +17,9 @@ pub fn MemoryPage() -> impl IntoView {
 
     let (refresh, set_refresh) = signal(0u32);
     let (kind_filter, set_kind_filter) = signal("all".to_string());
-    let (show_modal, set_show_modal) = signal(false);
+    let show_modal = RwSignal::new(false);
     let (edit_item, set_edit_item) = signal::<Option<MemoryItem>>(None);
-    let (confirm_delete, set_confirm_delete) = signal::<Option<String>>(None);
+    let confirm_delete = RwSignal::new(None::<String>);
 
     // Form fields
     let (form_key, set_form_key) = signal(String::new());
@@ -60,7 +61,7 @@ pub fn MemoryPage() -> impl IntoView {
         set_form_related.set(String::new());
         set_form_expires.set(String::new());
         set_form_pinned.set(false);
-        set_show_modal.set(true);
+        show_modal.set(true);
     };
 
     let on_edit = Callback::new(move |item: MemoryItem| {
@@ -71,11 +72,15 @@ pub fn MemoryPage() -> impl IntoView {
         set_form_expires.set(item.expires_at.clone().unwrap_or_default());
         set_form_pinned.set(item.pinned);
         set_edit_item.set(Some(item));
-        set_show_modal.set(true);
+        show_modal.set(true);
     });
 
+    // Delete-confirm dialog visibility, kept in sync with `confirm_delete`
+    // (the id under consideration). The `Dialog` primitive reads/writes a bool.
+    let del_open = RwSignal::new(false);
     let on_delete = Callback::new(move |id: String| {
-        set_confirm_delete.set(Some(id));
+        confirm_delete.set(Some(id));
+        del_open.set(true);
     });
 
     let api3 = use_api();
@@ -102,7 +107,7 @@ pub fn MemoryPage() -> impl IntoView {
         let expires = form_expires.get();
         let pinned = form_pinned.get();
         let edit = edit_item.get();
-        set_show_modal.set(false);
+        show_modal.set(false);
         leptos::task::spawn_local(async move {
             let body = serde_json::json!({
                 "key": if key.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(key) },
@@ -126,7 +131,8 @@ pub fn MemoryPage() -> impl IntoView {
         if let Some(id) = confirm_delete.get() {
             let api = api_del.clone();
             let s = slug();
-            set_confirm_delete.set(None);
+            confirm_delete.set(None);
+            del_open.set(false);
             leptos::task::spawn_local(async move {
                 let _ = api.delete_memory(&s, &id).await;
                 set_refresh.update(|n| *n += 1);
@@ -202,20 +208,13 @@ pub fn MemoryPage() -> impl IntoView {
         </div>
 
         // Create/Edit modal
-        {move || show_modal.get().then(|| {
-            let is_edit = edit_item.get().is_some();
-            view! {
-                <div
-                    class="fixed inset-0 z-50 flex items-center justify-center"
-                    style="background: rgba(26,26,26,0.5);"
-                    on:click=move |_| set_show_modal.set(false)
-                >
-                    <div
-                        class="w-full max-w-md mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
-                        style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
-                        on:click=|e| e.stop_propagation()
-                    >
-                        <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "memory.modal.edit" } else { "memory.modal.add" })}</h2>
+        <Dialog
+            open=show_modal
+            on_close=move || show_modal.set(false)
+            labelledby="mem-modal-title"
+            class="max-w-md"
+        >
+                        <h2 id="mem-modal-title" class="font-display text-xl font-bold">{move || tr(if edit_item.get().is_some() { "memory.modal.edit" } else { "memory.modal.add" })}</h2>
 
                         <Field label=tr("memory.field.key") id="mem-key">
                             <input
@@ -297,27 +296,19 @@ pub fn MemoryPage() -> impl IntoView {
                             >{move || tr("common.save")}</Button>
                             <Button
                                 variant=ButtonVariant::Secondary
-                                on_click=move |_| set_show_modal.set(false)
+                                on_click=move |_| show_modal.set(false)
                             >{move || tr("common.cancel")}</Button>
                         </div>
-                    </div>
-                </div>
-            }
-        })}
+        </Dialog>
 
         // Delete confirm modal
-        {move || confirm_delete.get().is_some().then(|| view! {
-            <div
-                class="fixed inset-0 z-50 flex items-center justify-center"
-                style="background: rgba(26,26,26,0.5);"
-                on:click=move |_| set_confirm_delete.set(None)
-            >
-                <div
-                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
-                    style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
-                    on:click=|e| e.stop_propagation()
-                >
-                    <h2 class="font-display text-lg font-bold">{move || tr("memory.delete.title")}</h2>
+        <Dialog
+            open=del_open
+            on_close=move || { confirm_delete.set(None); del_open.set(false); }
+            labelledby="mem-delete-title"
+            class="max-w-sm"
+        >
+                    <h2 id="mem-delete-title" class="font-display text-lg font-bold">{move || tr("memory.delete.title")}</h2>
                     <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <Button
@@ -327,11 +318,9 @@ pub fn MemoryPage() -> impl IntoView {
                         >{move || tr("common.delete")}</Button>
                         <Button
                             variant=ButtonVariant::Secondary
-                            on_click=move |_| set_confirm_delete.set(None)
+                            on_click=move |_| { confirm_delete.set(None); del_open.set(false); }
                         >{move || tr("common.cancel")}</Button>
                     </div>
-                </div>
-            </div>
-        })}
+        </Dialog>
     }
 }

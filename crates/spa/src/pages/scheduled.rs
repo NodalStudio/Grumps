@@ -2,6 +2,7 @@ use crate::api::{use_api, ScheduledActionItem};
 use crate::components::header::PageHeader;
 use crate::components::scheduled_card::ScheduledCard;
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
 use crate::i18n::tr;
@@ -16,9 +17,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let (refresh, set_refresh) = signal(0u32);
     let (type_filter, set_type_filter) = signal("all".to_string());
     let (status_filter, set_status_filter) = signal("all".to_string());
-    let (show_modal, set_show_modal) = signal(false);
+    let show_modal = RwSignal::new(false);
     let (edit_item, set_edit_item) = signal::<Option<ScheduledActionItem>>(None);
-    let (confirm_delete, set_confirm_delete) = signal::<Option<String>>(None);
+    let confirm_delete = RwSignal::new(None::<String>);
 
     // Workspace timezone signal, captured once (Copy) so event handlers can read
     // the current zone — use_context is unreliable inside callbacks.
@@ -69,7 +70,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         set_form_trigger.set(String::new());
         set_form_recurrence.set(String::new());
         set_form_payload.set(String::new());
-        set_show_modal.set(true);
+        show_modal.set(true);
     };
 
     let on_edit = Callback::new(move |item: ScheduledActionItem| {
@@ -83,11 +84,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         set_form_recurrence.set(item.recurrence.clone().unwrap_or_default());
         set_form_payload.set(String::new());
         set_edit_item.set(Some(item));
-        set_show_modal.set(true);
+        show_modal.set(true);
     });
 
+    // Delete-confirm dialog visibility, kept in sync with `confirm_delete`
+    // (the id under consideration). The `Dialog` primitive reads/writes a bool.
+    let del_open = RwSignal::new(false);
     let on_delete = Callback::new(move |id: String| {
-        set_confirm_delete.set(Some(id));
+        confirm_delete.set(Some(id));
+        del_open.set(true);
     });
 
     let api_save = use_api();
@@ -102,7 +107,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         let recurrence = form_recurrence.get();
         let payload = form_payload.get();
         let edit = edit_item.get();
-        set_show_modal.set(false);
+        show_modal.set(false);
         leptos::task::spawn_local(async move {
             let body = serde_json::json!({
                 "title": title,
@@ -125,7 +130,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         if let Some(id) = confirm_delete.get() {
             let api = api_del.clone();
             let s = slug();
-            set_confirm_delete.set(None);
+            confirm_delete.set(None);
+            del_open.set(false);
             leptos::task::spawn_local(async move {
                 let _ = api.delete_scheduled_action(&s, &id).await;
                 set_refresh.update(|n| *n += 1);
@@ -225,20 +231,13 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         </div>
 
         // Create/Edit modal
-        {move || show_modal.get().then(|| {
-            let is_edit = edit_item.get().is_some();
-            view! {
-                <div
-                    class="fixed inset-0 z-50 flex items-center justify-center"
-                    style="background: rgba(26,26,26,0.5);"
-                    on:click=move |_| set_show_modal.set(false)
-                >
-                    <div
-                        class="w-full max-w-md mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
-                        style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
-                        on:click=|e| e.stop_propagation()
-                    >
-                        <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "schedule.modal.edit" } else { "schedule.modal.add" })}</h2>
+        <Dialog
+            open=show_modal
+            on_close=move || show_modal.set(false)
+            labelledby="sched-modal-title"
+            class="max-w-md"
+        >
+                        <h2 id="sched-modal-title" class="font-display text-xl font-bold">{move || tr(if edit_item.get().is_some() { "schedule.modal.edit" } else { "schedule.modal.add" })}</h2>
 
                         <Field label=tr("schedule.field.title") id="sched-title">
                             <input id="sched-title" type="text" placeholder=tr("schedule.field.title.placeholder")
@@ -298,27 +297,19 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                             >{move || tr("common.save")}</Button>
                             <Button
                                 variant=ButtonVariant::Secondary
-                                on_click=move |_| set_show_modal.set(false)
+                                on_click=move |_| show_modal.set(false)
                             >{move || tr("common.cancel")}</Button>
                         </div>
-                    </div>
-                </div>
-            }
-        })}
+        </Dialog>
 
         // Delete confirm
-        {move || confirm_delete.get().is_some().then(|| view! {
-            <div
-                class="fixed inset-0 z-50 flex items-center justify-center"
-                style="background: rgba(26,26,26,0.5);"
-                on:click=move |_| set_confirm_delete.set(None)
-            >
-                <div
-                    class="w-full max-w-sm mx-4 border-2 border-ink rounded-xs p-6 flex flex-col gap-4"
-                    style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
-                    on:click=|e| e.stop_propagation()
-                >
-                    <h2 class="font-display text-lg font-bold">{move || tr("schedule.delete.title")}</h2>
+        <Dialog
+            open=del_open
+            on_close=move || { confirm_delete.set(None); del_open.set(false); }
+            labelledby="sched-delete-title"
+            class="max-w-sm"
+        >
+                    <h2 id="sched-delete-title" class="font-display text-lg font-bold">{move || tr("schedule.delete.title")}</h2>
                     <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
                         <Button
@@ -328,11 +319,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         >{move || tr("common.delete")}</Button>
                         <Button
                             variant=ButtonVariant::Secondary
-                            on_click=move |_| set_confirm_delete.set(None)
+                            on_click=move |_| { confirm_delete.set(None); del_open.set(false); }
                         >{move || tr("common.cancel")}</Button>
                     </div>
-                </div>
-            </div>
-        })}
+        </Dialog>
     }
 }
