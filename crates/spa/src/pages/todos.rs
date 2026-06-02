@@ -2,6 +2,7 @@ use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::checkbox::Checkbox;
+use crate::components::ui::tabs::{TabItem, Tabs};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -11,7 +12,7 @@ use wasm_bindgen::JsCast;
 pub fn TodosPage() -> impl IntoView {
     let params = use_params_map();
     let slug = Memo::new(move |_| params.read().get("slug").unwrap_or_default());
-    let (filter, set_filter) = signal("open".to_string());
+    let filter = RwSignal::new("open".to_string());
     let (refresh_counter, set_refresh) = signal(0u32);
     // Optimistic-toggle set: while the API call is in flight + fade-out runs,
     // these ids render in the "next" status so the user sees the transition
@@ -47,11 +48,23 @@ pub fn TodosPage() -> impl IntoView {
     // Click handler closure cloned per row inside the `For` children.
     let _ = &api3;
 
-    let filters: Vec<(&'static str, &'static str)> = vec![
-        ("open", "todo.filter.open"),
-        ("all", "todo.filter.all"),
-        ("done", "todo.filter.done"),
-        ("mine", "todo.filter.mine"),
+    let filter_tabs = vec![
+        TabItem {
+            value: "open".into(),
+            label_key: "todo.filter.open".into(),
+        },
+        TabItem {
+            value: "all".into(),
+            label_key: "todo.filter.all".into(),
+        },
+        TabItem {
+            value: "done".into(),
+            label_key: "todo.filter.done".into(),
+        },
+        TabItem {
+            value: "mine".into(),
+            label_key: "todo.filter.mine".into(),
+        },
     ];
 
     let focus_new_todo = move |_| {
@@ -74,23 +87,12 @@ pub fn TodosPage() -> impl IntoView {
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             // Filter bar
-            <div class="flex gap-2 items-center mb-5 flex-wrap">
-                {filters.into_iter().map(|(val, label_key)| {
-                    let val = val.to_string();
-                    let val2 = val.clone();
-                    let val3 = val.clone();
-                    let val4 = val.clone();
-                    view! {
-                        <button
-                            class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer transition-colors"
-                            class:bg-ink=move || filter.get() == val
-                            class:text-cream=move || filter.get() == val2
-                            style:border-color=move || if filter.get() == val3 { "var(--ink)" } else { "var(--ink-15)" }
-                            on:click=move |_| set_filter.set(val4.clone())
-                        >{move || tr(label_key)}</button>
-                    }
-                }).collect_view()}
-            </div>
+            <Tabs
+                value=filter
+                tabs=filter_tabs
+                aria_label=Signal::derive(move || tr("todo.filter.aria"))
+                class="mb-5"
+            />
 
             // Todo list
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>

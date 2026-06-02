@@ -5,6 +5,7 @@ use crate::components::ui::button::{Button, ButtonVariant};
 use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
+use crate::components::ui::tabs::{TabItem, Tabs};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -15,8 +16,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     let (refresh, set_refresh) = signal(0u32);
-    let (type_filter, set_type_filter) = signal("all".to_string());
-    let (status_filter, set_status_filter) = signal("all".to_string());
+    let type_filter = RwSignal::new("all".to_string());
+    let status_filter = RwSignal::new("all".to_string());
     let show_modal = RwSignal::new(false);
     let (edit_item, set_edit_item) = signal::<Option<ScheduledActionItem>>(None);
     let confirm_delete = RwSignal::new(None::<String>);
@@ -139,15 +140,41 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         }
     };
 
-    let type_opts = vec![
+    let type_tabs: Vec<TabItem> = vec![
         "all",
         "reminder",
         "event_notify",
         "recap",
         "follow_up",
         "agent_task",
-    ];
-    let status_opts = vec!["all", "pending", "firing", "done", "cancelled", "failed"];
+    ]
+    .into_iter()
+    .map(|k| {
+        let label_key = if k == "all" {
+            "common.filter.all".to_string()
+        } else {
+            format!("schedule.type.{}", k)
+        };
+        TabItem {
+            value: k.to_string(),
+            label_key,
+        }
+    })
+    .collect();
+    let status_tabs: Vec<TabItem> = vec!["all", "pending", "firing", "done", "cancelled", "failed"]
+        .into_iter()
+        .map(|k| {
+            let label_key = if k == "all" {
+                "common.filter.all".to_string()
+            } else {
+                format!("schedule.status.{}", k)
+            };
+            TabItem {
+                value: k.to_string(),
+                label_key,
+            }
+        })
+        .collect();
 
     view! {
         <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
@@ -161,37 +188,19 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             <div class="flex gap-4 items-center mb-5 flex-wrap">
                 <div class="flex gap-2 flex-wrap">
                     <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">{move || tr("schedule.filter.type")}":"</span>
-                    {type_opts.into_iter().map(|k| {
-                        let k = k.to_string();
-                        let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
-                        let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.type.{}", k) };
-                        view! {
-                            <button
-                                class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer"
-                                class:bg-ink=move || type_filter.get() == k
-                                class:text-cream=move || type_filter.get() == k2
-                                style:border-color=move || if type_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
-                                on:click=move |_| set_type_filter.set(k4.clone())
-                            >{move || tr(&lk)}</button>
-                        }
-                    }).collect_view()}
+                    <Tabs
+                        value=type_filter
+                        tabs=type_tabs
+                        aria_label=Signal::derive(move || tr("schedule.filter.type"))
+                    />
                 </div>
                 <div class="flex gap-2 flex-wrap">
                     <span class="text-[10px] uppercase tracking-wider font-bold self-center" style="color: var(--ink-40);">{move || tr("schedule.filter.status")}":"</span>
-                    {status_opts.into_iter().map(|k| {
-                        let k = k.to_string();
-                        let k2 = k.clone(); let k3 = k.clone(); let k4 = k.clone();
-                        let lk: String = if k == "all" { "common.filter.all".into() } else { format!("schedule.status.{}", k) };
-                        view! {
-                            <button
-                                class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer"
-                                class:bg-ink=move || status_filter.get() == k
-                                class:text-cream=move || status_filter.get() == k2
-                                style:border-color=move || if status_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
-                                on:click=move |_| set_status_filter.set(k4.clone())
-                            >{move || tr(&lk)}</button>
-                        }
-                    }).collect_view()}
+                    <Tabs
+                        value=status_filter
+                        tabs=status_tabs
+                        aria_label=Signal::derive(move || tr("schedule.filter.status"))
+                    />
                 </div>
             </div>
 

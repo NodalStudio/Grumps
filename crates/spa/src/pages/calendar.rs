@@ -2,6 +2,7 @@ use crate::api::{use_api, CalendarItem};
 use crate::components::calendar::agenda::AgendaView;
 use crate::components::calendar::month::MonthView;
 use crate::components::calendar::week::WeekView;
+use crate::components::ui::tabs::{TabItem, Tabs};
 use crate::i18n::tr;
 #[allow(unused_imports)]
 use js_sys;
@@ -100,7 +101,7 @@ pub fn CalendarPage() -> impl IntoView {
     let (month, set_month) = signal(today_m);
     // Anchor day within the focused week (only meaningful in week view).
     let (day, set_day) = signal(today_d);
-    let (view_mode, set_view_mode) = signal("month".to_string());
+    let view_mode = RwSignal::new("month".to_string());
 
     // The 7 dates (Mon..Sun) of the week containing the anchor.
     let week_days = Memo::new(move |_| {
@@ -171,10 +172,19 @@ pub fn CalendarPage() -> impl IntoView {
     let prev_month = move |_| step(-1);
     let next_month = move |_| step(1);
 
-    let view_tabs: Vec<(&'static str, &'static str)> = vec![
-        ("month", "calendar.view.month"),
-        ("week", "calendar.view.week"),
-        ("agenda", "calendar.view.agenda"),
+    let view_tabs = vec![
+        TabItem {
+            value: "month".into(),
+            label_key: "calendar.view.month".into(),
+        },
+        TabItem {
+            value: "week".into(),
+            label_key: "calendar.view.week".into(),
+        },
+        TabItem {
+            value: "agenda".into(),
+            label_key: "calendar.view.agenda".into(),
+        },
     ];
 
     view! {
@@ -208,21 +218,13 @@ pub fn CalendarPage() -> impl IntoView {
                     class="px-3 py-1.5 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
                     on:click=next_month
                 >{move || tr("calendar.next")}" >"</button>
-                <div class="flex border-2 border-ink rounded-xs overflow-hidden ml-2">
-                    {view_tabs.into_iter().map(|(val, label_key)| {
-                        let val = val.to_string();
-                        let val2 = val.clone();
-                        let val3 = val.clone();
-                        view! {
-                            <button
-                                class="px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors"
-                                class:bg-ink=move || view_mode.get() == val
-                                class:text-cream=move || view_mode.get() == val2
-                                on:click=move |_| set_view_mode.set(val3.clone())
-                            >{move || tr(label_key)}</button>
-                        }
-                    }).collect_view()}
-                </div>
+                <Tabs
+                    value=view_mode
+                    tabs=view_tabs
+                    aria_label=Signal::derive(move || tr("calendar.view.aria"))
+                    class="gap-0 flex-nowrap border-2 border-ink rounded-xs overflow-hidden ml-2"
+                    tab_class="py-1.5 font-bold border-0 rounded-none"
+                />
             </div>
         </div>
 

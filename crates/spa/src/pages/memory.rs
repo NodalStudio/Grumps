@@ -6,6 +6,7 @@ use crate::components::ui::checkbox::Checkbox;
 use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
+use crate::components::ui::tabs::{TabItem, Tabs};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -16,7 +17,7 @@ pub fn MemoryPage() -> impl IntoView {
     let slug = move || params.read().get("slug").unwrap_or_default();
 
     let (refresh, set_refresh) = signal(0u32);
-    let (kind_filter, set_kind_filter) = signal("all".to_string());
+    let kind_filter = RwSignal::new("all".to_string());
     let show_modal = RwSignal::new(false);
     let (edit_item, set_edit_item) = signal::<Option<MemoryItem>>(None);
     let confirm_delete = RwSignal::new(None::<String>);
@@ -140,7 +141,20 @@ pub fn MemoryPage() -> impl IntoView {
         }
     };
 
-    let kinds = vec!["all", "fact", "preference", "skill", "event", "reminder"];
+    let kind_tabs: Vec<TabItem> = vec!["all", "fact", "preference", "skill", "event", "reminder"]
+        .into_iter()
+        .map(|k| {
+            let label_key = if k == "all" {
+                "common.filter.all".to_string()
+            } else {
+                format!("memory.kind.{}", k)
+            };
+            TabItem {
+                value: k.to_string(),
+                label_key,
+            }
+        })
+        .collect();
 
     view! {
         <PageHeader title=tr("page.memory.title") subtitle=tr("page.memory.subtitle")>
@@ -151,24 +165,12 @@ pub fn MemoryPage() -> impl IntoView {
 
         <div class="flex-1 overflow-y-auto p-8">
             // Kind filter chips
-            <div class="flex gap-2 flex-wrap mb-5">
-                {kinds.into_iter().map(|k| {
-                    let k = k.to_string();
-                    let k2 = k.clone();
-                    let k3 = k.clone();
-                    let k4 = k.clone();
-                    let label_key: String = if k == "all" { "common.filter.all".into() } else { format!("memory.kind.{}", k) };
-                    view! {
-                        <button
-                            class="px-3 py-1 text-xs font-medium border rounded-xs cursor-pointer transition-colors"
-                            class:bg-ink=move || kind_filter.get() == k
-                            class:text-cream=move || kind_filter.get() == k2
-                            style:border-color=move || if kind_filter.get() == k3 { "var(--ink)" } else { "var(--ink-15)" }
-                            on:click=move |_| set_kind_filter.set(k4.clone())
-                        >{move || tr(&label_key)}</button>
-                    }
-                }).collect_view()}
-            </div>
+            <Tabs
+                value=kind_filter
+                tabs=kind_tabs
+                aria_label=Signal::derive(move || tr("memory.filter.aria"))
+                class="mb-5"
+            />
 
             // Memory list
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
