@@ -162,8 +162,10 @@ jobs:
 
       - name: Install Playwright (chromium)
         working-directory: tests
+        # `npm install` (not `npm ci`): tests/package-lock.json is gitignored,
+        # so there's no lockfile in the repo for `npm ci` to consume.
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npx playwright install --with-deps chromium
 
       # Local-only dummy secrets. These are NOT real credentials — the worker
