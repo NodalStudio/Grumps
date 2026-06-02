@@ -60,8 +60,7 @@ pub fn Tabs(
         let Some(list) = list_ref.get_untracked() else {
             return;
         };
-        let el: web_sys::Element = list.unchecked_into();
-        if let Ok(nodes) = el.query_selector_all("[role=\"tab\"]") {
+        if let Ok(nodes) = list.query_selector_all("[role=\"tab\"]") {
             if let Some(node) = nodes.get(idx as u32) {
                 if let Ok(btn) = node.dyn_into::<HtmlElement>() {
                     let _ = btn.focus();

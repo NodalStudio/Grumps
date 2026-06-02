@@ -222,7 +222,7 @@ pub fn CalendarPage() -> impl IntoView {
                     value=view_mode
                     tabs=view_tabs
                     aria_label=Signal::derive(move || tr("calendar.view.aria"))
-                    class="gap-0 flex-nowrap border-2 border-ink rounded-xs overflow-hidden ml-2"
+                    class="gap-0 flex-nowrap border-2 border-ink rounded-xs overflow-hidden ms-2"
                     tab_class="py-1.5 font-bold border-0 rounded-none"
                 />
             </div>
