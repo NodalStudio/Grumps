@@ -376,5 +376,8 @@
   "observability.no_workspaces": "워크스페이스 없음.",
   "observability.no_quality_signals": "아직 품질 신호 없음.",
   "observability.access_denied": "접근 거부 또는 오류.",
-  "observability.super_admin_only": "이 페이지는 슈퍼 관리자만 사용할 수 있습니다."
+  "observability.super_admin_only": "이 페이지는 슈퍼 관리자만 사용할 수 있습니다.",
+  "todos.toggle_done": "완료 전환",
+  "common.title.label": "제목",
+  "page.note_editor.content_label": "내용"
 }

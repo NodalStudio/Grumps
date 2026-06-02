@@ -376,5 +376,8 @@
   "observability.no_workspaces": "Workspace yok.",
   "observability.no_quality_signals": "Henüz kalite sinyali yok.",
   "observability.access_denied": "Erişim reddedildi veya hata.",
-  "observability.super_admin_only": "Bu sayfa sadece süper adminlere açık."
+  "observability.super_admin_only": "Bu sayfa sadece süper adminlere açık.",
+  "todos.toggle_done": "Tamamlandı durumunu değiştir",
+  "common.title.label": "Başlık",
+  "page.note_editor.content_label": "İçerik"
 }

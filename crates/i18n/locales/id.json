@@ -376,5 +376,8 @@
   "observability.no_workspaces": "Tidak ada workspace.",
   "observability.no_quality_signals": "Belum ada sinyal kualitas.",
   "observability.access_denied": "Akses ditolak atau error.",
-  "observability.super_admin_only": "Halaman ini hanya untuk super admin."
+  "observability.super_admin_only": "Halaman ini hanya untuk super admin.",
+  "todos.toggle_done": "Alihkan selesai",
+  "common.title.label": "Judul",
+  "page.note_editor.content_label": "Konten"
 }

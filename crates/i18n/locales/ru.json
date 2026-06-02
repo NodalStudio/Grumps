@@ -376,5 +376,8 @@
   "observability.no_workspaces": "Нет workspace'ов.",
   "observability.no_quality_signals": "Сигналов качества пока нет.",
   "observability.access_denied": "Доступ запрещён или ошибка.",
-  "observability.super_admin_only": "Страница доступна только супер-администраторам."
+  "observability.super_admin_only": "Страница доступна только супер-администраторам.",
+  "todos.toggle_done": "Переключить «выполнено»",
+  "common.title.label": "Заголовок",
+  "page.note_editor.content_label": "Содержимое"
 }

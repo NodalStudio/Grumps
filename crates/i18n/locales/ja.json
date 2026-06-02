@@ -376,5 +376,8 @@
   "observability.no_workspaces": "ワークスペースなし。",
   "observability.no_quality_signals": "品質シグナルはまだありません。",
   "observability.access_denied": "アクセス拒否またはエラー。",
-  "observability.super_admin_only": "このページはスーパー管理者のみ。"
+  "observability.super_admin_only": "このページはスーパー管理者のみ。",
+  "todos.toggle_done": "完了を切り替え",
+  "common.title.label": "タイトル",
+  "page.note_editor.content_label": "本文"
 }

@@ -376,5 +376,8 @@
   "observability.no_workspaces": "لا توجد مساحات عمل.",
   "observability.no_quality_signals": "لا توجد إشارات جودة بعد.",
   "observability.access_denied": "تم رفض الوصول أو حدث خطأ.",
-  "observability.super_admin_only": "هذه الصفحة مقصورة على المسؤولين الكبار."
+  "observability.super_admin_only": "هذه الصفحة مقصورة على المسؤولين الكبار.",
+  "todos.toggle_done": "تبديل الإنجاز",
+  "common.title.label": "العنوان",
+  "page.note_editor.content_label": "المحتوى"
 }

@@ -376,5 +376,8 @@
   "observability.no_workspaces": "Sin workspaces.",
   "observability.no_quality_signals": "Aún no hay señales de calidad.",
   "observability.access_denied": "Acceso denegado o error.",
-  "observability.super_admin_only": "Esta página está restringida a super admins."
+  "observability.super_admin_only": "Esta página está restringida a super admins.",
+  "todos.toggle_done": "Alternar completado",
+  "common.title.label": "Título",
+  "page.note_editor.content_label": "Contenido"
 }

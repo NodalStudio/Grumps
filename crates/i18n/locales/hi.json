@@ -376,5 +376,8 @@
   "observability.no_workspaces": "कोई workspace नहीं।",
   "observability.no_quality_signals": "अभी तक कोई गुणवत्ता संकेत नहीं।",
   "observability.access_denied": "पहुँच अस्वीकृत या त्रुटि।",
-  "observability.super_admin_only": "यह पेज केवल super admin के लिए है।"
+  "observability.super_admin_only": "यह पेज केवल super admin के लिए है।",
+  "todos.toggle_done": "पूर्ण टॉगल करें",
+  "common.title.label": "शीर्षक",
+  "page.note_editor.content_label": "सामग्री"
 }
