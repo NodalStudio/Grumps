@@ -1,5 +1,6 @@
 use crate::auth::{use_session, WorkspaceRef};
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::tr;
 use leptos::prelude::*;
 
@@ -142,13 +143,13 @@ fn AddGroupHelp(on_close: Callback<()>) -> impl IntoView {
                 </div>
 
                 <div class="flex justify-end">
-                    <button
-                        type="button"
-                        on:click=move |_| close2.run(())
-                        class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
-                        style="background: var(--cream); color: var(--ink);">
+                    <Button
+                        variant=ButtonVariant::Secondary
+                        class="bg-cream"
+                        on_click=move |_| close2.run(())
+                    >
                         {move || tr("common.close")}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

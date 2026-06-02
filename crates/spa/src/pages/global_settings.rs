@@ -1,4 +1,5 @@
 use crate::auth::{read_csrf_cookie, use_session};
+use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::{tr, tr_p};
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -71,9 +72,9 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
                 }).collect_view()}
             </select>
         </label>
-        <button class="px-4 py-2 text-sm font-bold uppercase tracking-wider border-2 border-ink rounded-xs cursor-pointer"
-            style="background: var(--ink); color: var(--cream);"
-            on:click=save>{move || tr("common.save")}</button>
+        <Button variant=ButtonVariant::Primary class="uppercase tracking-wider" on_click=save>
+            {move || tr("common.save")}
+        </Button>
     }
 }
 

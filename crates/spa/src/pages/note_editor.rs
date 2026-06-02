@@ -1,5 +1,6 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -71,21 +72,22 @@ pub fn NoteEditorPage() -> impl IntoView {
                                     SaveState::Error => tr("page.note_editor.save_error"),
                                 }}
                             </span>
-                            <button
-                                class="px-3 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                                style="background: var(--cream-light);"
-                                on:click=move |_| set_editing.update(|e| *e = !*e)
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                class="text-sm bg-cream-light"
+                                on_click=move |_| set_editing.update(|e| *e = !*e)
                             >
                                 {move || if editing.get() { tr("page.note_editor.preview") } else { tr("page.note_editor.edit") }}
-                            </button>
-                            <button
-                                class="px-4 py-1.5 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                                style="background: var(--ink); color: var(--cream);"
-                                disabled=move || save_state.get() == SaveState::Saving
-                                on:click=move |_| save.with_value(|f| f())
+                            </Button>
+                            <Button
+                                variant=ButtonVariant::Primary
+                                class="py-1.5"
+                                disabled=Signal::derive(move || save_state.get() == SaveState::Saving)
+                                on_click=move |_| save.with_value(|f| f())
                             >
                                 {move || tr("page.note_editor.save")}
-                            </button>
+                            </Button>
                         </PageHeader>
                         <div class="flex-1 overflow-y-auto p-8">
                             {move || if editing.get() {

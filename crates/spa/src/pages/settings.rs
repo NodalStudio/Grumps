@@ -1,5 +1,6 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::ui::switch::Switch;
 use crate::i18n::tr;
 use leptos::prelude::*;
@@ -158,11 +159,9 @@ pub fn SettingsPage() -> impl IntoView {
                         <a href="#" class="text-sm font-semibold" style="color: var(--teal);">{move || tr("settings.consent_link")}</a>
                     </div>
                     <div class="pt-3 pb-1">
-                        <button
-                            class="px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
-                            style="background: var(--ink); color: var(--cream);"
-                            on:click=save_agent
-                        >{move || tr("settings.save_agent")}</button>
+                        <Button variant=ButtonVariant::Primary on_click=save_agent>
+                            {move || tr("settings.save_agent")}
+                        </Button>
                     </div>
                 </SettingsSection>
 
@@ -178,21 +177,24 @@ pub fn SettingsPage() -> impl IntoView {
                                 placeholder=tr("settings.ical.placeholder")
                                 prop:value=ical_url
                             />
-                            <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer shrink-0"
-                                on:click=copy_ical
-                            >{move || tr("settings.ical.copy")}</button>
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                class="shrink-0"
+                                on_click=copy_ical
+                            >{move || tr("settings.ical.copy")}</Button>
                         </div>
                         <div class="flex gap-2 mt-1">
-                            <button
-                                class="px-3 py-1.5 text-xs font-bold border-2 border-ink rounded-xs cursor-pointer"
-                                on:click=regen_ical
-                            >{move || tr("settings.ical.regenerate")}</button>
-                            <button
-                                class="px-3 py-1.5 text-xs font-semibold border rounded-xs cursor-pointer"
-                                style="border-color: var(--brick); color: var(--brick);"
-                                on:click=move |_| set_ical_url.set(String::new())
-                            >{move || tr("settings.ical.revoke")}</button>
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                size=ButtonSize::Sm
+                                on_click=regen_ical
+                            >{move || tr("settings.ical.regenerate")}</Button>
+                            <Button
+                                variant=ButtonVariant::Danger
+                                size=ButtonSize::Sm
+                                on_click=move |_| set_ical_url.set(String::new())
+                            >{move || tr("settings.ical.revoke")}</Button>
                         </div>
                     </div>
                 </SettingsSection>

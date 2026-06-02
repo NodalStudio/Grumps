@@ -1,5 +1,6 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
+use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -66,11 +67,9 @@ pub fn TodosPage() -> impl IntoView {
 
     view! {
         <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
-            <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                style="background: var(--ink); color: var(--cream);"
-                on:click=focus_new_todo
-            >"+ "{move || tr("todo.action.add")}</button>
+            <Button variant=ButtonVariant::Primary on_click=focus_new_todo>
+                "+ "{move || tr("todo.action.add")}
+            </Button>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             // Filter bar

@@ -1,4 +1,5 @@
 use crate::api::MemoryItem;
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::i18n::tr;
 use leptos::prelude::*;
 
@@ -75,26 +76,32 @@ pub fn MemoryCard(
 
             // Action row
             <div class="flex items-center gap-2 pt-1 border-t" style="border-color: var(--ink-08);">
-                <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-xs cursor-pointer"
-                    style="color: var(--ink); background: transparent;"
-                    on:click=move |_| on_edit.run(item_clone_edit.clone())
-                >{move || tr("common.edit")}</button>
+                <Button
+                    variant=ButtonVariant::Secondary
+                    size=ButtonSize::Sm
+                    class="text-[11px] font-semibold px-2 py-0.5 border"
+                    on_click=move |_| on_edit.run(item_clone_edit.clone())
+                >{move || tr("common.edit")}</Button>
 
-                <button
-                    class="text-[11px] font-semibold px-2 py-0.5 border border-ink rounded-xs cursor-pointer"
-                    on:click=move |_| on_toggle_pin.run(item_id_pin.clone())
-                    style:background=move || if pinned { "var(--teal)" } else { "transparent" }
-                    style:color=move || if pinned { "white" } else { "var(--ink)" }
+                <Button
+                    variant=if pinned { ButtonVariant::Primary } else { ButtonVariant::Secondary }
+                    size=ButtonSize::Sm
+                    class=if pinned {
+                        "text-[11px] font-semibold px-2 py-0.5 border bg-teal text-white border-teal"
+                    } else {
+                        "text-[11px] font-semibold px-2 py-0.5 border"
+                    }
+                    on_click=move |_| on_toggle_pin.run(item_id_pin.clone())
                 >
                     {move || if pinned { tr("memory.pinned") } else { tr("memory.action.pin") }}
-                </button>
+                </Button>
 
-                <button
-                    class="ml-auto text-[11px] font-semibold px-2 py-0.5 border rounded-xs cursor-pointer"
-                    style="border-color: var(--brick); color: var(--brick); background: transparent;"
-                    on:click=move |_| on_delete.run(item_id_delete.clone())
-                >{move || tr("common.delete")}</button>
+                <Button
+                    variant=ButtonVariant::Danger
+                    size=ButtonSize::Sm
+                    class="ml-auto text-[11px] font-semibold px-2 py-0.5"
+                    on_click=move |_| on_delete.run(item_id_delete.clone())
+                >{move || tr("common.delete")}</Button>
             </div>
         </div>
     }

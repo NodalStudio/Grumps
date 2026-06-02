@@ -1,6 +1,7 @@
 use crate::api::{use_api, ScheduledActionItem};
 use crate::components::header::PageHeader;
 use crate::components::scheduled_card::ScheduledCard;
+use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -142,11 +143,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
 
     view! {
         <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
-            <button
-                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                style="background: var(--ink); color: var(--cream);"
-                on:click=open_create
-            >"+ "{move || tr("schedule.action.new")}</button>
+            <Button variant=ButtonVariant::Primary on_click=open_create>
+                "+ "{move || tr("schedule.action.new")}
+            </Button>
         </PageHeader>
 
         <div class="flex-1 overflow-y-auto p-8">
@@ -292,15 +291,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                         </div>
 
                         <div class="flex gap-2 pt-2">
-                            <button
-                                class="flex-1 px-4 py-2 text-sm font-bold border-2 border-ink rounded-xs cursor-pointer"
-                                style="background: var(--ink); color: var(--cream);"
-                                on:click=save.clone()
-                            >{move || tr("common.save")}</button>
-                            <button
-                                class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                                on:click=move |_| set_show_modal.set(false)
-                            >{move || tr("common.cancel")}</button>
+                            <Button
+                                variant=ButtonVariant::Primary
+                                class="flex-1"
+                                on_click=save.clone()
+                            >{move || tr("common.save")}</Button>
+                            <Button
+                                variant=ButtonVariant::Secondary
+                                on_click=move |_| set_show_modal.set(false)
+                            >{move || tr("common.cancel")}</Button>
                         </div>
                     </div>
                 </div>
@@ -322,15 +321,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     <h2 class="font-display text-lg font-bold">{move || tr("schedule.delete.title")}</h2>
                     <p class="text-sm" style="color: var(--ink-70);">{move || tr("common.irreversible")}</p>
                     <div class="flex gap-2">
-                        <button
-                            class="flex-1 px-4 py-2 text-sm font-bold border-2 rounded-xs cursor-pointer"
-                            style="background: var(--brick); border-color: var(--brick); color: white;"
-                            on:click=confirm_del.clone()
-                        >{move || tr("common.delete")}</button>
-                        <button
-                            class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
-                            on:click=move |_| set_confirm_delete.set(None)
-                        >{move || tr("common.cancel")}</button>
+                        <Button
+                            variant=ButtonVariant::Danger
+                            class="flex-1 bg-brick text-white border-2 border-brick"
+                            on_click=confirm_del.clone()
+                        >{move || tr("common.delete")}</Button>
+                        <Button
+                            variant=ButtonVariant::Secondary
+                            on_click=move |_| set_confirm_delete.set(None)
+                        >{move || tr("common.cancel")}</Button>
                     </div>
                 </div>
             </div>
