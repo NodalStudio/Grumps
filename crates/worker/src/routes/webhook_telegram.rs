@@ -302,6 +302,18 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     }
 
+    let rid = crate::observability::request_id(&req);
+    crate::observability::log(
+        crate::observability::Level::Info,
+        &rid,
+        "tg.message",
+        &serde_json::json!({
+            "msg_id": inbound.message_id,
+            "is_mention": inbound.is_mention_to_bot,
+            "is_dm": inbound.is_direct_message,
+        }),
+    );
+
     let parse_result = parser::parse(
         &clean_text,
         inbound.is_mention_to_bot,
@@ -309,6 +321,20 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         is_reply_to_bot,
         inbound.quoted_message_id.is_some(),
     );
+
+    if crate::observability::trace_enabled(&ctx.env) {
+        crate::observability::log(
+            crate::observability::Level::Info,
+            &rid,
+            "tg.trace",
+            &serde_json::json!({
+                "sender": &inbound.sender_name,
+                "text": text,
+                "variant": format!("{parse_result:?}"),
+                "raw": String::from_utf8_lossy(&body),
+            }),
+        );
+    }
 
     // LLM client (optional)
     let llm = crate::llm_client::LlmClient::from_env(&ctx.env).ok();
