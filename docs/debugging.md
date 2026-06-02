@@ -86,3 +86,29 @@ PATH="/c/Users/mayer/.cargo/bin:$PATH" ~/.cargo/bin/cargo.exe test \
 | Watch logs in production | `npx wrangler tail` |
 | Confirm a branch was taken | add a `log_event("debug.…", …)` probe |
 | True breakpoint step-debug | native `cargo test` on the pure logic |
+
+## Strengthening diagnosis when something goes wrong
+
+Every request now emits a correlation id derived from Cloudflare's `cf-ray` header (falls back to `local` under `wrangler dev`). Grep one request's whole journey with `wrangler tail | grep rid=<id>`.
+
+Structured log lines, all greppable by `[level]` and `rid=`:
+
+| Event | When | Fields |
+|---|---|---|
+| `http.in` | every request, before routing | `method`, `path` |
+| `http.out` | every request, after routing | `status`, `ms` (latency); level is `error` for 5xx, `warn` for 4xx |
+| `error` | any 5xx or `AppError::Internal` | `where`, `detail` |
+| `tg.message` | every inbound Telegram text | `msg_id`, `is_mention`, `is_dm` (metadata only, no content) |
+| `tg.trace` | Telegram text, only when `DEBUG_TRACE=1` | `sender`, `text` (full content), `variant` (chosen `ParseResult`), `raw` (the full update body — replayable verbatim via `replay-webhook.sh`) |
+
+Flip verbose content tracing on without redeploying: set `DEBUG_TRACE=1` (Cloudflare dashboard env var in prod, or `.dev.vars` locally). `tg.message` is always on and content-free; `tg.trace` carries the full message content and is gated.
+
+Privacy: `tg.trace` writes real message content to Workers Logs (retained ~3 days, dashboard-visible) — fine pre-production, and easy to redact later since all content logging lives in that one gated event. Nothing is ever written to the committed repo.
+
+### Retained logs (analysis after the fact)
+
+`wrangler tail` only shows what streams while you are connected. Workers Logs is enabled (`[observability]` in `wrangler.toml`), so Cloudflare retains logs (~3 days) and makes them queryable in the dashboard: Workers → `grumps-api` → Logs. Filter by `rid=`, status, or `[error]` to find a specific failure after it happened.
+
+### Panics
+
+The worker installs `console_error_panic_hook` at start, so a panic surfaces a readable `panicked at 'msg', file:line` line instead of `RuntimeError: unreachable executed`. (The SPA already had its own hook in `crates/spa/src/main.rs` — that one covers the browser, this one covers the worker.)
