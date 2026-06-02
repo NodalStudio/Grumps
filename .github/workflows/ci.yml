@@ -207,7 +207,11 @@ jobs:
       - name: Run auth + session e2e
         run: |
           set -e
-          npx wrangler dev --port 8787 --var ENVIRONMENT:development > /tmp/wrangler.log 2>&1 &
+          # --local forces fully-local mode. Without it wrangler opens a remote
+          # proxy session for the AI/Vectorize bindings (no local simulator),
+          # which needs Cloudflare auth and fails in CI. The auth path under
+          # test touches neither binding, so local-only is fine.
+          npx wrangler dev --local --port 8787 --var ENVIRONMENT:development > /tmp/wrangler.log 2>&1 &
           WORKER_PID=$!
           ( cd crates/spa && trunk serve --release --port 8080 > /tmp/trunk.log 2>&1 ) &
           echo "Waiting for worker on :8787 …"
