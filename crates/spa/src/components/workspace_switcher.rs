@@ -1,11 +1,12 @@
 use crate::auth::{use_session, WorkspaceRef};
+use crate::components::ui::dropdown_menu::{DropdownMenu, MenuAlign};
 use crate::i18n::tr;
 use leptos::prelude::*;
 
 #[component]
 pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
     let session = use_session().unwrap_or_default();
-    let (open, set_open) = signal(false);
+    let open = RwSignal::new(false);
     let workspaces = session.workspaces.clone();
     let current = workspaces
         .iter()
@@ -18,23 +19,55 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
         .map(|n| tr(&n))
         .unwrap_or_else(|| current.slug.clone());
     let cur_for_render = current_slug.clone();
+    // Park the owned data in `Copy` stores so the trigger/children closures
+    // (`ViewFn` / `ChildrenFn`, both `Fn`) can read them on every call without
+    // moving the captures out of the surrounding closure.
+    let current_label = StoredValue::new(current_label);
+    let workspaces = StoredValue::new(workspaces);
+    let cur_for_render = StoredValue::new(cur_for_render);
 
     view! {
-        <div class="relative">
-            <button class="w-full text-left p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
-                style="background: var(--cream-light);"
-                on:click=move |_| set_open.update(|v| *v = !*v)>
-                <span class="font-display text-sm font-bold">{current_label}</span>
-                <span class="text-xs" style="color: var(--ink-40);">"▼"</span>
-            </button>
-            <Show when=move || open.get()>
-                <ul class="absolute top-full left-0 right-0 mt-1 border-2 border-ink rounded-xs z-10" style="background: var(--cream-light);">
-                    {workspaces.iter().cloned().map(|ws| view_row(ws, &cur_for_render)).collect_view()}
-                    <li class="border-t-2 border-ink"></li>
-                    <li><a href="https://t.me/HeyGrumpsBot?startgroup=true" target="_blank" class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline">"+ Add Grumps to a group"</a></li>
-                </ul>
-            </Show>
-        </div>
+        <DropdownMenu
+            open=open
+            align=MenuAlign::Start
+            aria_label=Signal::derive(|| tr("workspace.switch_label"))
+            trigger_class="w-full text-left p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
+            trigger_style="background: var(--cream-light);"
+            menu_class="inset-inline-0 top-full mt-1 border-2 border-ink rounded-xs"
+            menu_style="background: var(--cream-light);"
+            trigger=move || {
+                let label = current_label.get_value();
+                view! {
+                    <span class="font-display text-sm font-bold">{label}</span>
+                    <span class="text-xs" style="color: var(--ink-40);">
+                        "▼"
+                    </span>
+                }
+                    .into_any()
+            }
+        >
+            {move || {
+                let cur = cur_for_render.get_value();
+                let rows = workspaces
+                    .get_value()
+                    .into_iter()
+                    .map(|ws| view_row(ws, &cur))
+                    .collect_view();
+                view! {
+                    {rows}
+                    <div class="border-t-2 border-ink"></div>
+                    <a
+                        href="https://t.me/HeyGrumpsBot?startgroup=true"
+                        target="_blank"
+                        role="menuitem"
+                        tabindex="-1"
+                        class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline"
+                    >
+                        {move || format!("+ {}", tr("workspace.add_to_group"))}
+                    </a>
+                }
+            }}
+        </DropdownMenu>
     }
 }
 
@@ -55,11 +88,18 @@ fn view_row(ws: WorkspaceRef, current_slug: &str) -> impl IntoView {
         .unwrap_or_else(|| ws.slug.clone());
     let href = format!("/w/{}", ws.slug);
     view! {
-        <li>
-            <a href=href class="block px-3 py-2 flex justify-between items-center" class:font-bold=is_current>
-                <span class="text-sm">{name}</span>
-                <span class="text-[10px] uppercase tracking-wider" style="color: var(--ink-40);">{badge}</span>
-            </a>
-        </li>
+        <a
+            href=href
+            role="menuitem"
+            tabindex="-1"
+            data-current=is_current.to_string()
+            class="block px-3 py-2 flex justify-between items-center"
+            class:font-bold=is_current
+        >
+            <span class="text-sm">{name}</span>
+            <span class="text-[10px] uppercase tracking-wider" style="color: var(--ink-40);">
+                {badge}
+            </span>
+        </a>
     }
 }

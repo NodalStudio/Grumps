@@ -5,6 +5,7 @@
 pub mod button;
 pub mod checkbox;
 pub mod dialog;
+pub mod dropdown_menu;
 pub mod field;
 pub mod select;
 pub mod switch;
