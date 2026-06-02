@@ -70,7 +70,7 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
             <Select
                 value=locale
                 aria_label=tr("settings.default_locale")
-                class="w-full"
+                full_width=true
                 on_change=move |v: String| set_locale.set(v)
             >
                 {["en","es","pt-BR","fr","de","it","ru","tr","ar","hi","zh-CN","ja","ko","id"].iter().map(|code| {
