@@ -50,7 +50,7 @@ pub fn HistoryPage() -> impl IntoView {
                                                 " "
                                                 {let a = activity.action.clone(); move || tr(&a)}
                                                 {activity.target_id.clone().map(|id| view! { <span class="font-display font-semibold">" "{move || tr(&id)}</span> })}
-                                                <span class="ml-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-xs" style="color: var(--ink-40); border-color: var(--ink-15);">
+                                                <span class="ms-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 border rounded-xs" style="color: var(--ink-40); border-color: var(--ink-15);">
                                                     {let s = activity.source.clone(); move || tr(&s)}
                                                 </span>
                                             </div>

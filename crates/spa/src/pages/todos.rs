@@ -128,9 +128,9 @@ pub fn TodosPage() -> impl IntoView {
                                     view! {
                                         <div
                                             class="todo-row flex items-start gap-3 px-4 py-3 border-2 border-ink rounded-xs cursor-pointer"
-                                            class:border-l-4=is_high
+                                            class:border-s-4=is_high
                                             class:todo-row-fading=move || is_toggling.get()
-                                            style:border-left-color=move || if is_high { "var(--brick)" } else { "" }
+                                            style:border-inline-start-color=move || if is_high { "var(--brick)" } else { "" }
                                             style="background: var(--cream-light); transition: opacity 280ms ease-out, transform 280ms ease-out, max-height 280ms ease-out, padding 280ms ease-out, margin 280ms ease-out, border-width 280ms ease-out;"
                                         >
                                             <Checkbox

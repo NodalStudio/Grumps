@@ -39,7 +39,7 @@ pub fn Switch(
             type="button"
             role="switch"
             aria-checked=move || checked.get().to_string()
-            aria-label=move || aria_label.get().unwrap_or_default()
+            aria-label=move || aria_label.get()
             data-state=state
             class=track
             on:click=move |_| on_change()

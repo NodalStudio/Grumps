@@ -65,7 +65,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                             title=header_title
                             subtitle=tr_p("page.note_editor.created", &[("date", &created_at)])
                         >
-                            <span class="text-xs mr-2" style="color: var(--ink-40);">
+                            <span class="text-xs me-2" style="color: var(--ink-40);">
                                 {move || match save_state.get() {
                                     SaveState::Idle => String::new(),
                                     SaveState::Saving => tr("page.note_editor.saving"),
