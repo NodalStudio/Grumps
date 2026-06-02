@@ -186,21 +186,40 @@ jobs:
           npx wrangler d1 migrations apply grumps-index --local
           npx wrangler d1 execute grumps-index --local --file=scripts/seed-local-dev.sql
 
-      # Start the wasm worker + SPA in the background, wait for both, then run
-      # the auth/session specs. Backgrounded servers must live in the same step
-      # as the test run — a step boundary would reap them.
+      # Build the two wasm bundles in separate steps, not concurrently: two
+      # release wasm compiles at once can OOM the runner. Building here also
+      # turns a compile error into a clear step failure instead of a silent
+      # "server never came up".
+      - name: Build worker (wasm)
+        run: |
+          cargo install -q --locked worker-build@0.8.3
+          ( cd crates/worker && worker-build --release )
+      - name: Build SPA (wasm)
+        working-directory: crates/spa
+        run: |
+          npx @tailwindcss/cli -i ./input.css -o ./tailwind.out.css --minify
+          trunk build --release
+
+      # Start the already-built worker + SPA, wait for readiness, then run the
+      # specs. Backgrounded servers must share this step (a step boundary reaps
+      # them); their output is captured so a startup failure is visible. If the
+      # worker exits early we print its log and fail fast instead of looping.
       - name: Run auth + session e2e
         run: |
           set -e
-          npx wrangler dev --port 8787 --var ENVIRONMENT:development &
-          ( cd crates/spa \
-            && npx @tailwindcss/cli -i ./input.css -o ./tailwind.out.css --minify \
-            && trunk serve --release --port 8080 ) &
+          npx wrangler dev --port 8787 --var ENVIRONMENT:development > /tmp/wrangler.log 2>&1 &
+          WORKER_PID=$!
+          ( cd crates/spa && trunk serve --release --port 8080 > /tmp/trunk.log 2>&1 ) &
           echo "Waiting for worker on :8787 …"
-          for i in $(seq 1 150); do curl -fsS http://127.0.0.1:8787/health >/dev/null && break; sleep 6; done
-          curl -fsS http://127.0.0.1:8787/health
-          echo "Waiting for SPA on :8080 …"
-          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8080/ >/dev/null && break; sleep 5; done
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then ready=1; break; fi
+            if ! kill -0 "$WORKER_PID" 2>/dev/null; then echo "wrangler dev exited early"; break; fi
+            sleep 5
+          done
+          if [ "$ready" != 1 ]; then echo "=== wrangler.log ==="; cat /tmp/wrangler.log || true; exit 1; fi
+          echo "Worker ready. Waiting for SPA on :8080 …"
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 5; done
           cd tests && npx playwright test e2e/auth.spec.ts e2e/sessions.spec.ts
 
       - name: Upload Playwright report on failure
