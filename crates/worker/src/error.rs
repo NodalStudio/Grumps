@@ -15,7 +15,9 @@ impl AppError {
             Self::BadRequest(m) => Response::error(m, 400),
             Self::Forbidden => Response::error("Forbidden", 403),
             Self::Internal(m) => {
-                worker::console_log!("Error: {}", m);
+                // No request handle here, so the id is "unknown"; the http.out
+                // line for this request carries the real rid alongside.
+                crate::observability::log_error("unknown", "AppError::Internal", &m);
                 Response::error("Internal error", 500)
             }
         }

@@ -23,6 +23,14 @@ mod scheduler_executor;
 
 pub use durable_objects::WorkspaceScheduler;
 
+/// Install a WASM panic hook so a panic surfaces a readable
+/// `panicked at 'msg', file:line` line in `wrangler tail` / Workers Logs
+/// instead of an opaque `RuntimeError: unreachable executed`.
+#[event(start)]
+fn start() {
+    console_error_panic_hook::set_once();
+}
+
 #[event(scheduled)]
 pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) {
     if let Err(e) = cron::handle_cron(&env).await {
@@ -32,12 +40,20 @@ pub async fn scheduled(_event: ScheduledEvent, env: Env, _ctx: ScheduleContext) 
 
 #[event(fetch)]
 pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
-    // Handle CORS preflight for all paths
+    // CORS preflight: answered before logging to keep OPTIONS noise out.
     if req.method() == Method::Options {
         return middleware::preflight(&req);
     }
 
-    Router::new()
+    // Correlation id (cf-ray) + request-in line, so every request — including
+    // ones rejected early (403/404) — is visible and stitchable by `rid=`.
+    let rid = observability::request_id(&req);
+    let method = req.method().to_string();
+    let path = req.path();
+    let started = Date::now().as_millis();
+    observability::log_request_in(&rid, &method, &path);
+
+    let result = Router::new()
         // Health
         .get("/health", routes::health::handle)
         // WhatsApp webhook
@@ -158,5 +174,12 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::stripe_webhook::handle_stripe_webhook,
         )
         .run(req, env)
-        .await
+        .await;
+
+    let ms = Date::now().as_millis().saturating_sub(started);
+    match &result {
+        Ok(resp) => observability::log_request_out(&rid, resp.status_code(), ms),
+        Err(e) => observability::log_error(&rid, "fetch", &e.to_string()),
+    }
+    result
 }

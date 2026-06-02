@@ -24,6 +24,7 @@ async-trait = "0.1"
 sha2 = "0.11"
 hmac = "0.13"
 hex = "0.4"
+console_error_panic_hook = "0.1"
 
 # jsonwebtoken 10 pulls getrandom 0.2 transitively; on wasm it needs the `js`
 # feature to compile (the CF Workers target is wasm32-unknown-unknown). The
