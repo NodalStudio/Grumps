@@ -63,18 +63,33 @@ pub fn log(level: Level, rid: &str, event: &str, fields: &serde_json::Value) {
 
 /// One line per inbound request, before routing.
 pub fn log_request_in(rid: &str, method: &str, path: &str) {
-    log(Level::Info, rid, "http.in", &json!({ "method": method, "path": path }));
+    log(
+        Level::Info,
+        rid,
+        "http.in",
+        &json!({ "method": method, "path": path }),
+    );
 }
 
 /// One line per request after routing, with status + latency. Level follows
 /// the status code so `[error]` flags 5xx.
 pub fn log_request_out(rid: &str, status: u16, ms: u64) {
-    log(level_for_status(status), rid, "http.out", &json!({ "status": status, "ms": ms }));
+    log(
+        level_for_status(status),
+        rid,
+        "http.out",
+        &json!({ "status": status, "ms": ms }),
+    );
 }
 
 /// Structured error event with where-it-happened context.
 pub fn log_error(rid: &str, location: &str, detail: &str) {
-    log(Level::Error, rid, "error", &json!({ "where": location, "detail": detail }));
+    log(
+        Level::Error,
+        rid,
+        "error",
+        &json!({ "where": location, "detail": detail }),
+    );
 }
 
 /// Log a structured event for easy grep in `wrangler tail`. Serialized as a
