@@ -15,7 +15,7 @@ pub fn Select(
     children: Children,
 ) -> impl IntoView {
     let merged = tw_merge!(
-        "appearance-none border-2 border-ink rounded-xs pl-3 pr-8 py-1.5 text-sm \
+        "appearance-none border-2 border-ink rounded-xs ps-3 pe-8 py-1.5 text-sm \
          bg-transparent cursor-pointer outline-hidden \
          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal",
         class
@@ -32,7 +32,7 @@ pub fn Select(
             </select>
             <span
                 aria-hidden="true"
-                class="pointer-events-none absolute right-2 text-ink select-none"
+                class="pointer-events-none absolute end-2 text-ink select-none"
             >
                 "▾"
             </span>

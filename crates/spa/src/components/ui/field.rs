@@ -11,7 +11,9 @@ pub fn Field(
     /// Stable id for the control; used as the `<label for>`.
     #[prop(into)]
     id: String,
-    /// Optional localized help text shown under the control.
+    /// Optional localized help text shown under the control. When set, a
+    /// `<p id="{id}-help">` is rendered; the caller's input should carry
+    /// `aria-describedby=format!("{}-help", id)` so screen readers announce it.
     #[prop(into, optional)]
     help: MaybeProp<String>,
     children: Children,

@@ -25,6 +25,7 @@ impl ButtonVariant {
         match self {
             ButtonVariant::Primary => "bg-ink text-cream border-2 border-ink",
             ButtonVariant::Secondary => "bg-transparent text-ink border-2 border-ink",
+            // Danger uses a 1px border by design (matches the existing ad-hoc style).
             ButtonVariant::Danger => "bg-transparent text-brick border border-brick",
             ButtonVariant::Ghost => "bg-transparent text-ink border-2 border-transparent",
         }
@@ -56,7 +57,7 @@ pub fn Button(
     aria_label: MaybeProp<String>,
     #[prop(into, optional)] disabled: Signal<bool>,
     /// Fired on activation (click / Space / Enter via the native button).
-    on_click: impl Fn() + 'static,
+    on_click: impl Fn(leptos::ev::MouseEvent) + 'static,
     #[prop(into, optional, default = String::new())] class: String,
     children: Children,
 ) -> impl IntoView {
@@ -74,7 +75,7 @@ pub fn Button(
             class=merged
             aria-label=move || aria_label.get()
             disabled=move || disabled.get()
-            on:click=move |_| on_click()
+            on:click=move |ev| on_click(ev)
         >
             {children()}
         </button>
