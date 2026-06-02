@@ -465,3 +465,42 @@ fn decode_jwt_internal(jwt: &str, secret: &str) -> std::result::Result<Claims, S
         .map(|d| d.claims)
         .map_err(|e| format!("{}", e))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression guard: jsonwebtoken 10.x panics at the first `encode`/`decode`
+    // if no CryptoProvider feature is selected (the cause of the auth 500 where
+    // signing the session JWT crashed the worker). Exercising sign+verify here
+    // means a missing/duplicate provider feature fails `cargo test` on the host,
+    // long before it can reach a wasm deploy.
+    #[test]
+    fn jwt_round_trip_signs_and_verifies() {
+        let secret = "test-secret";
+        let token = create_jwt_with_csrf(
+            "user-123",
+            vec!["acme".into()],
+            "sid-1",
+            "csrf-tok",
+            Some("987654321"),
+            secret,
+        )
+        .expect("signing must not panic and must succeed");
+        assert_eq!(token.split('.').count(), 3, "JWT must have three segments");
+
+        let claims = decode_jwt_internal(&token, secret).expect("verify must succeed");
+        assert_eq!(claims.sub, "user-123");
+        assert_eq!(claims.sid.as_deref(), Some("sid-1"));
+        assert_eq!(claims.csrf.as_deref(), Some("csrf-tok"));
+        assert_eq!(claims.tg_user_id.as_deref(), Some("987654321"));
+        assert_eq!(claims.workspaces, vec!["acme".to_string()]);
+    }
+
+    #[test]
+    fn jwt_rejects_wrong_secret() {
+        let token =
+            create_jwt_with_csrf("u", vec![], "s", "c", None, "right-secret").expect("sign");
+        assert!(decode_jwt_internal(&token, "wrong-secret").is_err());
+    }
+}

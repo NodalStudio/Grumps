@@ -121,6 +121,119 @@ jobs:
           console.log('All', files.length, 'locale files OK');
           "
 
+  # Auth/session e2e against a locally-built wasm worker. This is the guard
+  # that would have caught the jsonwebtoken crypto-provider panic: the worker
+  # is compiled to wasm and actually serves `POST /auth/telegram/verify`
+  # (dev-bypass), exercising JWT signing — the exact path that crashed in prod.
+  #
+  # Scope is INDEX_DB-only (auth, sessions, dashboard). Those surfaces use a
+  # real D1 binding, so wrangler dev backs them with a local SQLite file we can
+  # migrate + seed hermetically. Per-workspace surfaces (todos, notes, members…)
+  # go through the D1 HTTP API (hardcoded to api.cloudflare.com) and can't run
+  # against local SQLite yet — tracked separately (D1_REST_BASE override + shim).
+  #
+  # Not yet in deploy-worker's `needs`: the `test` job (which runs the JWT
+  # round-trip unit test) already gates deploy on this regression. Promote this
+  # job into the deploy gate once it has proven stable across a few runs.
+  e2e-auth:
+    name: e2e (auth, local SQLite)
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (wasm32)
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Trunk + Tailwind
+        run: |
+          npm install --no-save tailwindcss@4.3.0 @tailwindcss/cli@4.3.0
+          TRUNK_VERSION=v0.21.14
+          curl -sSfL "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin
+          trunk --version
+
+      - name: Install Playwright (chromium)
+        working-directory: tests
+        # `npm install` (not `npm ci`): tests/package-lock.json is gitignored,
+        # so there's no lockfile in the repo for `npm ci` to consume.
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      # Local-only dummy secrets. These are NOT real credentials — the worker
+      # only needs JWT_SECRET to sign and GRUMPS_DEV_AUTH_BYPASS present (any
+      # non-empty value) to accept the dev-bypass login under ENVIRONMENT!=production.
+      - name: Write local .dev.vars
+        run: |
+          cat > .dev.vars <<'EOF'
+          ENVIRONMENT=development
+          JWT_SECRET=ci-test-jwt-secret-not-a-real-key
+          GRUMPS_DEV_AUTH_BYPASS=1
+          TG_BOT_TOKEN=ci-test-bot-token
+          TG_WEBHOOK_SECRET=ci-test-webhook-secret
+          EOF
+
+      - name: Migrate + seed local INDEX_DB (SQLite)
+        run: |
+          npx wrangler d1 migrations apply grumps-index --local
+          npx wrangler d1 execute grumps-index --local --file=scripts/seed-local-dev.sql
+
+      # Build the two wasm bundles in separate steps, not concurrently: two
+      # release wasm compiles at once can OOM the runner. Building here also
+      # turns a compile error into a clear step failure instead of a silent
+      # "server never came up".
+      - name: Build worker (wasm)
+        run: |
+          cargo install -q --locked worker-build@0.8.3
+          ( cd crates/worker && worker-build --release )
+      - name: Build SPA (wasm)
+        working-directory: crates/spa
+        run: |
+          npx @tailwindcss/cli -i ./input.css -o ./tailwind.out.css --minify
+          trunk build --release
+
+      # Start the already-built worker + SPA, wait for readiness, then run the
+      # specs. Backgrounded servers must share this step (a step boundary reaps
+      # them); their output is captured so a startup failure is visible. If the
+      # worker exits early we print its log and fail fast instead of looping.
+      - name: Run auth + session e2e
+        run: |
+          set -e
+          # --local forces fully-local mode. Without it wrangler opens a remote
+          # proxy session for the AI/Vectorize bindings (no local simulator),
+          # which needs Cloudflare auth and fails in CI. The auth path under
+          # test touches neither binding, so local-only is fine.
+          npx wrangler dev --local --port 8787 --var ENVIRONMENT:development > /tmp/wrangler.log 2>&1 &
+          WORKER_PID=$!
+          ( cd crates/spa && trunk serve --release --port 8080 > /tmp/trunk.log 2>&1 ) &
+          echo "Waiting for worker on :8787 …"
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then ready=1; break; fi
+            if ! kill -0 "$WORKER_PID" 2>/dev/null; then echo "wrangler dev exited early"; break; fi
+            sleep 5
+          done
+          if [ "$ready" != 1 ]; then echo "=== wrangler.log ==="; cat /tmp/wrangler.log || true; exit 1; fi
+          echo "Worker ready. Waiting for SPA on :8080 …"
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 5; done
+          cd tests && npx playwright test e2e/auth.spec.ts e2e/sessions.spec.ts
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/playwright-report
+          retention-days: 7
+
   # Deploy the Cloudflare worker + run DB migrations. Runs on push to main
   # (after fmt/clippy/test pass, so a red build never deploys) and on a manual
   # `workflow_dispatch` run targeting main — useful for re-deploys and for
