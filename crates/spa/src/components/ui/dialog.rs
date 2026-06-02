@@ -1,9 +1,3 @@
-// This primitive has no in-tree consumer yet (the six modal conversions land
-// in a follow-up task). Until then `Dialog` and its private machinery are
-// dead-code from the binary's perspective; the lint clears once a caller
-// mounts a `<Dialog>`. Scoped to this module only.
-#![allow(dead_code)]
-
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

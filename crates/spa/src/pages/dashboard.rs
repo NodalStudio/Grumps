@@ -112,7 +112,7 @@ fn AddGroupHelp(open: RwSignal<bool>) -> impl IntoView {
 
             <div class="border-2 border-ink rounded-xs p-4 flex flex-col gap-2" style="background: var(--cream-light);">
                 <h3 class="font-display text-sm font-bold uppercase tracking-wider">{move || tr("dashboard.add_modal.tg_heading")}</h3>
-                <ol class="list-decimal pl-5 text-sm flex flex-col gap-1" style="color: var(--ink-70);">
+                <ol class="list-decimal ps-5 text-sm flex flex-col gap-1" style="color: var(--ink-70);">
                     <li>{move || tr("dashboard.add_modal.tg_step1")}</li>
                     <li>{move || tr("dashboard.add_modal.tg_step2")}</li>
                     <li>{move || tr("dashboard.add_modal.tg_step3")}</li>
