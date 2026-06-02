@@ -377,8 +377,6 @@
   "memory.badge.auto": "AUTO",
   "calendar.agenda.empty": "Nichts geplant.",
   "common.404": "404 — Nicht gefunden.",
-  "agent.quota_exceeded": "Du hast deine {limit} Agent-Anfragen diesen Monat aufgebraucht (Plan {plan}). Reset am 1. nächsten Monats.",
-  "agent.fallback.unfinished": "Ich konnte nicht fertig werden — kannst du es genauer beschreiben?",
   "agent.web_search.quota_exceeded": "Du hast deine {limit} Web-Suchen diesen Monat aufgebraucht (Plan {plan}). Reset am 1. nächsten Monats.",
   "observability.no_data": "Noch keine Daten.",
   "observability.no_workspaces": "Keine Workspaces.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "Diese Seite ist nur für Super-Admins.",
   "todos.toggle_done": "Erledigt umschalten",
   "common.title.label": "Titel",
-  "page.note_editor.content_label": "Inhalt"
+  "page.note_editor.content_label": "Inhalt",
+  "toast.dismiss": "Schließen",
+  "toast.settings_saved": "Einstellungen gespeichert.",
+  "toast.save_failed": "Speichern fehlgeschlagen.",
+  "toast.copied": "Kopiert.",
+  "toast.ical_regenerated": "Kalenderlink neu erstellt.",
+  "toast.ical_revoked": "Kalenderlink widerrufen.",
+  "toast.schedule_created": "Zeitplan erstellt.",
+  "toast.schedule_deleted": "Zeitplan gelöscht.",
+  "toast.memory_created": "Notiz gespeichert.",
+  "toast.memory_deleted": "Notiz gelöscht."
 }

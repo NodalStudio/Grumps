@@ -377,8 +377,6 @@
   "memory.badge.auto": "OTOM",
   "calendar.agenda.empty": "Planlı bir şey yok.",
   "common.404": "404 — Bulunamadı.",
-  "agent.quota_exceeded": "Bu ay {limit} agent çağrını kullandın ({plan} planı). Sonraki ayın 1'inde sıfırlanır.",
-  "agent.fallback.unfinished": "Bitiremedim — biraz daha açıklar mısın?",
   "agent.web_search.quota_exceeded": "Bu ay {limit} web aramanı kullandın ({plan} planı). Sonraki ayın 1'inde sıfırlanır.",
   "observability.no_data": "Henüz veri yok.",
   "observability.no_workspaces": "Workspace yok.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "Bu sayfa sadece süper adminlere açık.",
   "todos.toggle_done": "Tamamlandı durumunu değiştir",
   "common.title.label": "Başlık",
-  "page.note_editor.content_label": "İçerik"
+  "page.note_editor.content_label": "İçerik",
+  "toast.dismiss": "Kapat",
+  "toast.settings_saved": "Ayarlar kaydedildi.",
+  "toast.save_failed": "Kaydedilemedi.",
+  "toast.copied": "Kopyalandı.",
+  "toast.ical_regenerated": "Takvim bağlantısı yenilendi.",
+  "toast.ical_revoked": "Takvim bağlantısı iptal edildi.",
+  "toast.schedule_created": "Zamanlama oluşturuldu.",
+  "toast.schedule_deleted": "Zamanlama silindi.",
+  "toast.memory_created": "Hafıza kaydedildi.",
+  "toast.memory_deleted": "Hafıza silindi."
 }

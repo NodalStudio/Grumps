@@ -15,6 +15,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
+    let toasts = crate::components::ui::toast::use_toasts();
+
     let (refresh, set_refresh) = signal(0u32);
     let type_filter = RwSignal::new("all".to_string());
     let status_filter = RwSignal::new("all".to_string());
@@ -119,8 +121,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             });
             if let Some(item) = edit {
                 let _ = api.update_scheduled_action(&s, &item.id, &body).await;
-            } else {
-                let _ = api.create_scheduled_action(&s, &body).await;
+            } else if api.create_scheduled_action(&s, &body).await.is_ok() {
+                toasts.success(tr("toast.schedule_created"));
             }
             set_refresh.update(|n| *n += 1);
         });
@@ -134,7 +136,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             confirm_delete.set(None);
             del_open.set(false);
             leptos::task::spawn_local(async move {
-                let _ = api.delete_scheduled_action(&s, &id).await;
+                if api.delete_scheduled_action(&s, &id).await.is_ok() {
+                    toasts.success(tr("toast.schedule_deleted"));
+                }
                 set_refresh.update(|n| *n += 1);
             });
         }

@@ -10,3 +10,4 @@ pub mod field;
 pub mod select;
 pub mod switch;
 pub mod tabs;
+pub mod toast;

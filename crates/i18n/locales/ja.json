@@ -377,8 +377,6 @@
   "memory.badge.auto": "自動",
   "calendar.agenda.empty": "予定はありません。",
   "common.404": "404 — 見つかりません。",
-  "agent.quota_exceeded": "今月のエージェント呼び出し（{limit}回、{plan}プラン）を使い切りました。来月1日にリセットされます。",
-  "agent.fallback.unfinished": "完了できませんでした — もう少し詳しく教えてください。",
   "agent.web_search.quota_exceeded": "今月のウェブ検索（{limit}回、{plan}プラン）を使い切りました。来月1日にリセットされます。",
   "observability.no_data": "データなし。",
   "observability.no_workspaces": "ワークスペースなし。",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "このページはスーパー管理者のみ。",
   "todos.toggle_done": "完了を切り替え",
   "common.title.label": "タイトル",
-  "page.note_editor.content_label": "本文"
+  "page.note_editor.content_label": "本文",
+  "toast.dismiss": "閉じる",
+  "toast.settings_saved": "設定を保存しました。",
+  "toast.save_failed": "保存できませんでした。",
+  "toast.copied": "コピーしました。",
+  "toast.ical_regenerated": "カレンダーリンクを再生成しました。",
+  "toast.ical_revoked": "カレンダーリンクを取り消しました。",
+  "toast.schedule_created": "スケジュールを作成しました。",
+  "toast.schedule_deleted": "スケジュールを削除しました。",
+  "toast.memory_created": "メモリを保存しました。",
+  "toast.memory_deleted": "メモリを削除しました。"
 }

@@ -377,8 +377,6 @@
   "memory.badge.auto": "OTO",
   "calendar.agenda.empty": "Tidak ada yang dijadwalkan.",
   "common.404": "404 — Tidak ditemukan.",
-  "agent.quota_exceeded": "Kamu sudah pakai {limit} panggilan agent bulan ini (paket {plan}). Reset tanggal 1 bulan depan.",
-  "agent.fallback.unfinished": "Aku belum selesai — bisa kasih detail lebih?",
   "agent.web_search.quota_exceeded": "Kamu sudah pakai {limit} pencarian web bulan ini (paket {plan}). Reset tanggal 1 bulan depan.",
   "observability.no_data": "Belum ada data.",
   "observability.no_workspaces": "Tidak ada workspace.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "Halaman ini hanya untuk super admin.",
   "todos.toggle_done": "Alihkan selesai",
   "common.title.label": "Judul",
-  "page.note_editor.content_label": "Konten"
+  "page.note_editor.content_label": "Konten",
+  "toast.dismiss": "Tutup",
+  "toast.settings_saved": "Pengaturan disimpan.",
+  "toast.save_failed": "Gagal menyimpan.",
+  "toast.copied": "Disalin.",
+  "toast.ical_regenerated": "Tautan kalender dibuat ulang.",
+  "toast.ical_revoked": "Tautan kalender dicabut.",
+  "toast.schedule_created": "Jadwal dibuat.",
+  "toast.schedule_deleted": "Jadwal dihapus.",
+  "toast.memory_created": "Memori disimpan.",
+  "toast.memory_deleted": "Memori dihapus."
 }

@@ -377,8 +377,6 @@
   "memory.badge.auto": "AUTO",
   "calendar.agenda.empty": "Rien de prévu.",
   "common.404": "404 — Introuvable.",
-  "agent.quota_exceeded": "Tu as utilisé tes {limit} appels agent ce mois-ci (plan {plan}). Reset le 1er du mois prochain.",
-  "agent.fallback.unfinished": "Je n'ai pas réussi à finir — peux-tu préciser ?",
   "agent.web_search.quota_exceeded": "Tu as utilisé tes {limit} recherches web ce mois-ci (plan {plan}). Reset le 1er du mois prochain.",
   "observability.no_data": "Pas encore de données.",
   "observability.no_workspaces": "Aucun workspace.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "Cette page est réservée aux super-admins.",
   "todos.toggle_done": "Basculer terminé",
   "common.title.label": "Titre",
-  "page.note_editor.content_label": "Contenu"
+  "page.note_editor.content_label": "Contenu",
+  "toast.dismiss": "Fermer",
+  "toast.settings_saved": "Réglages enregistrés.",
+  "toast.save_failed": "Échec de l'enregistrement.",
+  "toast.copied": "Copié.",
+  "toast.ical_regenerated": "Lien du calendrier régénéré.",
+  "toast.ical_revoked": "Lien du calendrier révoqué.",
+  "toast.schedule_created": "Programmation créée.",
+  "toast.schedule_deleted": "Programmation supprimée.",
+  "toast.memory_created": "Mémoire enregistrée.",
+  "toast.memory_deleted": "Mémoire supprimée."
 }

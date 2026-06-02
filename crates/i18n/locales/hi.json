@@ -377,8 +377,6 @@
   "memory.badge.auto": "ऑटो",
   "calendar.agenda.empty": "कुछ भी निर्धारित नहीं।",
   "common.404": "404 — नहीं मिला।",
-  "agent.quota_exceeded": "आपने इस महीने अपने {limit} एजेंट कॉल इस्तेमाल कर लिए हैं ({plan} प्लान). अगले महीने की 1 तारीख को रीसेट होगा.",
-  "agent.fallback.unfinished": "मैं पूरा नहीं कर पाया — क्या आप थोड़ा और बता सकते हैं?",
   "agent.web_search.quota_exceeded": "आपने इस महीने अपने {limit} वेब सर्च इस्तेमाल कर लिए हैं ({plan} प्लान). अगले महीने की 1 तारीख को रीसेट होगा.",
   "observability.no_data": "अभी तक कोई डेटा नहीं।",
   "observability.no_workspaces": "कोई workspace नहीं।",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "यह पेज केवल super admin के लिए है।",
   "todos.toggle_done": "पूर्ण टॉगल करें",
   "common.title.label": "शीर्षक",
-  "page.note_editor.content_label": "सामग्री"
+  "page.note_editor.content_label": "सामग्री",
+  "toast.dismiss": "खारिज करें",
+  "toast.settings_saved": "सेटिंग्स सहेजी गईं।",
+  "toast.save_failed": "सहेज नहीं सके।",
+  "toast.copied": "कॉपी किया गया।",
+  "toast.ical_regenerated": "कैलेंडर लिंक फिर से बनाया गया।",
+  "toast.ical_revoked": "कैलेंडर लिंक रद्द किया गया।",
+  "toast.schedule_created": "शेड्यूल बनाया गया।",
+  "toast.schedule_deleted": "शेड्यूल हटाया गया।",
+  "toast.memory_created": "मेमोरी सहेजी गई।",
+  "toast.memory_deleted": "मेमोरी हटाई गई।"
 }

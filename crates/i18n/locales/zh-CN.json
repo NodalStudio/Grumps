@@ -377,8 +377,6 @@
   "memory.badge.auto": "自动",
   "calendar.agenda.empty": "没有日程。",
   "common.404": "404 — 未找到。",
-  "agent.quota_exceeded": "本月你已用完 {limit} 次 agent 调用（{plan} 套餐），下月 1 日重置。",
-  "agent.fallback.unfinished": "我没能完成 — 能再说详细一点吗？",
   "agent.web_search.quota_exceeded": "本月你已用完 {limit} 次网页搜索（{plan} 套餐），下月 1 日重置。",
   "observability.no_data": "暂无数据。",
   "observability.no_workspaces": "没有工作区。",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "此页面仅限超级管理员访问。",
   "todos.toggle_done": "切换完成状态",
   "common.title.label": "标题",
-  "page.note_editor.content_label": "内容"
+  "page.note_editor.content_label": "内容",
+  "toast.dismiss": "关闭",
+  "toast.settings_saved": "设置已保存。",
+  "toast.save_failed": "无法保存。",
+  "toast.copied": "已复制。",
+  "toast.ical_regenerated": "日历链接已重新生成。",
+  "toast.ical_revoked": "日历链接已撤销。",
+  "toast.schedule_created": "日程已创建。",
+  "toast.schedule_deleted": "日程已删除。",
+  "toast.memory_created": "记忆已保存。",
+  "toast.memory_deleted": "记忆已删除。"
 }

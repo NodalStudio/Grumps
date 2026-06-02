@@ -377,8 +377,6 @@
   "memory.badge.auto": "АВТО",
   "calendar.agenda.empty": "Ничего не запланировано.",
   "common.404": "404 — Не найдено.",
-  "agent.quota_exceeded": "Вы использовали все {limit} вызовов агента в этом месяце (тариф {plan}). Сброс 1-го числа следующего месяца.",
-  "agent.fallback.unfinished": "Не получилось закончить — можете уточнить?",
   "agent.web_search.quota_exceeded": "Вы использовали все {limit} веб-поисков в этом месяце (тариф {plan}). Сброс 1-го числа следующего месяца.",
   "observability.no_data": "Данных пока нет.",
   "observability.no_workspaces": "Нет workspace'ов.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "Страница доступна только супер-администраторам.",
   "todos.toggle_done": "Переключить «выполнено»",
   "common.title.label": "Заголовок",
-  "page.note_editor.content_label": "Содержимое"
+  "page.note_editor.content_label": "Содержимое",
+  "toast.dismiss": "Закрыть",
+  "toast.settings_saved": "Настройки сохранены.",
+  "toast.save_failed": "Не удалось сохранить.",
+  "toast.copied": "Скопировано.",
+  "toast.ical_regenerated": "Ссылка календаря обновлена.",
+  "toast.ical_revoked": "Ссылка календаря отозвана.",
+  "toast.schedule_created": "Расписание создано.",
+  "toast.schedule_deleted": "Расписание удалено.",
+  "toast.memory_created": "Память сохранена.",
+  "toast.memory_deleted": "Память удалена."
 }

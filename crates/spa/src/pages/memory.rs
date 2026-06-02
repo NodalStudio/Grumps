@@ -16,6 +16,8 @@ pub fn MemoryPage() -> impl IntoView {
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
 
+    let toasts = crate::components::ui::toast::use_toasts();
+
     let (refresh, set_refresh) = signal(0u32);
     let kind_filter = RwSignal::new("all".to_string());
     let show_modal = RwSignal::new(false);
@@ -120,8 +122,8 @@ pub fn MemoryPage() -> impl IntoView {
             });
             if let Some(item) = edit {
                 let _ = api.update_memory(&s, &item.id, &body).await;
-            } else {
-                let _ = api.create_memory(&s, &body).await;
+            } else if api.create_memory(&s, &body).await.is_ok() {
+                toasts.success(tr("toast.memory_created"));
             }
             set_refresh.update(|n| *n += 1);
         });
@@ -135,7 +137,9 @@ pub fn MemoryPage() -> impl IntoView {
             confirm_delete.set(None);
             del_open.set(false);
             leptos::task::spawn_local(async move {
-                let _ = api.delete_memory(&s, &id).await;
+                if api.delete_memory(&s, &id).await.is_ok() {
+                    toasts.success(tr("toast.memory_deleted"));
+                }
                 set_refresh.update(|n| *n += 1);
             });
         }

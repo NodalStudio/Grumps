@@ -377,8 +377,6 @@
   "memory.badge.auto": "تلقائي",
   "calendar.agenda.empty": "لا شيء مجدول.",
   "common.404": "404 — غير موجود.",
-  "agent.quota_exceeded": "لقد استخدمت {limit} طلبات الوكيل هذا الشهر (خطة {plan}). تُجدَّد في اليوم الأول من الشهر القادم.",
-  "agent.fallback.unfinished": "لم أتمكن من إنهاء المهمة — هل يمكنك إعطائي مزيدًا من التفاصيل؟",
   "agent.web_search.quota_exceeded": "لقد استخدمت {limit} عمليات بحث على الويب هذا الشهر (خطة {plan}). تُجدَّد في اليوم الأول من الشهر القادم.",
   "observability.no_data": "لا توجد بيانات بعد.",
   "observability.no_workspaces": "لا توجد مساحات عمل.",
@@ -387,5 +385,15 @@
   "observability.super_admin_only": "هذه الصفحة مقصورة على المسؤولين الكبار.",
   "todos.toggle_done": "تبديل الإنجاز",
   "common.title.label": "العنوان",
-  "page.note_editor.content_label": "المحتوى"
+  "page.note_editor.content_label": "المحتوى",
+  "toast.dismiss": "إغلاق",
+  "toast.settings_saved": "تم حفظ الإعدادات.",
+  "toast.save_failed": "تعذّر الحفظ.",
+  "toast.copied": "تم النسخ.",
+  "toast.ical_regenerated": "تم تجديد رابط التقويم.",
+  "toast.ical_revoked": "تم إلغاء رابط التقويم.",
+  "toast.schedule_created": "تم إنشاء الجدول.",
+  "toast.schedule_deleted": "تم حذف الجدول.",
+  "toast.memory_created": "تم حفظ الذاكرة.",
+  "toast.memory_deleted": "تم حذف الذاكرة."
 }

@@ -385,5 +385,15 @@
   "observability.no_workspaces": "No workspaces.",
   "observability.no_quality_signals": "No quality signals yet.",
   "observability.access_denied": "Access denied or error.",
-  "observability.super_admin_only": "This page is restricted to super admins."
+  "observability.super_admin_only": "This page is restricted to super admins.",
+  "toast.dismiss": "Dismiss",
+  "toast.settings_saved": "Settings saved.",
+  "toast.save_failed": "Couldn't save.",
+  "toast.copied": "Copied.",
+  "toast.ical_regenerated": "Calendar link regenerated.",
+  "toast.ical_revoked": "Calendar link revoked.",
+  "toast.schedule_created": "Schedule created.",
+  "toast.schedule_deleted": "Schedule deleted.",
+  "toast.memory_created": "Memory saved.",
+  "toast.memory_deleted": "Memory deleted."
 }

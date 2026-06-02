@@ -7,7 +7,6 @@ pub mod memory_card;
 pub mod note_card;
 pub mod scheduled_card;
 pub mod sidebar;
-pub mod toast;
 pub mod todo_card;
 pub mod todo_filters;
 pub mod ui;

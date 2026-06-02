@@ -21,6 +21,8 @@ pub fn SettingsPage() -> impl IntoView {
     let (workspace_locale, set_workspace_locale) = signal("en".to_string());
     let (refresh, set_refresh) = signal(0u32);
 
+    let toasts = crate::components::ui::toast::use_toasts();
+
     let api = use_api();
     let _settings = LocalResource::new(move || {
         let api = api.clone();
@@ -52,7 +54,7 @@ pub fn SettingsPage() -> impl IntoView {
         let proactive_val = proactive.get();
         let auto_mem = auto_memory.get();
         leptos::task::spawn_local(async move {
-            let _ = api
+            match api
                 .update_settings(
                     &s,
                     &serde_json::json!({
@@ -61,7 +63,11 @@ pub fn SettingsPage() -> impl IntoView {
                         "auto_memory": auto_mem,
                     }),
                 )
-                .await;
+                .await
+            {
+                Ok(_) => toasts.success(tr("toast.settings_saved")),
+                Err(_) => toasts.error(tr("toast.save_failed")),
+            }
         });
     };
 
@@ -73,6 +79,7 @@ pub fn SettingsPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             if let Ok(resp) = api.regenerate_ical_token(&s).await {
                 set_ical_url.set(resp.url);
+                toasts.success(tr("toast.ical_regenerated"));
             }
         });
     };
@@ -82,7 +89,12 @@ pub fn SettingsPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             if let Some(window) = web_sys::window() {
                 let clipboard = window.navigator().clipboard();
-                let _ = wasm_bindgen_futures::JsFuture::from(clipboard.write_text(&url)).await;
+                if wasm_bindgen_futures::JsFuture::from(clipboard.write_text(&url))
+                    .await
+                    .is_ok()
+                {
+                    toasts.success(tr("toast.copied"));
+                }
             }
         });
     };
@@ -194,7 +206,10 @@ pub fn SettingsPage() -> impl IntoView {
                             <Button
                                 variant=ButtonVariant::Danger
                                 size=ButtonSize::Sm
-                                on_click=move |_| set_ical_url.set(String::new())
+                                on_click=move |_| {
+                                    set_ical_url.set(String::new());
+                                    toasts.success(tr("toast.ical_revoked"));
+                                }
                             >{move || tr("settings.ical.revoke")}</Button>
                         </div>
                     </div>
