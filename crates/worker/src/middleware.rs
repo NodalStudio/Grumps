@@ -209,6 +209,12 @@ pub async fn is_workspace_admin(
 /// Use this in every handler's error branch so the browser sees the real status
 /// instead of a generic "CORS error".
 pub fn error_with_cors(req: &Request, status: u16, code: &str, detail: &str) -> Result<Response> {
+    // Server-side faults get a structured error line tagged with the request's
+    // correlation id; client errors (4xx) stay as the http.out warn line only.
+    if status >= 500 {
+        let rid = crate::observability::request_id(req);
+        crate::observability::log_error(&rid, code, detail);
+    }
     let body = serde_json::json!({ "error": code, "detail": detail });
     let mut resp = Response::from_json(&body)?.with_status(status);
     let origin = req.headers().get("Origin")?.unwrap_or_default();
