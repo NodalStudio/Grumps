@@ -2,6 +2,7 @@ use crate::api::{use_api, ScheduledActionItem};
 use crate::components::header::PageHeader;
 use crate::components::scheduled_card::ScheduledCard;
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::field::Field;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -238,14 +239,13 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                     >
                         <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "schedule.modal.edit" } else { "schedule.modal.add" })}</h2>
 
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.title")}</label>
-                            <input type="text" placeholder=tr("schedule.field.title.placeholder")
+                        <Field label=tr("schedule.field.title") id="sched-title">
+                            <input id="sched-title" type="text" placeholder=tr("schedule.field.title.placeholder")
                                 class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                 on:input=move |ev| set_form_title.set(event_target_value(&ev))
                                 prop:value=form_title
                             />
-                        </div>
+                        </Field>
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
@@ -262,33 +262,32 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                     <option value="agent_task">{move || tr("schedule.type.agent_task")}</option>
                                 </select>
                             </div>
-                            <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.trigger_at")}</label>
-                                <input type="datetime-local"
-                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                    on:input=move |ev| set_form_trigger.set(event_target_value(&ev))
-                                    prop:value=form_trigger
-                                />
+                            <div class="flex-1">
+                                <Field label=tr("schedule.field.trigger_at") id="sched-trigger">
+                                    <input id="sched-trigger" type="datetime-local"
+                                        class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
+                                        on:input=move |ev| set_form_trigger.set(event_target_value(&ev))
+                                        prop:value=form_trigger
+                                    />
+                                </Field>
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.recurrence")}</label>
-                            <input type="text" placeholder=tr("schedule.field.recurrence.placeholder")
+                        <Field label=tr("schedule.field.recurrence") id="sched-recurrence">
+                            <input id="sched-recurrence" type="text" placeholder=tr("schedule.field.recurrence.placeholder")
                                 class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden font-mono"
                                 on:input=move |ev| set_form_recurrence.set(event_target_value(&ev))
                                 prop:value=form_recurrence
                             />
-                        </div>
+                        </Field>
 
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("schedule.field.payload")}</label>
-                            <textarea rows="3" placeholder="{}"
+                        <Field label=tr("schedule.field.payload") id="sched-payload">
+                            <textarea id="sched-payload" rows="3" placeholder="{}"
                                 class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden resize-none font-mono"
                                 on:input=move |ev| set_form_payload.set(event_target_value(&ev))
                                 prop:value=form_payload
                             ></textarea>
-                        </div>
+                        </Field>
 
                         <div class="flex gap-2 pt-2">
                             <Button

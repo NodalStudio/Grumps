@@ -1,5 +1,6 @@
 use crate::auth::{read_csrf_cookie, use_session};
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::field::Field;
 use crate::i18n::{tr, tr_p};
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -57,11 +58,12 @@ fn AccountForm(session: crate::auth::SessionContext) -> impl IntoView {
     };
 
     view! {
-        <label class="block mb-4">
-            <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.display_name")}</span>
-            <input type="text" class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
-                prop:value=name on:input=move |ev| set_name.set(event_target_value(&ev))/>
-        </label>
+        <div class="mb-4">
+            <Field label=tr("settings.display_name") id="acct-display-name">
+                <input id="acct-display-name" type="text" class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"
+                    prop:value=name on:input=move |ev| set_name.set(event_target_value(&ev))/>
+            </Field>
+        </div>
         <label class="block mb-4">
             <span class="block text-xs font-semibold uppercase tracking-wider mb-1" style="color: var(--ink-70);">{move || tr("settings.default_locale")}</span>
             <select class="w-full p-2 border-2 border-ink rounded-xs" style="background: var(--cream);"

@@ -168,10 +168,11 @@ pub fn SettingsPage() -> impl IntoView {
                 // Calendar
                 <SettingsSection title_key="settings.section.calendar">
                     <div class="py-3 flex flex-col gap-2" style="border-bottom: 1px solid var(--ink-08);">
-                        <div class="font-medium text-sm">{move || tr("settings.ical.label")}</div>
+                        <label for="settings-ical-url" class="font-medium text-sm">{move || tr("settings.ical.label")}</label>
                         <div class="text-xs mb-2" style="color: var(--ink-40);">{move || tr("settings.ical.desc")}</div>
                         <div class="flex items-center gap-2">
                             <input
+                                id="settings-ical-url"
                                 type="text" readonly
                                 class="flex-1 border-2 border-ink rounded-xs px-3 py-1.5 text-xs bg-transparent outline-hidden font-mono"
                                 placeholder=tr("settings.ical.placeholder")

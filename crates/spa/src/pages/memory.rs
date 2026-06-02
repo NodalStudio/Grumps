@@ -2,6 +2,8 @@ use crate::api::{use_api, MemoryItem};
 use crate::components::header::PageHeader;
 use crate::components::memory_card::MemoryCard;
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::checkbox::Checkbox;
+use crate::components::ui::field::Field;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -214,26 +216,26 @@ pub fn MemoryPage() -> impl IntoView {
                     >
                         <h2 class="font-display text-xl font-bold">{move || tr(if is_edit { "memory.modal.edit" } else { "memory.modal.add" })}</h2>
 
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.key")}</label>
+                        <Field label=tr("memory.field.key") id="mem-key">
                             <input
+                                id="mem-key"
                                 type="text" placeholder=tr("memory.field.key.placeholder")
                                 class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
                                 on:input=move |ev| set_form_key.set(event_target_value(&ev))
                                 prop:value=form_key
                             />
-                        </div>
+                        </Field>
 
-                        <div class="flex flex-col gap-1">
-                            <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.value")}</label>
+                        <Field label=tr("memory.field.value") id="mem-value">
                             <textarea
+                                id="mem-value"
                                 rows="3"
                                 placeholder=tr("memory.field.value.placeholder")
                                 class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden resize-none"
                                 on:input=move |ev| set_form_value.set(event_target_value(&ev))
                                 prop:value=form_value
                             ></textarea>
-                        </div>
+                        </Field>
 
                         <div class="flex gap-3">
                             <div class="flex flex-col gap-1 flex-1">
@@ -250,37 +252,37 @@ pub fn MemoryPage() -> impl IntoView {
                                     <option value="reminder">{move || tr("memory.kind.reminder")}</option>
                                 </select>
                             </div>
-                            <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.related")}</label>
-                                <input
-                                    type="text" placeholder=tr("memory.field.member.placeholder")
-                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                    on:input=move |ev| set_form_related.set(event_target_value(&ev))
-                                    prop:value=form_related
-                                />
+                            <div class="flex-1">
+                                <Field label=tr("memory.field.related") id="mem-related">
+                                    <input
+                                        id="mem-related"
+                                        type="text" placeholder=tr("memory.field.member.placeholder")
+                                        class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
+                                        on:input=move |ev| set_form_related.set(event_target_value(&ev))
+                                        prop:value=form_related
+                                    />
+                                </Field>
                             </div>
                         </div>
 
                         <div class="flex gap-3 items-center">
-                            <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.expires")}</label>
-                                <input
-                                    type="date"
-                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                    on:input=move |ev| set_form_expires.set(event_target_value(&ev))
-                                    prop:value=form_expires
-                                />
+                            <div class="flex-1">
+                                <Field label=tr("memory.field.expires") id="mem-expires">
+                                    <input
+                                        id="mem-expires"
+                                        type="date"
+                                        class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
+                                        on:input=move |ev| set_form_expires.set(event_target_value(&ev))
+                                        prop:value=form_expires
+                                    />
+                                </Field>
                             </div>
                             <div class="flex items-center gap-2 pt-5">
-                                <input
-                                    type="checkbox" id="mem-pinned"
-                                    class="w-4 h-4 border-2 border-ink rounded-xs cursor-pointer"
-                                    on:change=move |ev| {
-                                        use wasm_bindgen::JsCast;
-                                        let checked = ev.target().and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok()).map(|i| i.checked()).unwrap_or(false);
-                                        set_form_pinned.set(checked);
-                                    }
-                                    prop:checked=form_pinned
+                                <Checkbox
+                                    checked=Signal::derive(move || form_pinned.get())
+                                    on_change=move || set_form_pinned.update(|v| *v = !*v)
+                                    id="mem-pinned"
+                                    aria_label=tr("memory.field.pinned")
                                 />
                                 <label for="mem-pinned" class="text-sm font-medium cursor-pointer">{move || tr("memory.field.pinned")}</label>
                             </div>

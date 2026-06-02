@@ -1,6 +1,7 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::components::ui::button::{Button, ButtonVariant};
+use crate::components::ui::checkbox::Checkbox;
 use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -117,6 +118,7 @@ pub fn TodosPage() -> impl IntoView {
                                     let slug_for_click = slug.get();
                                     // Reactive: looks up whether this row is currently mid-toggle.
                                     let id_for_check = id.clone();
+                                    let id_for_dom = id.clone();
                                     let is_toggling = Signal::derive(move || toggling.with(|v| v.iter().any(|x| x == &id_for_check)));
                                     // Effective "done" state for visuals = original XOR toggling.
                                     let effective_done = Signal::derive(move || was_done ^ is_toggling.get());
@@ -129,13 +131,9 @@ pub fn TodosPage() -> impl IntoView {
                                             style:border-left-color=move || if is_high { "var(--brick)" } else { "" }
                                             style="background: var(--cream-light); transition: opacity 280ms ease-out, transform 280ms ease-out, max-height 280ms ease-out, padding 280ms ease-out, margin 280ms ease-out, border-width 280ms ease-out;"
                                         >
-                                            <div
-                                                class="todo-checkbox w-5 h-5 border-2 border-ink rounded-xs shrink-0 mt-0.5 flex items-center justify-center cursor-pointer"
-                                                style:background=move || if effective_done.get() { "var(--teal)" } else { "var(--cream-light)" }
-                                                style:border-color=move || if effective_done.get() { "var(--teal)" } else { "var(--ink)" }
-                                                style="transition: background 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out;"
-                                                on:click=move |ev| {
-                                                    ev.stop_propagation();
+                                            <Checkbox
+                                                checked=effective_done
+                                                on_change=move || {
                                                     if is_toggling.get() { return; } // de-bounce double-clicks
                                                     let api = api_for_click.clone();
                                                     let s = slug_for_click.clone();
@@ -151,9 +149,10 @@ pub fn TodosPage() -> impl IntoView {
                                                         set_toggling.update(|v| v.retain(|x| x != &id_c));
                                                     });
                                                 }
-                                            >
-                                                <span style="transition: opacity 140ms ease-out;" style:opacity=move || if effective_done.get() { "1" } else { "0" }>"✓"</span>
-                                            </div>
+                                                id=format!("todo-{}", id_for_dom)
+                                                aria_label=tr("todos.toggle_done")
+                                                class="size-5 shrink-0 mt-0.5"
+                                            />
                                             <div class="flex-1 min-w-0">
                                                 <div class="font-semibold text-sm"
                                                      class:line-through=move || effective_done.get()

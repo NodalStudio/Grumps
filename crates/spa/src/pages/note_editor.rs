@@ -1,6 +1,7 @@
 use crate::api::use_api;
 use crate::components::header::PageHeader;
 use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::components::ui::field::Field;
 use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -93,19 +94,25 @@ pub fn NoteEditorPage() -> impl IntoView {
                             {move || if editing.get() {
                                 view! {
                                     <div class="flex flex-col gap-3">
-                                        <input
-                                            class="w-full p-3 border-2 border-ink rounded-xs text-sm font-semibold outline-hidden"
-                                            style="background: var(--cream);"
-                                            placeholder=tr("common.title.placeholder")
-                                            prop:value=title
-                                            on:input=move |ev| set_title.set(event_target_value(&ev))
-                                        />
-                                        <textarea
-                                            class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
-                                            style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
-                                            prop:value=content
-                                            on:input=move |ev| set_content.set(event_target_value(&ev))
-                                        ></textarea>
+                                        <Field label=tr("common.title.label") id="note-title">
+                                            <input
+                                                id="note-title"
+                                                class="w-full p-3 border-2 border-ink rounded-xs text-sm font-semibold outline-hidden"
+                                                style="background: var(--cream);"
+                                                placeholder=tr("common.title.placeholder")
+                                                prop:value=title
+                                                on:input=move |ev| set_title.set(event_target_value(&ev))
+                                            />
+                                        </Field>
+                                        <Field label=tr("page.note_editor.content_label") id="note-content">
+                                            <textarea
+                                                id="note-content"
+                                                class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
+                                                style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
+                                                prop:value=content
+                                                on:input=move |ev| set_content.set(event_target_value(&ev))
+                                            ></textarea>
+                                        </Field>
                                     </div>
                                 }.into_any()
                             } else {
