@@ -1,5 +1,5 @@
 // crates/worker/src/routes/notes.rs
-use crate::extract::Member;
+use crate::extract::{ApiError, Member};
 use crate::{d1_rest, db, middleware};
 use grumps_core::dto::{CreateNoteRequest, UpdateNoteRequest};
 use worker::*;
@@ -65,7 +65,7 @@ pub async fn get_note(req: Request, ctx: RouteContext<()>, m: Member) -> Result<
 
     match ws_db.get_note_by_id(&note_id).await? {
         Some(note) => middleware::with_cors(&req, Response::from_json(&note)?),
-        None => middleware::with_cors(&req, Response::error("note not found", 404)?),
+        None => ApiError::not_found("note.not_found").into_response(&req),
     }
 }
 

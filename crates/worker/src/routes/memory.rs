@@ -1,6 +1,6 @@
 //! REST routes for memory_entries (workspace-scoped, JWT-auth).
 
-use crate::extract::Member;
+use crate::extract::{ApiError, Member};
 use crate::routes::util::read_query;
 use crate::{d1_rest, db, middleware};
 use serde::Deserialize;
@@ -99,7 +99,7 @@ pub async fn get(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Respo
 
     match ws_db.get_memory(&id).await? {
         Some(e) => middleware::with_cors(&req, Response::from_json(&e)?),
-        None => middleware::with_cors(&req, Response::error("memory entry not found", 404)?),
+        None => ApiError::not_found("memory.not_found").into_response(&req),
     }
 }
 
@@ -135,7 +135,7 @@ pub async fn update(
         )
         .await?;
     if !updated {
-        return middleware::with_cors(&req, Response::error("memory entry not found", 404)?);
+        return ApiError::not_found("memory.not_found").into_response(&req);
     }
 
     let entry = ws_db.get_memory(&id).await?;
@@ -155,7 +155,7 @@ pub async fn delete(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Re
 
     let deleted = ws_db.delete_memory(&id).await?;
     if !deleted {
-        return middleware::with_cors(&req, Response::error("memory entry not found", 404)?);
+        return ApiError::not_found("memory.not_found").into_response(&req);
     }
 
     middleware::with_cors(&req, Response::empty()?.with_status(204))

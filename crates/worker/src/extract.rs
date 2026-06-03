@@ -232,3 +232,44 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use grumps_core::dto::CreateTodoRequest;
+    use validator::Validate;
+
+    // The (status, code) a rejection carries IS the API contract the SPA reads
+    // and localises — pin it so a careless edit to AuthError can't silently
+    // change a 401 into a 403 or rename an i18n key.
+    #[test]
+    fn auth_error_maps_to_status_and_code() {
+        let e: ApiError = AuthError::Unauthenticated.into();
+        assert_eq!(e.status, 401);
+        assert_eq!(e.code, "auth.unauthenticated");
+
+        let e: ApiError = AuthError::CsrfMismatch.into();
+        assert_eq!(e.status, 403);
+        assert_eq!(e.code, "auth.csrf_mismatch");
+    }
+
+    #[test]
+    fn helper_constructors_set_status() {
+        assert_eq!(ApiError::bad_request("x").status, 400);
+        assert_eq!(ApiError::forbidden("x").status, 403);
+        assert_eq!(ApiError::not_found("x").status, 404);
+        assert_eq!(ApiError::internal().status, 500);
+    }
+
+    #[test]
+    fn first_validation_code_extracts_the_field_code() {
+        // An empty title trips `length(min = 1, code = "todo.title_invalid")`.
+        let errs = CreateTodoRequest {
+            title: String::new(),
+            ..Default::default()
+        }
+        .validate()
+        .unwrap_err();
+        assert_eq!(first_validation_code(&errs), "todo.title_invalid");
+    }
+}

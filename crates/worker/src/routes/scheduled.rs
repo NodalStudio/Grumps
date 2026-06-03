@@ -121,7 +121,7 @@ pub async fn get(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Respo
 
     match ws_db.get_scheduled_action(&id).await? {
         Some(a) => middleware::with_cors(&req, Response::from_json(&a)?),
-        None => middleware::with_cors(&req, Response::error("scheduled action not found", 404)?),
+        None => ApiError::not_found("schedule.not_found").into_response(&req),
     }
 }
 
@@ -139,7 +139,7 @@ pub async fn delete(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Re
 
     let deleted = ws_db.delete_scheduled_action(&id).await?;
     if !deleted {
-        return middleware::with_cors(&req, Response::error("scheduled action not found", 404)?);
+        return ApiError::not_found("schedule.not_found").into_response(&req);
     }
 
     // Best-effort: tell DO to recompute its next alarm

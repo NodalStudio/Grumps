@@ -121,7 +121,7 @@ pub async fn get(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Respo
 
     match ws_db.get_event(&id).await? {
         Some(e) => middleware::with_cors(&req, Response::from_json(&e)?),
-        None => middleware::with_cors(&req, Response::error("event not found", 404)?),
+        None => ApiError::not_found("event.not_found").into_response(&req),
     }
 }
 
@@ -168,7 +168,7 @@ pub async fn update(
         .await?;
 
     if !updated {
-        return middleware::with_cors(&req, Response::error("event not found", 404)?);
+        return ApiError::not_found("event.not_found").into_response(&req);
     }
 
     let event = ws_db.get_event(&id).await?;
@@ -188,7 +188,7 @@ pub async fn delete(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Re
 
     let deleted = ws_db.delete_event(&id).await?;
     if !deleted {
-        return middleware::with_cors(&req, Response::error("event not found", 404)?);
+        return ApiError::not_found("event.not_found").into_response(&req);
     }
 
     middleware::with_cors(&req, Response::empty()?.with_status(204))
