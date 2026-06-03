@@ -137,6 +137,37 @@ beyond the offset-block style. Subtle grain overlay (SVG noise).
 Voice: terse and dry — "Done." not "Successfully completed!" — no
 emojis in UI chrome. Reference: `index.html` and `crates/spa/`.
 
+## Routes layer (HTTP API)
+
+Workspace-scoped HTTP handlers use the extractor layer in
+`crates/worker/src/extract.rs` (an "axum-lite" pattern). **Do NOT
+re-introduce the old per-handler `verify_session` / `resolve_workspace`
+/ membership / body-parse / validate preamble** — that boilerplate is
+gone on purpose.
+
+- Handlers take a typed **guard** parameter: `Session` (auth only),
+  `Member` (auth + workspace resolved + membership confirmed), or
+  `Admin` (`Member` + admin role; super-admin overrides). Signature:
+  `async fn handler(req, ctx, guard, [body]) -> Result<Response>`.
+- Register with the **combinators**, never the bare handler:
+  `extract::route(h)` for no body, `extract::route_json(h)` for a
+  validated JSON body. The guard type `P` and body type `B` are
+  inferred from the handler signature — no turbofish.
+- Rejections use `ApiError` (status + i18n code), returned via
+  `ApiError::…("code").into_response(&req)`. Never hand-write
+  `error_with_cors` with English prose; the `code` is an i18n key
+  (e.g. `todo.title_invalid`) the SPA renders with `tr()`.
+- Request DTOs shared SPA↔worker go in `crates/core/src/dto.rs`,
+  validator-gated behind the `validation` feature (kept out of the SPA
+  bundle). DTOs that pull worker-only domain types stay local to the
+  route module and just `#[derive(validator::Validate)]`.
+- Only shape rules (length/range) go in `#[validate(...)]`. Cross-field,
+  time-dependent, or DB-dependent checks stay in the handler.
+
+Model to copy: `crates/worker/src/routes/todos.rs`. Full rationale:
+`docs/superpowers/specs/2026-06-03-routes-layer-extractors-design.md`.
+The skill `adding-a-workspace-route` has the step-by-step.
+
 ## Git workflow
 
 Linear history. Feature branches use **gitmoji** format for atomic
