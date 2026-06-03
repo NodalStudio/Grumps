@@ -9,15 +9,17 @@ use leptos::prelude::*;
 pub fn DashboardPage() -> impl IntoView {
     let session = use_session().unwrap_or_default();
     let workspaces = session.workspaces.clone();
+    let drawer = crate::components::account_drawer::use_account_drawer();
 
     view! {
         <div class="min-h-screen" style="background: var(--cream);">
-            <PageHeader title=tr("sidebar.my_workspaces") subtitle=tr("page.dashboard.subtitle")>
-                <a href="/settings"
-                   class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
+            <PageHeader title=move || tr("sidebar.my_workspaces") subtitle=Signal::derive(move || tr("page.dashboard.subtitle"))>
+                <button type="button"
+                   on:click=move |_| drawer.set(true)
+                   class="hover-tint px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer"
                    style="color: var(--ink);">
                     {move || tr("settings.account")}
-                </a>
+                </button>
             </PageHeader>
             <div class="p-8">
                 {if workspaces.is_empty() {
@@ -26,6 +28,7 @@ pub fn DashboardPage() -> impl IntoView {
                     view! { <Grid workspaces=workspaces.clone()/> }.into_any()
                 }}
             </div>
+            <crate::components::account_drawer::AccountDrawer />
         </div>
     }
 }
@@ -148,13 +151,20 @@ fn AddGroupHelp(open: RwSignal<bool>) -> impl IntoView {
 }
 
 fn format_shape(ws: &WorkspaceRef) -> String {
-    let plat = match ws.platform.as_str() {
-        "telegram" => "TELEGRAM",
-        "whatsapp" => "WHATSAPP",
-        "discord" => "DISCORD",
-        x if !x.is_empty() => return x.to_uppercase(),
-        _ => "WORKSPACE",
+    // Platform names are brand nouns (left as-is, like the switcher's TG/WA/DC
+    // codes); the shape word is prose, so it goes through i18n. The label is
+    // CSS-uppercased at the call site.
+    let shape = if ws.is_dm {
+        tr("workspace.type_dm")
+    } else {
+        tr("workspace.type_group")
     };
-    let shape = if ws.is_dm { "DM · just you" } else { "GROUP" };
+    let plat = match ws.platform.as_str() {
+        "telegram" => "Telegram",
+        "whatsapp" => "WhatsApp",
+        "discord" => "Discord",
+        x if !x.is_empty() => return format!("{} {}", x, shape),
+        _ => return shape,
+    };
     format!("{} {}", plat, shape)
 }
