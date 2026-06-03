@@ -85,7 +85,10 @@ pub fn AccountDrawer() -> impl IntoView {
 #[component]
 fn AccountForm(session: SessionContext) -> impl IntoView {
     let (name, set_name) = signal(session.display_name.clone());
-    let initial_locale = session.default_locale.clone().unwrap_or_else(|| "en".into());
+    let initial_locale = session
+        .default_locale
+        .clone()
+        .unwrap_or_else(|| "en".into());
     let (locale, set_locale) = signal(initial_locale);
 
     let save = move |_| {
