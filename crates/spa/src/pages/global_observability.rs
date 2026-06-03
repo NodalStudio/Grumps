@@ -152,7 +152,7 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                         let quality = format!("{:.0}%", r.quality_score * 100.0);
                         let detail_href = format!("/w/{}/admin/observability", r.slug);
                         view! {
-                            <tr class="border-b transition-colors hover:bg-black/[0.035]"
+                            <tr class="border-b hover-tint"
                                 style="border-color: var(--ink-15); cursor: pointer;"
                                 on:click={
                                     let href = detail_href.clone();
@@ -287,7 +287,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                         "Observabilité globale"
                     </A>
                     <A href="/dashboard"
-                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover:bg-black/[0.04]"
+                       attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover-tint"
                        attr:style="color: var(--ink-70);">
                         <span class="w-[18px] text-center text-[15px]">"⊞"</span>
                         "My Workspaces"
