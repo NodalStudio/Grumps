@@ -1,46 +1,13 @@
 // crates/worker/src/routes/todos.rs
+use crate::extract::{ApiError, Member};
 use crate::{d1_rest, db, middleware};
-use serde::Deserialize;
+use grumps_core::dto::{CreateTodoRequest, UpdateTodoRequest};
 use worker::*;
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx
-        .param("slug")
-        .ok_or_else(|| Error::RustError("missing slug".into()))?;
-    let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug)
-        .await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))
-}
 
 // ── GET /api/w/:slug/todos ────────────────────────────────────────────────────
 
-pub async fn list_todos(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
+pub async fn list_todos(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    let Member { claims, ws } = m;
 
     let url = req.url()?;
     let params: std::collections::HashMap<String, String> = url
@@ -93,70 +60,14 @@ pub async fn list_todos(req: Request, ctx: RouteContext<()>) -> Result<Response>
 
 // ── POST /api/w/:slug/todos ───────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-struct CreateTodo {
-    title: String,
-    priority: Option<i32>,
-    tags: Option<Vec<String>>,
-    assigned_to: Option<String>,
-    assigned_name: Option<String>,
-    deadline: Option<String>,
-}
-
-pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
-    let body: CreateTodo = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
-    let trimmed = body.title.trim();
-    if trimmed.is_empty() {
-        return middleware::error_with_cors(&req, 400, "bad_request", "title required");
-    }
-    if trimmed.chars().count() > 500 {
-        return middleware::error_with_cors(
-            &req,
-            400,
-            "bad_request",
-            "title must be ≤ 500 characters",
-        );
-    }
-    if let Some(p) = body.priority {
-        if !(1..=3).contains(&p) {
-            return middleware::error_with_cors(
-                &req,
-                400,
-                "bad_request",
-                "priority must be 1, 2, or 3",
-            );
-        }
-    }
-
+pub async fn create_todo(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: CreateTodoRequest,
+) -> Result<Response> {
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     let tags_json =
         serde_json::to_string(&body.tags.unwrap_or_default()).unwrap_or_else(|_| "[]".into());
@@ -169,12 +80,12 @@ pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
     let assigned_name = body.assigned_name.unwrap_or_default();
     let (todo_id, seq_num) = ws_db
         .insert_todo(
-            &body.title,
+            body.title.trim(),
             body.priority.unwrap_or(2),
             &tags_json,
             &assigned_to,
             &assigned_name,
-            &claims.sub,
+            &m.claims.sub,
             "api",
             "",
             deadline,
@@ -192,94 +103,33 @@ pub async fn create_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
 
 // ── PATCH /api/w/:slug/todos/:id ─────────────────────────────────────────────
 
-#[derive(Deserialize)]
-struct UpdateTodo {
-    title: Option<String>,
-    status: Option<String>,
-    priority: Option<i32>,
-    tags: Option<Vec<String>>,
-    assigned_to: Option<String>,
-    assigned_name: Option<String>,
-}
-
-pub async fn update_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn update_todo(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: UpdateTodoRequest,
+) -> Result<Response> {
     let todo_id = ctx
         .param("id")
         .ok_or_else(|| Error::RustError("missing id".into()))?
         .to_string();
-    let body: UpdateTodo = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
 
-    // Validate optional fields. Status must be one of the known values;
-    // priority must be 1-3.
+    // `status` is a closed domain enum, not a shape constraint — checked here
+    // rather than in the DTO. Title length / priority range are handled by the
+    // DTO's `validate()` before this handler runs.
     if let Some(s) = body.status.as_deref() {
         if !matches!(s, "open" | "in_progress" | "done") {
-            return middleware::error_with_cors(
-                &req,
-                400,
-                "bad_request",
-                "status must be open|in_progress|done",
-            );
-        }
-    }
-    if let Some(p) = body.priority {
-        if !(1..=3).contains(&p) {
-            return middleware::error_with_cors(
-                &req,
-                400,
-                "bad_request",
-                "priority must be 1, 2, or 3",
-            );
-        }
-    }
-    if let Some(t) = body.title.as_deref() {
-        let trimmed = t.trim();
-        if trimmed.is_empty() {
-            return middleware::error_with_cors(&req, 400, "bad_request", "title cannot be empty");
-        }
-        if trimmed.chars().count() > 500 {
-            return middleware::error_with_cors(
-                &req,
-                400,
-                "bad_request",
-                "title must be ≤ 500 characters",
-            );
+            return ApiError::bad_request("todo.status_invalid").into_response(&req);
         }
     }
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     ws_db
         .update_todo(
             &todo_id,
-            body.title.as_deref(),
+            body.title.as_deref().map(str::trim),
             body.status.as_deref(),
             body.priority,
             body.assigned_to.as_deref(),
@@ -297,38 +147,14 @@ pub async fn update_todo(mut req: Request, ctx: RouteContext<()>) -> Result<Resp
 
 // ── DELETE /api/w/:slug/todos/:id ────────────────────────────────────────────
 
-pub async fn delete_todo(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn delete_todo(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let todo_id = ctx
         .param("id")
         .ok_or_else(|| Error::RustError("missing id".into()))?
         .to_string();
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
     ws_db.delete_todo(&todo_id).await?;
 
     middleware::with_cors(

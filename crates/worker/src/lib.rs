@@ -6,6 +6,7 @@ mod d1_rest;
 mod db;
 mod durable_objects;
 mod error;
+mod extract;
 mod handler;
 mod llm_client;
 mod middleware;
@@ -107,10 +108,19 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::workspace_api::update_workspace_name,
         )
         // Todos
-        .get_async("/api/w/:slug/todos", routes::todos::list_todos)
-        .post_async("/api/w/:slug/todos", routes::todos::create_todo)
-        .patch_async("/api/w/:slug/todos/:id", routes::todos::update_todo)
-        .delete_async("/api/w/:slug/todos/:id", routes::todos::delete_todo)
+        .get_async("/api/w/:slug/todos", extract::route(routes::todos::list_todos))
+        .post_async(
+            "/api/w/:slug/todos",
+            extract::route_json(routes::todos::create_todo),
+        )
+        .patch_async(
+            "/api/w/:slug/todos/:id",
+            extract::route_json(routes::todos::update_todo),
+        )
+        .delete_async(
+            "/api/w/:slug/todos/:id",
+            extract::route(routes::todos::delete_todo),
+        )
         // Notes
         .get_async("/api/w/:slug/notes", routes::notes::list_notes)
         .post_async("/api/w/:slug/notes", routes::notes::create_note)

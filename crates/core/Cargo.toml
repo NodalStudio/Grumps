@@ -8,3 +8,9 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+validator = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+# Pulls the `validator` derive + runtime so request DTOs can self-validate.
+# Enabled by the worker; left off by the SPA to keep the WASM bundle small.
+validation = ["dep:validator"]
