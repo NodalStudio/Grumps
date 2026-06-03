@@ -16,8 +16,8 @@ pub fn NotesPage() -> impl IntoView {
     });
 
     view! {
-        <PageHeader title=tr("page.notes.title") subtitle=tr("page.notes.subtitle")>
-            <a href=format!("/w/{}/notes/new", slug()) class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer" style="background: var(--ink); color: var(--cream);">"+ "{move || tr("note.action.new")}</a>
+        <PageHeader title=move || tr("page.notes.title") subtitle=Signal::derive(move || tr("page.notes.subtitle"))>
+            <a href=format!("{}/w/{}/notes/new", crate::demo::router_base(), slug()) class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer" style="background: var(--ink); color: var(--cream);">"+ "{move || tr("note.action.new")}</a>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
@@ -37,7 +37,7 @@ pub fn NotesPage() -> impl IntoView {
                                 each=move || items.clone()
                                 key=|n| n.id.clone()
                                 children=move |note| {
-                                    let href = format!("/w/{}/notes/{}", slug(), note.id);
+                                    let href = format!("{}/w/{}/notes/{}", crate::demo::router_base(), slug(), note.id);
                                     let pinned = note.pinned.unwrap_or(0) == 1;
                                     view! {
                                         <a href=href class="block p-5 border-2 rounded-xs cursor-pointer transition-transform hover:-translate-y-0.5"

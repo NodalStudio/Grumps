@@ -112,6 +112,34 @@
 }
 
 @layer utilities {
+  /* The single, canonical interactive-hover effect used across the whole app
+     (buttons, nav items, menu items, dropdown triggers). It layers the subtle
+     --hover-tint over whatever background the element already has via an inset
+     shadow, so it reads identically on solid (brick/ink) and transparent
+     surfaces and never touches the text. Use this class — never re-roll a
+     per-element `hover:bg-*`. */
+  .hover-tint {
+    transition-property: box-shadow, background-color, border-color, color;
+    transition-duration: 0.15s;
+    transition-timing-function: ease;
+  }
+  .hover-tint:hover:not(:disabled) {
+    box-shadow: inset 0 0 0 9999px var(--hover-tint);
+  }
+
+  /* Slide-over (drawer) entrance — anchored to the inline-end edge, so it
+     slides in from the right in LTR and from the left in RTL. */
+  .drawer-panel-end { animation: drawer-in-end 0.18s ease-out; }
+  @keyframes drawer-in-end {
+    from { transform: translateX(100%); opacity: 0.4; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+  [dir="rtl"] .drawer-panel-end { animation-name: drawer-in-start; }
+  @keyframes drawer-in-start {
+    from { transform: translateX(-100%); opacity: 0.4; }
+    to   { transform: translateX(0);      opacity: 1; }
+  }
+
   /* Typography scale — canonical named sizes */
   .text-display-xl  { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.1;  letter-spacing: -0.01em; }
   .text-display-lg  { font-family: var(--font-display); font-weight: 800; font-size: 28px; line-height: 1.15; letter-spacing: -0.005em; }

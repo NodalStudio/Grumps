@@ -3,6 +3,16 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{Element, HtmlElement, KeyboardEvent};
 
+/// Where the panel sits. `Center` is a classic centered modal; `End` is a
+/// full-height slide-over drawer anchored to the inline-end edge (right in LTR,
+/// left in RTL). Both share the same focus-trap / dismissal machinery.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum DialogSide {
+    #[default]
+    Center,
+    End,
+}
+
 /// Backdrop click listener: its `EventTarget` plus the `Closure` keeping the
 /// JS shim alive, parked in [`Teardown`] so it can be detached on close.
 type BackdropListener = (web_sys::EventTarget, Closure<dyn FnMut(web_sys::Event)>);
@@ -53,6 +63,9 @@ pub fn Dialog(
     /// Whether clicking the backdrop requests close.
     #[prop(optional, default = true)]
     close_on_backdrop: bool,
+    /// Panel placement: centered modal (default) or inline-end slide-over.
+    #[prop(optional)]
+    side: DialogSide,
     /// Extra classes merged onto the panel.
     #[prop(into, optional, default = String::new())]
     class: String,
@@ -226,11 +239,25 @@ pub fn Dialog(
         });
     }
 
-    let panel_class = tw_merge::tw_merge!(
-        "w-full max-w-lg mx-4 border-2 border-ink rounded-xs p-6 \
-         flex flex-col gap-4 max-h-[90vh] overflow-y-auto",
-        class
-    );
+    let panel_base = match side {
+        DialogSide::Center => {
+            "w-full max-w-lg mx-4 border-2 border-ink rounded-xs p-6 \
+             flex flex-col gap-4 max-h-[90vh] overflow-y-auto"
+        }
+        DialogSide::End => {
+            "drawer-panel-end h-full w-full max-w-md border-s-2 border-ink p-6 \
+             flex flex-col gap-5 overflow-y-auto"
+        }
+    };
+    let panel_class = tw_merge::tw_merge!(panel_base, class);
+    let backdrop_class = match side {
+        DialogSide::Center => "fixed inset-0 z-50 flex items-center justify-center",
+        DialogSide::End => "fixed inset-0 z-50 flex justify-end",
+    };
+    let panel_style = match side {
+        DialogSide::Center => "background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;",
+        DialogSide::End => "background: var(--cream); box-shadow: -8px 0 24px rgba(26,26,26,0.12);",
+    };
 
     // Conditional render via a reactive closure rather than `<Show>`: the
     // panel/backdrop carry `NodeRef`s (CSR `LocalStorage`, `!Send`), and
@@ -254,7 +281,7 @@ pub fn Dialog(
                 // `on:click` here and no `!Send` capture leaks out.
                 <div
                     node_ref=backdrop_ref
-                    class="fixed inset-0 z-50 flex items-center justify-center"
+                    class=backdrop_class
                     style="background: rgba(26,26,26,0.5);"
                 >
                     <div
@@ -265,7 +292,7 @@ pub fn Dialog(
                         aria-labelledby=move || labelledby.get()
                         aria-describedby=move || describedby.get()
                         class=panel_class
-                        style="background: var(--cream); box-shadow: 6px 6px 0 #1A1A1A;"
+                        style=panel_style
                     >
                         {inner}
                     </div>

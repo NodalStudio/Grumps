@@ -16,7 +16,7 @@ pub fn HistoryPage() -> impl IntoView {
     });
 
     view! {
-        <PageHeader title=tr("page.history.title") subtitle=tr("history.subtitle") />
+        <PageHeader title=move || tr("page.history.title") subtitle=Signal::derive(move || tr("history.subtitle")) />
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
                 {move || history.get().map(|data| {

@@ -10,6 +10,7 @@ use crate::pages;
 pub fn App() -> impl IntoView {
     provide_locale();
     crate::api::provide_api();
+    crate::components::account_drawer::provide_account_drawer();
     let _toasts = crate::components::ui::toast::provide_toasts();
     if crate::demo::is_demo() {
         crate::demo::install_postmessage_nav();
@@ -31,11 +32,6 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/dashboard") view=move || view! {
                     <AuthGate>
                         <pages::dashboard::DashboardPage/>
-                    </AuthGate>
-                } />
-                <Route path=path!("/settings") view=move || view! {
-                    <AuthGate>
-                        <pages::global_settings::GlobalSettingsPage/>
                     </AuthGate>
                 } />
                 <ParentRoute path=path!("/w/:slug") view=move || view! {

@@ -1,3 +1,4 @@
+pub mod account_drawer;
 pub mod calendar;
 pub mod file_card;
 pub mod header;

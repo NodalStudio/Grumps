@@ -56,11 +56,18 @@ pub const DEMO_MEMBER_ID: &str = "seed-member-alice";
 pub const DEMO_TOKEN: &str = "demo";
 
 pub fn workspaces() -> Vec<WorkspaceInfo> {
-    vec![WorkspaceInfo {
-        slug: DEMO_SLUG.into(),
-        name: Some("seed.workspace.name".into()),
-        role: "admin".into(),
-    }]
+    vec![
+        WorkspaceInfo {
+            slug: DEMO_SLUG.into(),
+            name: Some("seed.workspace.name".into()),
+            role: "admin".into(),
+        },
+        WorkspaceInfo {
+            slug: "trip".into(),
+            name: Some("seed.workspace2.name".into()),
+            role: "member".into(),
+        },
+    ]
 }
 
 pub fn status_counts() -> StatusCounts {

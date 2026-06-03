@@ -30,6 +30,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
         <DropdownMenu
             open=open
             align=MenuAlign::Start
+            container_class="flex w-full"
             aria_label=Signal::derive(|| tr("workspace.switch_label"))
             trigger_class="w-full text-left p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
             trigger_style="background: var(--cream-light);"
@@ -61,7 +62,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
                         target="_blank"
                         role="menuitem"
                         tabindex="-1"
-                        class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover:underline"
+                        class="block px-3 py-2 text-xs font-bold uppercase tracking-wider hover-tint"
                     >
                         {move || tr("workspace.add_to_group")}
                     </a>
@@ -92,14 +93,16 @@ fn view_row(ws: WorkspaceRef, current_slug: &str) -> impl IntoView {
         .clone()
         .map(|n| tr(&n))
         .unwrap_or_else(|| ws.slug.clone());
-    let href = format!("/w/{}", ws.slug);
+    // Prepend the demo router base (empty in the real app) so a switch in the
+    // embedded demo iframe stays within the router instead of escaping `/demo/`.
+    let href = format!("{}/w/{}", crate::demo::router_base(), ws.slug);
     view! {
         <a
             href=href
             role="menuitem"
             tabindex="-1"
             data-current=is_current.to_string()
-            class="block px-3 py-2 flex justify-between items-center"
+            class="block px-3 py-2 flex justify-between items-center hover-tint"
             class:font-bold=is_current
         >
             <span class="text-sm">{name}</span>

@@ -62,8 +62,8 @@ pub fn Button(
     children: Children,
 ) -> impl IntoView {
     let merged = tw_merge!(
-        "inline-flex items-center justify-center gap-1.5 font-bold rounded-xs \
-         cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed \
+        "hover-tint inline-flex items-center justify-center gap-1.5 font-bold rounded-xs \
+         cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed \
          focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal",
         variant.classes(),
         size.classes(icon_only),

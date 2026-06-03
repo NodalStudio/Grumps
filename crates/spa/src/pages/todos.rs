@@ -80,7 +80,7 @@ pub fn TodosPage() -> impl IntoView {
     };
 
     view! {
-        <PageHeader title=tr("page.todos.title") subtitle=tr("page.todos.subtitle")>
+        <PageHeader title=move || tr("page.todos.title") subtitle=Signal::derive(move || tr("page.todos.subtitle"))>
             <Button variant=ButtonVariant::Primary on_click=focus_new_todo>
                 "+ "{move || tr("todo.action.add")}
             </Button>

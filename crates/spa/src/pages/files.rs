@@ -5,7 +5,7 @@ use leptos::prelude::*;
 #[component]
 pub fn FilesPage() -> impl IntoView {
     view! {
-        <PageHeader title=tr("page.files.title") subtitle=tr("page.files.subtitle") />
+        <PageHeader title=move || tr("page.files.title") subtitle=Signal::derive(move || tr("page.files.subtitle")) />
         <div class="flex-1 overflow-y-auto p-8">
             // Upload zone
             <div class="border-2 border-dashed rounded-xs p-10 text-center mb-6 cursor-pointer transition-colors hover:border-ink" style="border-color: var(--ink-15);">

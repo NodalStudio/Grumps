@@ -100,7 +100,7 @@ pub fn SettingsPage() -> impl IntoView {
     };
 
     view! {
-        <PageHeader title=tr("page.settings.title") subtitle=tr("page.settings.subtitle") />
+        <PageHeader title=move || tr("page.settings.title") subtitle=Signal::derive(move || tr("page.settings.subtitle")) />
         <div class="flex-1 overflow-y-auto p-8">
             <div class="max-w-xl">
                 // General

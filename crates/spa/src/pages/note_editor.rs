@@ -54,16 +54,18 @@ pub fn NoteEditorPage() -> impl IntoView {
         <Suspense fallback=|| view! { <div class="p-8" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
             {move || note.get().map(|data| {
                 if let Some(n) = data.clone() {
-                    set_content.set(n.content.clone().unwrap_or_default());
-                    set_title.set(n.title.clone().unwrap_or_default());
-                    let header_title = n.title.clone()
-                        .filter(|s| !s.is_empty())
-                        .unwrap_or_else(|| tr("page.note_editor.untitled"));
+                    // tr() resolves demo/seed keys; real note text passes through.
+                    set_content.set(n.content.clone().map(|c| tr(&c)).unwrap_or_default());
+                    set_title.set(n.title.clone().map(|t| tr(&t)).unwrap_or_default());
+                    let raw_title = n.title.clone();
                     let created_at = n.created_at.chars().take(10).collect::<String>();
                     view! {
                         <PageHeader
-                            title=header_title
-                            subtitle=tr_p("page.note_editor.created", &[("date", &created_at)])
+                            title=move || raw_title.clone()
+                                .filter(|s| !s.is_empty())
+                                .map(|s| tr(&s))
+                                .unwrap_or_else(|| tr("page.note_editor.untitled"))
+                            subtitle=Signal::derive(move || tr_p("page.note_editor.created", &[("date", &created_at)]))
                         >
                             <span class="text-xs me-2" style="color: var(--ink-40);">
                                 {move || match save_state.get() {

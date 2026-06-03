@@ -99,6 +99,11 @@ pub fn DropdownMenu(
     /// Inline-axis alignment of the panel. Logical (RTL-safe).
     #[prop(optional, default = MenuAlign::End)]
     align: MenuAlign,
+    /// Classes for the positioning wrapper. Defaults to a content-sized
+    /// `inline-flex`; pass e.g. `"flex w-full"` to let the trigger fill its
+    /// column (tw_merge resolves the display/width conflicts).
+    #[prop(into, optional)]
+    container_class: String,
     /// Menu items, authored by the caller — each with `role="menuitem"`.
     children: ChildrenFn,
 ) -> impl IntoView {
@@ -298,16 +303,17 @@ pub fn DropdownMenu(
         MenuAlign::End => "end-0",
     };
     let panel_class = tw_merge!("absolute z-50", align_cls, menu_class);
+    let container_class = tw_merge!("relative inline-flex", container_class);
 
     view! {
-        <div class="relative inline-flex">
+        <div class=container_class>
             <button
                 node_ref=trigger_ref
                 type="button"
                 aria-haspopup="menu"
                 aria-expanded=move || open.get().to_string()
                 aria-label=move || aria_label.get()
-                class=trigger_class
+                class=tw_merge!("hover-tint", trigger_class)
                 style=trigger_style
                 on:click=move |ev| {
                     ev.stop_propagation();

@@ -43,7 +43,7 @@ pub fn LangSwitcher() -> impl IntoView {
                                 role="menuitem"
                                 tabindex="-1"
                                 data-current=move || is_current().to_string()
-                                class="w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-[13px] rounded-[2px] hover:bg-black/[0.04]"
+                                class="w-full flex items-center justify-between gap-3 px-2.5 py-1.5 text-[13px] rounded-[2px] hover-tint"
                                 style:font-weight=move || if is_current() { "700" } else { "500" }
                                 style:color=move || {
                                     if is_current() { "var(--ink)" } else { "var(--ink-70)" }
