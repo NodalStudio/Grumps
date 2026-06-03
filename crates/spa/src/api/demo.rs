@@ -40,13 +40,11 @@ impl Api for DemoApi {
         }
         Ok(items)
     }
-    async fn create_todo(
-        &self,
-        _slug: &str,
-        title: &str,
-        priority: i32,
-    ) -> Result<TodoItem, String> {
-        Ok(crate::demo::new_todo(title, priority))
+    async fn create_todo(&self, _slug: &str, req: CreateTodoRequest) -> Result<TodoItem, String> {
+        Ok(crate::demo::new_todo(
+            req.title.trim(),
+            req.priority.unwrap_or(2),
+        ))
     }
     async fn update_todo(
         &self,

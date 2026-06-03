@@ -1,6 +1,10 @@
 pub mod types;
 pub use types::*;
 
+/// Shared request DTOs — the wire contract with the worker. Re-exported so
+/// impls and call sites use `crate::api::CreateTodoRequest`.
+pub use grumps_core::dto::{CreateTodoRequest, UpdateTodoRequest};
+
 use std::sync::Arc;
 
 /// Shared SPA API client interface. One impl for live HTTP (`LiveApi`),
@@ -25,8 +29,7 @@ pub trait Api: Send + Sync {
 
     // Todos
     async fn get_todos(&self, slug: &str, filter: &str) -> Result<Vec<TodoItem>, String>;
-    async fn create_todo(&self, slug: &str, title: &str, priority: i32)
-        -> Result<TodoItem, String>;
+    async fn create_todo(&self, slug: &str, req: CreateTodoRequest) -> Result<TodoItem, String>;
     async fn update_todo(
         &self,
         slug: &str,

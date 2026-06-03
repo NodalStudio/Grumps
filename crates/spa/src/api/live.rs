@@ -116,17 +116,8 @@ impl Api for LiveApi {
         self.get(&format!("/api/w/{}/todos?status={}", slug, filter))
             .await
     }
-    async fn create_todo(
-        &self,
-        slug: &str,
-        title: &str,
-        priority: i32,
-    ) -> Result<TodoItem, String> {
-        self.post(
-            &format!("/api/w/{}/todos", slug),
-            &serde_json::json!({"title": title, "priority": priority}),
-        )
-        .await
+    async fn create_todo(&self, slug: &str, req: CreateTodoRequest) -> Result<TodoItem, String> {
+        self.post(&format!("/api/w/{}/todos", slug), &req).await
     }
     async fn update_todo(
         &self,

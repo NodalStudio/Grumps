@@ -1158,6 +1158,7 @@ dependencies = [
  "gloo-net 0.7.0",
  "gloo-storage",
  "gloo-timers",
+ "grumps-core",
  "grumps-i18n",
  "js-sys",
  "leptos",
