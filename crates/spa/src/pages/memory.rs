@@ -69,7 +69,8 @@ pub fn MemoryPage() -> impl IntoView {
 
     let on_edit = Callback::new(move |item: MemoryItem| {
         set_form_key.set(item.key.clone().unwrap_or_default());
-        set_form_value.set(item.value.clone());
+        // tr() resolves demo/seed keys; real memory text passes through.
+        set_form_value.set(tr(&item.value));
         set_form_kind.set(item.kind.clone());
         set_form_related.set(item.related_member.clone().unwrap_or_default());
         set_form_expires.set(item.expires_at.clone().unwrap_or_default());
@@ -161,7 +162,7 @@ pub fn MemoryPage() -> impl IntoView {
         .collect();
 
     view! {
-        <PageHeader title=tr("page.memory.title") subtitle=tr("page.memory.subtitle")>
+        <PageHeader title=move || tr("page.memory.title") subtitle=Signal::derive(move || tr("page.memory.subtitle"))>
             <Button variant=ButtonVariant::Primary on_click=open_create>
                 "+ "{move || tr("memory.action.add")}
             </Button>

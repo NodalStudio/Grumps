@@ -89,8 +89,11 @@ pub fn OverviewPage() -> impl IntoView {
             info.get()
                 .and_then(|data| data.clone())
                 .and_then(|d| d.name)
+                // Run the name through i18n like the dashboard/switcher do: real
+                // group titles pass through unchanged, demo/seed keys resolve.
+                .map(|n| tr(&n))
                 .unwrap_or(s)
-        } subtitle=tr("page.overview.title") />
+        } subtitle=Signal::derive(move || tr("page.overview.title")) />
         <div class="flex-1 overflow-y-auto p-8">
             // Stat blocks
             <Suspense fallback=|| view! { <div class="text-sm" style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
@@ -208,7 +211,7 @@ pub fn OverviewPage() -> impl IntoView {
                                             <span
                                                 class="px-1.5 py-0.5 text-[9px] font-bold uppercase rounded-xs shrink-0"
                                                 style="background: var(--brick); color: white;"
-                                            >{item.kind.clone()}</span>
+                                            >{let k = format!("memory.kind.{}", item.kind); move || tr(&k)}</span>
                                             <span style="color: var(--ink);">{let v = item.value.clone(); move || tr(&v)}</span>
                                         </div>
                                     }).collect_view()}

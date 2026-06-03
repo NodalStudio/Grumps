@@ -45,7 +45,7 @@ pub fn ScheduledCard(
             <div class="flex items-start gap-2">
                 <span class="text-base shrink-0 w-5 text-center" style="color: var(--ink-70);">{type_icon(&atype)}</span>
                 <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-sm" style="color: var(--ink);">{item.title.clone()}</div>
+                    <div class="font-semibold text-sm" style="color: var(--ink);">{let t = item.title.clone(); move || tr(&t)}</div>
                     <div class="flex items-center gap-2 mt-0.5 text-[11px]" style="color: var(--ink-40);">
                         <span class="font-medium">{let k = format!("schedule.type.{}", atype); move || tr(&k)}</span>
                         <span>"·"</span>

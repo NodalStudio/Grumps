@@ -1,11 +1,13 @@
 use crate::api::CalendarItem;
+use crate::i18n::tr;
 use leptos::prelude::*;
 
 #[component]
 pub fn CalItem(item: CalendarItem, compact: bool) -> impl IntoView {
     let color = item.color.clone();
-    // Event/todo titles are user data — render them verbatim. Passing them
-    // through tr() would translate any title that happens to equal an i18n key.
+    // Titles run through tr() like every other list in the app: real user
+    // titles pass through unchanged, while seed/demo keys (seed.event.*, …)
+    // resolve to the active locale.
     let title_attr = item.title.clone();
     let title_body = item.title.clone();
     let source = item.source.clone();
@@ -15,16 +17,18 @@ pub fn CalItem(item: CalendarItem, compact: bool) -> impl IntoView {
             class="px-1 py-0.5 text-[11px] font-semibold rounded-xs truncate cursor-pointer"
             style:background=color
             style="color: white; border-left: 3px solid rgba(0,0,0,0.3);"
-            title=title_attr
+            title=move || tr(&title_attr)
         >
             {if compact {
-                view! { <span>{title_body.clone()}</span> }.into_any()
+                let t = title_body.clone();
+                view! { <span>{move || tr(&t)}</span> }.into_any()
             } else {
-                let source_str = if source.is_empty() { None } else { Some(format!("({})", source)) };
+                let t = title_body.clone();
+                let src_key = if source.is_empty() { None } else { Some(format!("calendar.source.{}", source)) };
                 view! {
                     <span>
-                        {title_body.clone()}
-                        {source_str.map(|s| view! { <span class="opacity-70 ml-1">{s}</span> })}
+                        {move || tr(&t)}
+                        {src_key.map(|k| view! { <span class="opacity-70 ml-1">"(" {move || tr(&k)} ")"</span> })}
                     </span>
                 }.into_any()
             }}

@@ -77,7 +77,8 @@ pub fn ScheduledActionsPage() -> impl IntoView {
     };
 
     let on_edit = Callback::new(move |item: ScheduledActionItem| {
-        set_form_title.set(item.title.clone());
+        // tr() resolves demo/seed keys; real titles pass through unchanged.
+        set_form_title.set(tr(&item.title));
         set_form_type.set(item.action_type.clone());
         // Stored as a UTC instant → show it as a workspace-local wall clock.
         set_form_trigger.set(crate::datetime::to_input_local(
@@ -181,7 +182,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         .collect();
 
     view! {
-        <PageHeader title=tr("page.scheduled.title") subtitle=tr("page.scheduled.subtitle")>
+        <PageHeader title=move || tr("page.scheduled.title") subtitle=Signal::derive(move || tr("page.scheduled.subtitle"))>
             <Button variant=ButtonVariant::Primary on_click=open_create>
                 "+ "{move || tr("schedule.action.new")}
             </Button>
