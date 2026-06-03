@@ -12,6 +12,7 @@ dist/
 crates/spa/dist/
 
 # Local dev artifacts
+.serve/
 .playwright-mcp/
 package-lock.json
 .dev.vars
