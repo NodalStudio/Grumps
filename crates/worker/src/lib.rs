@@ -122,17 +122,41 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             extract::route(routes::todos::delete_todo),
         )
         // Notes
-        .get_async("/api/w/:slug/notes", routes::notes::list_notes)
-        .post_async("/api/w/:slug/notes", routes::notes::create_note)
-        .get_async("/api/w/:slug/notes/:id", routes::notes::get_note)
-        .put_async("/api/w/:slug/notes/:id", routes::notes::update_note)
-        .delete_async("/api/w/:slug/notes/:id", routes::notes::delete_note)
+        .get_async("/api/w/:slug/notes", extract::route(routes::notes::list_notes))
+        .post_async(
+            "/api/w/:slug/notes",
+            extract::route_json(routes::notes::create_note),
+        )
+        .get_async(
+            "/api/w/:slug/notes/:id",
+            extract::route(routes::notes::get_note),
+        )
+        .put_async(
+            "/api/w/:slug/notes/:id",
+            extract::route_json(routes::notes::update_note),
+        )
+        .delete_async(
+            "/api/w/:slug/notes/:id",
+            extract::route(routes::notes::delete_note),
+        )
         // Memory
-        .get_async("/api/w/:slug/memory", routes::memory::list)
-        .post_async("/api/w/:slug/memory", routes::memory::create)
-        .get_async("/api/w/:slug/memory/:id", routes::memory::get)
-        .put_async("/api/w/:slug/memory/:id", routes::memory::update)
-        .delete_async("/api/w/:slug/memory/:id", routes::memory::delete)
+        .get_async("/api/w/:slug/memory", extract::route(routes::memory::list))
+        .post_async(
+            "/api/w/:slug/memory",
+            extract::route_json(routes::memory::create),
+        )
+        .get_async(
+            "/api/w/:slug/memory/:id",
+            extract::route(routes::memory::get),
+        )
+        .put_async(
+            "/api/w/:slug/memory/:id",
+            extract::route_json(routes::memory::update),
+        )
+        .delete_async(
+            "/api/w/:slug/memory/:id",
+            extract::route(routes::memory::delete),
+        )
         // Events
         .get_async("/api/w/:slug/events", routes::events::list)
         .post_async("/api/w/:slug/events", routes::events::create)

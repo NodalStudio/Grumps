@@ -64,6 +64,30 @@ pub struct UpdateTodoRequest {
     pub assigned_name: Option<String>,
 }
 
+/// Body of `POST /api/w/:slug/notes`.
+#[derive(serde::Serialize, serde::Deserialize, Default, Debug, Clone)]
+#[cfg_attr(feature = "validation", derive(Validate))]
+pub struct CreateNoteRequest {
+    pub title: Option<String>,
+    #[cfg_attr(
+        feature = "validation",
+        validate(length(min = 1, code = "note.content_required"))
+    )]
+    pub content: String,
+}
+
+/// Body of `PUT /api/w/:slug/notes/:id`.
+#[derive(serde::Serialize, serde::Deserialize, Default, Debug, Clone)]
+#[cfg_attr(feature = "validation", derive(Validate))]
+pub struct UpdateNoteRequest {
+    pub title: Option<String>,
+    #[cfg_attr(
+        feature = "validation",
+        validate(length(min = 1, code = "note.content_required"))
+    )]
+    pub content: String,
+}
+
 #[cfg(all(test, feature = "validation"))]
 mod tests {
     use super::*;

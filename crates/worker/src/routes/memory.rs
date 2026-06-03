@@ -1,49 +1,15 @@
 //! REST routes for memory_entries (workspace-scoped, JWT-auth).
 
+use crate::extract::Member;
 use crate::routes::util::read_query;
 use crate::{d1_rest, db, middleware};
 use serde::Deserialize;
+use validator::Validate;
 use worker::*;
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx
-        .param("slug")
-        .ok_or_else(|| Error::RustError("missing slug".into()))?;
-    let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug)
-        .await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))
-}
 
 // ── GET /api/w/:slug/memory ───────────────────────────────────────────────────
 
-pub async fn list(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn list(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let url = req.url()?;
     let mut kind: Option<String> = None;
     let mut source: Option<String> = None;
@@ -62,7 +28,7 @@ pub async fn list(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     });
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
     let entries = ws_db
         .list_memory(kind.as_deref(), source.as_deref(), limit, offset)
         .await?;
@@ -72,9 +38,10 @@ pub async fn list(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 
 // ── POST /api/w/:slug/memory ──────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-struct CreateBody {
+#[derive(Deserialize, Validate)]
+pub struct CreateBody {
     key: Option<String>,
+    #[validate(length(min = 1, code = "memory.value_required"))]
     value: String,
     kind: grumps_memory::MemoryKind,
     related_member: Option<String>,
@@ -84,46 +51,19 @@ struct CreateBody {
     expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
-pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
-    let body: CreateBody = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
-    if body.value.trim().is_empty() {
-        return middleware::error_with_cors(&req, 400, "bad_request", "value required");
-    }
-
+pub async fn create(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: CreateBody,
+) -> Result<Response> {
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     // memory_entries.created_by is FK → members(id). Resolve the calling
     // user's member-id in this workspace via their Telegram numeric id; if
     // they aren't a member yet, fall back to NULL rather than failing FK.
-    let created_by = match claims.tg_user_id.as_deref() {
+    let created_by = match m.claims.tg_user_id.as_deref() {
         Some(tg) if !tg.is_empty() => ws_db.find_member_by_platform_id(tg).await.ok().flatten(),
         _ => None,
     };
@@ -148,38 +88,14 @@ pub async fn create(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
 
 // ── GET /api/w/:slug/memory/:id ───────────────────────────────────────────────
 
-pub async fn get(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn get(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let id = ctx
         .param("id")
         .ok_or_else(|| Error::RustError("missing id".into()))?
         .to_string();
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     match ws_db.get_memory(&id).await? {
         Some(e) => middleware::with_cors(&req, Response::from_json(&e)?),
@@ -189,49 +105,26 @@ pub async fn get(req: Request, ctx: RouteContext<()>) -> Result<Response> {
 
 // ── PUT /api/w/:slug/memory/:id ───────────────────────────────────────────────
 
-#[derive(Deserialize)]
-struct UpdateBody {
+#[derive(Deserialize, Validate)]
+pub struct UpdateBody {
     value: Option<String>,
     pinned: Option<bool>,
     expires_at: Option<String>,
 }
 
-pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn update(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: UpdateBody,
+) -> Result<Response> {
     let id = ctx
         .param("id")
         .ok_or_else(|| Error::RustError("missing id".into()))?
         .to_string();
-    let body: UpdateBody = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     let updated = ws_db
         .update_memory(
@@ -251,38 +144,14 @@ pub async fn update(mut req: Request, ctx: RouteContext<()>) -> Result<Response>
 
 // ── DELETE /api/w/:slug/memory/:id ────────────────────────────────────────────
 
-pub async fn delete(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn delete(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let id = ctx
         .param("id")
         .ok_or_else(|| Error::RustError("missing id".into()))?
         .to_string();
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
 
     let deleted = ws_db.delete_memory(&id).await?;
     if !deleted {

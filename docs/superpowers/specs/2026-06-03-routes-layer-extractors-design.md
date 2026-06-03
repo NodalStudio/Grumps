@@ -186,6 +186,15 @@ async fn create_todo(&self, slug: &str, req: CreateTodoRequest) -> Result<TodoIt
 
 `slug` stays a separate path param. `live.rs` serializes the DTO instead of the hand-written `json!({...})`; `demo.rs` reads typed fields.
 
+### DTO location: shared vs worker-local (refinement during implementation)
+
+Not every request DTO belongs in `core`. Two cases:
+
+- **Shared in `core::dto`** — DTOs for SPA APIs that were *positional* (`create_todo(slug, title, priority)`), where a typed struct is a real ergonomic win on both sides: `CreateTodoRequest`, `CreateNoteRequest`, `UpdateNoteRequest`.
+- **Worker-local** — DTOs that reference worker-only domain types (e.g. memory's `CreateBody` uses `grumps_memory::MemoryKind`). Moving these to `core` would force `core` to depend on `grumps-memory`, risking a dependency cycle and bloating the SPA bundle. They stay in their route module but still `#[derive(validator::Validate)]` and flow through `route_json` — same guard/validation benefit. The SPA continues to send these as `serde_json::Value` (unchanged), since those `Api` methods were already `Value`-based, not positional.
+
+The rule: share a DTO only when both sides gain from the shared type *and* it pulls no worker-only deps into `core`.
+
 ### Form vs business validation
 
 `validator` covers form only (length, range, date regex). DB-touching checks (e.g. "is `assigned_to` a member?") stay in the handler, after extraction. We do not try to push everything into the DTO.
