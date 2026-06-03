@@ -231,6 +231,19 @@ Endpoint by endpoint, `todos.rs` first as the reference model, TDD throughout. N
 6. `cargo test` (host) and wasm builds (worker + SPA) green.
 7. Adding an access level = one `impl FromParts`; adding a field = one DTO line.
 
+## Implementation outcome (2026-06-03)
+
+Delivered on branch `feat/routes-layer-extractors`:
+
+- `extract.rs`: `ApiError` (+ `From<AuthError>`), `FromParts` trait, `Session`/`Member`/`Admin`, `route`/`route_json`. Proven to compile under the workers-rs Router bounds on `wasm32-unknown-unknown` — approach B held, no fallback to the fixed matrix needed.
+- All eight workspace route files migrated to guards; `resolve_workspace` collapsed from 8 copies to 1 (in `extract.rs`). Net ≈ −1000 lines across the route layer.
+- Shared `core::dto`: `CreateTodoRequest`, `UpdateTodoRequest`, `CreateNoteRequest`, `UpdateNoteRequest` (validator gated behind `validation`). Memory/events/scheduled keep worker-local DTOs (worker-only domain deps). SPA todos + notes use the shared types; memory/events/scheduled still post `serde_json::Value` (wire-compatible).
+- Dead auth helpers removed (`check_workspace_access`, `is_workspace_admin`).
+
+**Realized test strategy.** Worker handlers take `worker::Request`, which can't be constructed in host unit tests, so the guard *rejection paths* are covered by the existing (ignored) integration suite that hits a live `wrangler dev`, not by host units. What IS host-tested: DTO validation rules (6 tests in `core::dto`) and the rejection *contract* — `AuthError → (status, code)` mapping and `first_validation_code` (3 tests in `extract.rs`). Both green via `cargo test --target x86_64-pc-windows-msvc`.
+
+**Follow-up — i18n dictionary keys.** The migration introduced error codes (`todo.title_invalid`, `note.not_found`, `event.range_invalid`, `timezone.unsupported`, `auth.not_admin`, …) that the SPA renders via `tr()`. These keys must be added to the 14 locale dictionaries (English first, then the translate script). Until then they degrade to the literal key per the `t_plural`/`tr` fallback chain — graceful but visible.
+
 ## Out of scope (v1) — noted as future work
 
 - Structured params to interpolate validation messages (`{"max": 500}` for "max 500 chars").

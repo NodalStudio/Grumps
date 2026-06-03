@@ -138,30 +138,16 @@ impl Api for LiveApi {
     async fn get_note(&self, slug: &str, id: &str) -> Result<NoteItem, String> {
         self.get(&format!("/api/w/{}/notes/{}", slug, id)).await
     }
-    async fn create_note(
-        &self,
-        slug: &str,
-        title: &str,
-        content: &str,
-    ) -> Result<NoteItem, String> {
-        self.post(
-            &format!("/api/w/{}/notes", slug),
-            &serde_json::json!({"title": title, "content": content}),
-        )
-        .await
+    async fn create_note(&self, slug: &str, req: CreateNoteRequest) -> Result<NoteItem, String> {
+        self.post(&format!("/api/w/{}/notes", slug), &req).await
     }
     async fn update_note(
         &self,
         slug: &str,
         id: &str,
-        title: &str,
-        content: &str,
+        req: UpdateNoteRequest,
     ) -> Result<(), String> {
-        self.put(
-            &format!("/api/w/{}/notes/{}", slug, id),
-            &serde_json::json!({"title": title, "content": content}),
-        )
-        .await
+        self.put(&format!("/api/w/{}/notes/{}", slug, id), &req).await
     }
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String> {
         self.delete(&format!("/api/w/{}/notes/{}", slug, id)).await

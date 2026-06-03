@@ -3,7 +3,9 @@ pub use types::*;
 
 /// Shared request DTOs — the wire contract with the worker. Re-exported so
 /// impls and call sites use `crate::api::CreateTodoRequest`.
-pub use grumps_core::dto::{CreateTodoRequest, UpdateTodoRequest};
+pub use grumps_core::dto::{
+    CreateNoteRequest, CreateTodoRequest, UpdateNoteRequest, UpdateTodoRequest,
+};
 
 use std::sync::Arc;
 
@@ -41,14 +43,12 @@ pub trait Api: Send + Sync {
     // Notes
     async fn get_notes(&self, slug: &str) -> Result<Vec<NoteItem>, String>;
     async fn get_note(&self, slug: &str, id: &str) -> Result<NoteItem, String>;
-    async fn create_note(&self, slug: &str, title: &str, content: &str)
-        -> Result<NoteItem, String>;
+    async fn create_note(&self, slug: &str, req: CreateNoteRequest) -> Result<NoteItem, String>;
     async fn update_note(
         &self,
         slug: &str,
         id: &str,
-        title: &str,
-        content: &str,
+        req: UpdateNoteRequest,
     ) -> Result<(), String>;
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String>;
 
