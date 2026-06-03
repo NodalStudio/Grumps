@@ -1,24 +1,13 @@
 //! Calendar routes : aggregated view + iCal export.
 //! See spec § 9.
 
+use crate::extract::{Admin, Member};
 use crate::routes::util::read_query;
 use crate::{d1_rest, db, middleware};
 use grumps_calendar::aggregate::aggregate;
 use grumps_calendar::ical::generate_ical;
 use serde::{Deserialize, Serialize};
 use worker::*;
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx
-        .param("slug")
-        .ok_or_else(|| Error::RustError("missing slug".into()))?;
-    let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug)
-        .await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))
-}
 
 // ── iCal JWT claims ───────────────────────────────────────────────────────────
 
@@ -57,30 +46,8 @@ const ICAL_SETTING_KEY: &str = "ical_token";
 
 // ── GET /api/w/:slug/calendar ─────────────────────────────────────────────────
 
-pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
+pub async fn aggregated(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    let ws = m.ws;
 
     let url = req.url()?;
     // Coarse default window (the SPA/agent send explicit from/to); the workspace
@@ -151,40 +118,10 @@ pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response>
 
 // ── POST /api/w/:slug/calendar/ical-token ─────────────────────────────────────
 
-pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
-    // Admin only: minting a 1-year public-calendar token (and overwriting any
+pub async fn create_ical_token(req: Request, ctx: RouteContext<()>, a: Admin) -> Result<Response> {
+    // Admin guard: minting a 1-year public-calendar token (and overwriting any
     // existing one) is an admin action, not something any member may do.
-    let index_db = db::get_index_db(&ctx.env)?;
-    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
-        .await
-        .unwrap_or(false)
-    {
-        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
-    }
+    let ws = a.ws;
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());
@@ -215,40 +152,10 @@ pub async fn create_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Re
 
 // ── DELETE /api/w/:slug/calendar/ical-token ───────────────────────────────────
 
-pub async fn delete_ical_token(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
-    // Admin only: revoking the workspace's public-calendar token is an admin
+pub async fn delete_ical_token(req: Request, ctx: RouteContext<()>, a: Admin) -> Result<Response> {
+    // Admin guard: revoking the workspace's public-calendar token is an admin
     // action (a non-admin must not be able to break the admin's feed URL).
-    let index_db = db::get_index_db(&ctx.env)?;
-    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
-        .await
-        .unwrap_or(false)
-    {
-        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
-    }
+    let ws = a.ws;
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());

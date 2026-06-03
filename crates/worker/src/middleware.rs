@@ -72,15 +72,6 @@ pub fn verify_jwt(req: &Request, secret: &str) -> std::result::Result<Claims, St
     Ok(data.claims)
 }
 
-/// Check that the JWT claims include the requested workspace.
-pub fn check_workspace_access(claims: &Claims, slug: &str) -> std::result::Result<(), String> {
-    if claims.workspaces.contains(&slug.to_string()) {
-        Ok(())
-    } else {
-        Err("not a member of this workspace".to_string())
-    }
-}
-
 /// Legacy JWT (no sid/csrf) — used by the WA OTP Bearer flow.
 pub fn create_jwt(
     user_id: &str,
@@ -170,7 +161,7 @@ pub fn is_super_admin(env: &worker::Env, claims: &Claims) -> bool {
 }
 
 /// Check if a user has the `admin` role in a workspace, querying the index DB.
-/// Cheaper than `is_workspace_admin` (no per-workspace DB connection needed).
+/// Reads the role from the index DB (no per-workspace DB connection needed).
 pub async fn is_workspace_admin_by_slug(
     index_db: &worker::D1Database,
     user_id: &str,
@@ -186,23 +177,6 @@ pub async fn is_workspace_admin_by_slug(
         .first::<Row>(None)
         .await?;
     Ok(row.map(|r| r.role == "admin").unwrap_or(false))
-}
-
-/// Check if the current user has admin role in the given workspace.
-/// Returns true if super_admin (overrides), or if their member.role == 'admin'.
-pub async fn is_workspace_admin(
-    env: &worker::Env,
-    ws_db: &crate::db::WorkspaceDb<'_>,
-    claims: &Claims,
-) -> worker::Result<bool> {
-    if is_super_admin(env, claims) {
-        return Ok(true);
-    }
-    let role = ws_db
-        .get_member_role(&claims.sub)
-        .await?
-        .unwrap_or_default();
-    Ok(role == "admin")
 }
 
 /// Returns a JSON error response with CORS headers already applied.
