@@ -44,12 +44,8 @@ pub trait Api: Send + Sync {
     async fn get_notes(&self, slug: &str) -> Result<Vec<NoteItem>, String>;
     async fn get_note(&self, slug: &str, id: &str) -> Result<NoteItem, String>;
     async fn create_note(&self, slug: &str, req: CreateNoteRequest) -> Result<NoteItem, String>;
-    async fn update_note(
-        &self,
-        slug: &str,
-        id: &str,
-        req: UpdateNoteRequest,
-    ) -> Result<(), String>;
+    async fn update_note(&self, slug: &str, id: &str, req: UpdateNoteRequest)
+        -> Result<(), String>;
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String>;
 
     // History + Members

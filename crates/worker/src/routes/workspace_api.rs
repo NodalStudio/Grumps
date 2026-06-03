@@ -8,7 +8,11 @@ use worker::*;
 
 // ── GET /api/workspaces ───────────────────────────────────────────────────────
 
-pub async fn list_my_workspaces(req: Request, ctx: RouteContext<()>, s: Session) -> Result<Response> {
+pub async fn list_my_workspaces(
+    req: Request,
+    ctx: RouteContext<()>,
+    s: Session,
+) -> Result<Response> {
     let claims = s.0;
     let index_db = db::get_index_db(&ctx.env)?;
     let mut workspaces = Vec::new();

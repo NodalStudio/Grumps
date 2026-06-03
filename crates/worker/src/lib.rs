@@ -88,7 +88,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/api/workspaces",
             extract::route(routes::workspace_api::list_my_workspaces),
         )
-        .patch_async("/api/me", extract::route_json(routes::workspace_api::update_me))
+        .patch_async(
+            "/api/me",
+            extract::route_json(routes::workspace_api::update_me),
+        )
         .get_async(
             "/api/w/:slug",
             extract::route(routes::workspace_api::workspace_info),
@@ -114,7 +117,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             extract::route_json(routes::workspace_api::update_workspace_name),
         )
         // Todos
-        .get_async("/api/w/:slug/todos", extract::route(routes::todos::list_todos))
+        .get_async(
+            "/api/w/:slug/todos",
+            extract::route(routes::todos::list_todos),
+        )
         .post_async(
             "/api/w/:slug/todos",
             extract::route_json(routes::todos::create_todo),
@@ -128,7 +134,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             extract::route(routes::todos::delete_todo),
         )
         // Notes
-        .get_async("/api/w/:slug/notes", extract::route(routes::notes::list_notes))
+        .get_async(
+            "/api/w/:slug/notes",
+            extract::route(routes::notes::list_notes),
+        )
         .post_async(
             "/api/w/:slug/notes",
             extract::route_json(routes::notes::create_note),

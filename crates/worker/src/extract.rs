@@ -78,7 +78,9 @@ impl From<AuthError> for ApiError {
 /// Resolve the `:slug` path param to its workspace metadata row. Single source
 /// of truth — replaces the eight verbatim copies that used to live one per
 /// route module.
-async fn resolve_workspace(ctx: &RouteContext<()>) -> std::result::Result<db::WorkspaceMetaRow, ApiError> {
+async fn resolve_workspace(
+    ctx: &RouteContext<()>,
+) -> std::result::Result<db::WorkspaceMetaRow, ApiError> {
     let slug = ctx
         .param("slug")
         .ok_or_else(|| ApiError::not_found("workspace.not_found"))?;

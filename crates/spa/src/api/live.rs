@@ -147,7 +147,8 @@ impl Api for LiveApi {
         id: &str,
         req: UpdateNoteRequest,
     ) -> Result<(), String> {
-        self.put(&format!("/api/w/{}/notes/{}", slug, id), &req).await
+        self.put(&format!("/api/w/{}/notes/{}", slug, id), &req)
+            .await
     }
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String> {
         self.delete(&format!("/api/w/{}/notes/{}", slug, id)).await
