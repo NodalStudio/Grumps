@@ -40,13 +40,11 @@ impl Api for DemoApi {
         }
         Ok(items)
     }
-    async fn create_todo(
-        &self,
-        _slug: &str,
-        title: &str,
-        priority: i32,
-    ) -> Result<TodoItem, String> {
-        Ok(crate::demo::new_todo(title, priority))
+    async fn create_todo(&self, _slug: &str, req: CreateTodoRequest) -> Result<TodoItem, String> {
+        Ok(crate::demo::new_todo(
+            req.title.trim(),
+            req.priority.unwrap_or(2),
+        ))
     }
     async fn update_todo(
         &self,
@@ -69,20 +67,17 @@ impl Api for DemoApi {
             .find(|n| n.id == id)
             .ok_or_else(|| "demo: note not found".into())
     }
-    async fn create_note(
-        &self,
-        _slug: &str,
-        title: &str,
-        content: &str,
-    ) -> Result<NoteItem, String> {
-        Ok(crate::demo::new_note(title, content))
+    async fn create_note(&self, _slug: &str, req: CreateNoteRequest) -> Result<NoteItem, String> {
+        Ok(crate::demo::new_note(
+            &req.title.unwrap_or_default(),
+            &req.content,
+        ))
     }
     async fn update_note(
         &self,
         _slug: &str,
         _id: &str,
-        _title: &str,
-        _content: &str,
+        _req: UpdateNoteRequest,
     ) -> Result<(), String> {
         Ok(())
     }

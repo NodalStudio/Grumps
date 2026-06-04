@@ -1,21 +1,10 @@
 //! Observability endpoint — aggregated LLM telemetry for admin dashboard.
 //! GET /api/w/:slug/admin/observability
 
+use crate::extract::{ApiError, Member};
 use crate::{d1_rest, db, middleware};
 use serde::Serialize;
 use worker::*;
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx
-        .param("slug")
-        .ok_or_else(|| Error::RustError("missing slug".into()))?;
-    let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug)
-        .await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))
-}
 
 // ── Response shape ────────────────────────────────────────────────────────────
 
@@ -46,35 +35,13 @@ pub struct ObservabilityResponse {
 
 // ── GET /api/w/:slug/admin/observability ─────────────────────────────────────
 
-pub async fn aggregated(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
+pub async fn aggregated(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    // This dashboard is super-admin only — stricter than the `Admin` guard
+    // (which also accepts workspace admins), so the gate stays inline.
+    if !middleware::is_super_admin(&ctx.env, &m.claims) {
+        return ApiError::forbidden("auth.super_admin_only").into_response(&req);
     }
-
-    // Super admin only
-    if !middleware::is_super_admin(&ctx.env, &claims) {
-        return middleware::error_with_cors(&req, 403, "auth.super_admin_only", "super admin only");
-    }
+    let ws = m.ws;
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id.clone());

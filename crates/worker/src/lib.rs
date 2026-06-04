@@ -6,6 +6,7 @@ mod d1_rest;
 mod db;
 mod durable_objects;
 mod error;
+mod extract;
 mod handler;
 mod llm_client;
 mod middleware;
@@ -83,67 +84,143 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::sessions::revoke_all_others,
         )
         // Workspaces
-        .get_async("/api/workspaces", routes::workspace_api::list_my_workspaces)
-        .patch_async("/api/me", routes::workspace_api::update_me)
-        .get_async("/api/w/:slug", routes::workspace_api::workspace_info)
+        .get_async(
+            "/api/workspaces",
+            extract::route(routes::workspace_api::list_my_workspaces),
+        )
+        .patch_async(
+            "/api/me",
+            extract::route_json(routes::workspace_api::update_me),
+        )
+        .get_async(
+            "/api/w/:slug",
+            extract::route(routes::workspace_api::workspace_info),
+        )
         .get_async(
             "/api/w/:slug/history",
-            routes::workspace_api::workspace_history,
+            extract::route(routes::workspace_api::workspace_history),
         )
         .get_async(
             "/api/w/:slug/members",
-            routes::workspace_api::workspace_members,
+            extract::route(routes::workspace_api::workspace_members),
         )
         .patch_async(
             "/api/w/:slug/settings/locale",
-            routes::workspace_api::update_locale,
+            extract::route_json(routes::workspace_api::update_locale),
         )
         .patch_async(
             "/api/w/:slug/settings/timezone",
-            routes::workspace_api::update_timezone,
+            extract::route_json(routes::workspace_api::update_timezone),
         )
         .patch_async(
             "/api/w/:slug/settings/name",
-            routes::workspace_api::update_workspace_name,
+            extract::route_json(routes::workspace_api::update_workspace_name),
         )
         // Todos
-        .get_async("/api/w/:slug/todos", routes::todos::list_todos)
-        .post_async("/api/w/:slug/todos", routes::todos::create_todo)
-        .patch_async("/api/w/:slug/todos/:id", routes::todos::update_todo)
-        .delete_async("/api/w/:slug/todos/:id", routes::todos::delete_todo)
+        .get_async(
+            "/api/w/:slug/todos",
+            extract::route(routes::todos::list_todos),
+        )
+        .post_async(
+            "/api/w/:slug/todos",
+            extract::route_json(routes::todos::create_todo),
+        )
+        .patch_async(
+            "/api/w/:slug/todos/:id",
+            extract::route_json(routes::todos::update_todo),
+        )
+        .delete_async(
+            "/api/w/:slug/todos/:id",
+            extract::route(routes::todos::delete_todo),
+        )
         // Notes
-        .get_async("/api/w/:slug/notes", routes::notes::list_notes)
-        .post_async("/api/w/:slug/notes", routes::notes::create_note)
-        .get_async("/api/w/:slug/notes/:id", routes::notes::get_note)
-        .put_async("/api/w/:slug/notes/:id", routes::notes::update_note)
-        .delete_async("/api/w/:slug/notes/:id", routes::notes::delete_note)
+        .get_async(
+            "/api/w/:slug/notes",
+            extract::route(routes::notes::list_notes),
+        )
+        .post_async(
+            "/api/w/:slug/notes",
+            extract::route_json(routes::notes::create_note),
+        )
+        .get_async(
+            "/api/w/:slug/notes/:id",
+            extract::route(routes::notes::get_note),
+        )
+        .put_async(
+            "/api/w/:slug/notes/:id",
+            extract::route_json(routes::notes::update_note),
+        )
+        .delete_async(
+            "/api/w/:slug/notes/:id",
+            extract::route(routes::notes::delete_note),
+        )
         // Memory
-        .get_async("/api/w/:slug/memory", routes::memory::list)
-        .post_async("/api/w/:slug/memory", routes::memory::create)
-        .get_async("/api/w/:slug/memory/:id", routes::memory::get)
-        .put_async("/api/w/:slug/memory/:id", routes::memory::update)
-        .delete_async("/api/w/:slug/memory/:id", routes::memory::delete)
+        .get_async("/api/w/:slug/memory", extract::route(routes::memory::list))
+        .post_async(
+            "/api/w/:slug/memory",
+            extract::route_json(routes::memory::create),
+        )
+        .get_async(
+            "/api/w/:slug/memory/:id",
+            extract::route(routes::memory::get),
+        )
+        .put_async(
+            "/api/w/:slug/memory/:id",
+            extract::route_json(routes::memory::update),
+        )
+        .delete_async(
+            "/api/w/:slug/memory/:id",
+            extract::route(routes::memory::delete),
+        )
         // Events
-        .get_async("/api/w/:slug/events", routes::events::list)
-        .post_async("/api/w/:slug/events", routes::events::create)
-        .get_async("/api/w/:slug/events/:id", routes::events::get)
-        .put_async("/api/w/:slug/events/:id", routes::events::update)
-        .delete_async("/api/w/:slug/events/:id", routes::events::delete)
+        .get_async("/api/w/:slug/events", extract::route(routes::events::list))
+        .post_async(
+            "/api/w/:slug/events",
+            extract::route_json(routes::events::create),
+        )
+        .get_async(
+            "/api/w/:slug/events/:id",
+            extract::route(routes::events::get),
+        )
+        .put_async(
+            "/api/w/:slug/events/:id",
+            extract::route_json(routes::events::update),
+        )
+        .delete_async(
+            "/api/w/:slug/events/:id",
+            extract::route(routes::events::delete),
+        )
         // Scheduled actions
-        .get_async("/api/w/:slug/scheduled", routes::scheduled::list)
-        .post_async("/api/w/:slug/scheduled", routes::scheduled::create)
-        .get_async("/api/w/:slug/scheduled/:id", routes::scheduled::get)
-        .delete_async("/api/w/:slug/scheduled/:id", routes::scheduled::delete)
+        .get_async(
+            "/api/w/:slug/scheduled",
+            extract::route(routes::scheduled::list),
+        )
+        .post_async(
+            "/api/w/:slug/scheduled",
+            extract::route_json(routes::scheduled::create),
+        )
+        .get_async(
+            "/api/w/:slug/scheduled/:id",
+            extract::route(routes::scheduled::get),
+        )
+        .delete_async(
+            "/api/w/:slug/scheduled/:id",
+            extract::route(routes::scheduled::delete),
+        )
         // Calendar aggregation + iCal
-        .get_async("/api/w/:slug/calendar", routes::calendar::aggregated)
+        .get_async(
+            "/api/w/:slug/calendar",
+            extract::route(routes::calendar::aggregated),
+        )
         .post_async(
             "/api/w/:slug/calendar/ical-token",
-            routes::calendar::create_ical_token,
+            extract::route(routes::calendar::create_ical_token),
         )
         .delete_async(
             "/api/w/:slug/calendar/ical-token",
-            routes::calendar::delete_ical_token,
+            extract::route(routes::calendar::delete_ical_token),
         )
+        // Public iCal feed — JWT token in query, not a cookie session; stays unguarded.
         .get_async("/cal/:slug", routes::calendar::ical_feed)
         // Export
         .get_async("/api/w/:slug/export/todos", routes::export::export_todos)
@@ -151,7 +228,7 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         // Observability
         .get_async(
             "/api/w/:slug/admin/observability",
-            routes::observability::aggregated,
+            extract::route(routes::observability::aggregated),
         )
         // Super admin
         .get_async(

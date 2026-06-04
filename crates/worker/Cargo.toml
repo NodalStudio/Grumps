@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-grumps-core = { path = "../core" }
+grumps-core = { path = "../core", features = ["validation"] }
 grumps-agent = { path = "../agent" }
 grumps-nlu = { path = "../nlu" }
 grumps-messaging = { path = "../messaging" }
@@ -24,6 +24,7 @@ thiserror.workspace = true
 # `rust_crypto` backend. Omitting both makes `encode`/`decode` panic at runtime.
 jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
 async-trait = "0.1"
+validator = { workspace = true }
 sha2 = "0.11"
 hmac = "0.13"
 hex = "0.4"

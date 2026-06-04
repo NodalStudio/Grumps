@@ -8,3 +8,15 @@ serde.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+validator = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+# Pulls the `validator` derive + runtime so request DTOs can self-validate.
+# Enabled by the worker; left off by the SPA to keep the WASM bundle small.
+validation = ["dep:validator"]
+
+[dev-dependencies]
+# Available under `cfg(test)` so the DTO validation rules (gated on
+# `any(feature = "validation", test)`) run in CI's default `cargo test`,
+# without turning the feature on for normal SPA builds.
+validator = { workspace = true, features = ["derive"] }

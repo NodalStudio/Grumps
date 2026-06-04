@@ -1,28 +1,19 @@
 // crates/worker/src/routes/workspace_api.rs
+use crate::extract::{Admin, ApiError, Member, Session};
 use crate::{d1_rest, db, middleware};
 use grumps_messaging::telegram::TelegramAdapter;
+use serde::Deserialize;
+use validator::Validate;
 use worker::*;
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-async fn resolve_workspace(ctx: &RouteContext<()>) -> Result<db::WorkspaceMetaRow> {
-    let slug = ctx
-        .param("slug")
-        .ok_or_else(|| Error::RustError("missing slug".into()))?;
-    let index_db = db::get_index_db(&ctx.env)?;
-    db::lookup_workspace_by_slug(&index_db, slug)
-        .await?
-        .ok_or_else(|| Error::RustError("workspace not found".into()))
-}
 
 // ── GET /api/workspaces ───────────────────────────────────────────────────────
 
-pub async fn list_my_workspaces(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-
+pub async fn list_my_workspaces(
+    req: Request,
+    ctx: RouteContext<()>,
+    s: Session,
+) -> Result<Response> {
+    let claims = s.0;
     let index_db = db::get_index_db(&ctx.env)?;
     let mut workspaces = Vec::new();
     for slug in &claims.workspaces {
@@ -40,31 +31,8 @@ pub async fn list_my_workspaces(req: Request, ctx: RouteContext<()>) -> Result<R
 
 // ── GET /api/w/:slug ─────────────────────────────────────────────────────────
 
-pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn workspace_info(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    let ws = m.ws;
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
     let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
     // The SPA renders all timestamps in this timezone (never the browser's);
@@ -104,31 +72,7 @@ pub async fn workspace_info(req: Request, ctx: RouteContext<()>) -> Result<Respo
 
 // ── GET /api/w/:slug/history ──────────────────────────────────────────────────
 
-pub async fn workspace_history(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn workspace_history(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let url = req.url()?;
     let params: std::collections::HashMap<String, String> = url
         .query_pairs()
@@ -141,7 +85,7 @@ pub async fn workspace_history(req: Request, ctx: RouteContext<()>) -> Result<Re
         .min(200);
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
     let log = ws_db.get_activity_log(limit).await?;
 
     middleware::with_cors(&req, Response::from_json(&log)?)
@@ -149,33 +93,9 @@ pub async fn workspace_history(req: Request, ctx: RouteContext<()>) -> Result<Re
 
 // ── GET /api/w/:slug/members ──────────────────────────────────────────────────
 
-pub async fn workspace_members(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
-
+pub async fn workspace_members(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
     let members = ws_db.get_members().await?;
 
     middleware::with_cors(&req, Response::from_json(&members)?)
@@ -183,56 +103,26 @@ pub async fn workspace_members(req: Request, ctx: RouteContext<()>) -> Result<Re
 
 // ── PATCH /api/w/:slug/settings/locale ────────────────────────────────────────
 
-pub async fn update_locale(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
+#[derive(Deserialize, Validate)]
+pub struct LocaleBody {
+    locale: String,
+}
 
+pub async fn update_locale(
+    req: Request,
+    ctx: RouteContext<()>,
+    a: Admin,
+    body: LocaleBody,
+) -> Result<Response> {
+    let ws = a.ws;
     let index_db = db::get_index_db(&ctx.env)?;
-
-    // Workspace-admin-only.
-    let is_admin = middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
-        .await
-        .unwrap_or(false);
-    if !is_admin {
-        return middleware::with_cors(&req, Response::error("forbidden: admin required", 403)?);
-    }
-
-    #[derive(serde::Deserialize)]
-    struct Body {
-        locale: String,
-    }
-    let body: Body = req
-        .json()
-        .await
-        .map_err(|e| Error::RustError(format!("bad body: {e}")))?;
 
     // Validate: the request locale must be one of the 14 supported codes.
     // `Locale::from_code` silently falls back to En for unknown input,
     // so compare its output against the request to detect invalid input.
     let resolved = grumps_i18n::Locale::from_code(&body.locale);
     if resolved.code() != body.locale {
-        return middleware::with_cors(&req, Response::error("unsupported locale", 400)?);
+        return ApiError::bad_request("locale.unsupported").into_response(&req);
     }
 
     db::update_workspace_locale(&index_db, &ws.slug, resolved.code()).await?;
@@ -269,50 +159,27 @@ pub async fn update_locale(mut req: Request, ctx: RouteContext<()>) -> Result<Re
 //   - source="detected" (browser auto-detect): writes ONLY if not yet set
 //     explicitly. Any member may trigger it; the first detection wins.
 //   - source="admin": admin-only, always wins and locks out auto-detect.
-pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let ws = match resolve_workspace(&ctx).await {
-        Ok(w) => w,
-        Err(_) => {
-            return middleware::error_with_cors(
-                &req,
-                404,
-                "workspace.not_found",
-                "workspace not found",
-            )
-        }
-    };
-    if !claims.workspaces.contains(&ws.slug) {
-        return middleware::error_with_cors(
-            &req,
-            403,
-            "auth.not_member",
-            "not a member of this workspace",
-        );
-    }
+#[derive(Deserialize, Validate)]
+pub struct TimezoneBody {
+    timezone: String,
+    #[serde(default)]
+    source: Option<String>,
+}
 
-    #[derive(serde::Deserialize)]
-    struct Body {
-        timezone: String,
-        #[serde(default)]
-        source: Option<String>,
-    }
-    let body: Body = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
-
+pub async fn update_timezone(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: TimezoneBody,
+) -> Result<Response> {
     // Validate: must be a real IANA timezone name.
     if body.timezone.parse::<chrono_tz::Tz>().is_err() {
-        return middleware::error_with_cors(&req, 400, "bad_request", "unsupported timezone");
+        return ApiError::bad_request("timezone.unsupported").into_response(&req);
     }
     let source = body.source.as_deref().unwrap_or("detected");
 
     let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
-    let ws_db = db::WorkspaceDb::new(&client, ws.d1_database_id);
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
     let current_source = ws_db
         .get_setting("timezone_source")
         .await
@@ -321,12 +188,14 @@ pub async fn update_timezone(mut req: Request, ctx: RouteContext<()>) -> Result<
         .unwrap_or_default();
 
     if source == "admin" {
+        // The admin source requires the admin role — checked here since the
+        // route itself is open to any member for the auto-detect path.
         let index_db = db::get_index_db(&ctx.env)?;
-        if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &ws.slug)
+        if !middleware::is_workspace_admin_by_slug(&index_db, &m.claims.sub, &m.ws.slug)
             .await
             .unwrap_or(false)
         {
-            return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
+            return ApiError::forbidden("auth.not_admin").into_response(&req);
         }
         ws_db.set_setting("timezone", &body.timezone).await?;
         ws_db.set_setting("timezone_source", "admin").await?;
@@ -359,26 +228,26 @@ fn build_tg_adapter(ctx: &RouteContext<()>) -> Result<TelegramAdapter> {
     ))
 }
 
-#[derive(serde::Deserialize)]
-struct UpdateMe {
+// ── PATCH /api/me ─────────────────────────────────────────────────────────────
+
+#[derive(Deserialize, Validate)]
+pub struct UpdateMe {
     display_name: Option<String>,
     default_locale: Option<String>,
 }
 
-pub async fn update_me(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let body: UpdateMe = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
+pub async fn update_me(
+    req: Request,
+    ctx: RouteContext<()>,
+    s: Session,
+    body: UpdateMe,
+) -> Result<Response> {
+    let claims = s.0;
 
     // Validate locale if provided.
     if let Some(loc) = &body.default_locale {
         if grumps_i18n::Locale::from_code(loc).code() != loc.as_str() {
-            return middleware::error_with_cors(&req, 400, "bad_request", "unknown locale");
+            return ApiError::bad_request("locale.unsupported").into_response(&req);
         }
     }
     // Validate display_name length when provided. Empty / whitespace-only
@@ -386,12 +255,7 @@ pub async fn update_me(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
     if let Some(name) = &body.display_name {
         let trimmed = name.trim();
         if trimmed.is_empty() || trimmed.len() > 80 {
-            return middleware::error_with_cors(
-                &req,
-                400,
-                "bad_request",
-                "display_name must be 1-80 chars",
-            );
+            return ApiError::bad_request("profile.display_name_invalid").into_response(&req);
         }
     }
 
@@ -410,35 +274,25 @@ pub async fn update_me(mut req: Request, ctx: RouteContext<()>) -> Result<Respon
     Ok(resp)
 }
 
-#[derive(serde::Deserialize)]
-struct UpdateWorkspaceName {
+// ── PATCH /api/w/:slug/settings/name ──────────────────────────────────────────
+
+#[derive(Deserialize, Validate)]
+pub struct UpdateWorkspaceName {
     name: String,
 }
 
-pub async fn update_workspace_name(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let claims = match middleware::verify_session(&req, &ctx.env).await {
-        Ok(c) => c,
-        Err(e) => return middleware::error_with_cors(&req, e.status(), e.code(), &e.to_string()),
-    };
-    let slug = match ctx.param("slug") {
-        Some(s) => s.clone(),
-        None => return middleware::error_with_cors(&req, 400, "bad_request", "missing slug"),
-    };
-
-    // Admin-only: check via index DB.
+pub async fn update_workspace_name(
+    req: Request,
+    ctx: RouteContext<()>,
+    a: Admin,
+    body: UpdateWorkspaceName,
+) -> Result<Response> {
+    let slug = a.ws.slug;
     let index_db = crate::db::get_index_db(&ctx.env)?;
-    if !middleware::is_workspace_admin_by_slug(&index_db, &claims.sub, &slug).await? {
-        return middleware::error_with_cors(&req, 403, "auth.not_admin", "admin role required");
-    }
-
-    let body: UpdateWorkspaceName = match req.json().await {
-        Ok(b) => b,
-        Err(_) => return middleware::error_with_cors(&req, 400, "bad_request", "invalid JSON"),
-    };
 
     let trimmed = body.name.trim();
     if trimmed.is_empty() || trimmed.len() > 80 {
-        return middleware::error_with_cors(&req, 400, "bad_request", "name must be 1-80 chars");
+        return ApiError::bad_request("workspace.name_invalid").into_response(&req);
     }
 
     crate::db::update_workspace_name(&index_db, &slug, trimmed).await?;

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 grumps-i18n = { path = "../i18n" }
+grumps-core = { path = "../core" }
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = "0.8"
 gloo-net = { version = "0.7", features = ["http"] }

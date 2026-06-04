@@ -39,8 +39,13 @@ pub fn TodosPage() -> impl IntoView {
             return;
         }
         set_new_title.set(String::new());
+        let req = crate::api::CreateTodoRequest {
+            title: title.trim().to_string(),
+            priority: Some(2),
+            ..Default::default()
+        };
         leptos::task::spawn_local(async move {
-            let _ = api.create_todo(&s, &title, 2).await;
+            let _ = api.create_todo(&s, req).await;
             set_refresh.update(|n| *n += 1);
         });
     };

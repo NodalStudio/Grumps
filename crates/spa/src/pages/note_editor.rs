@@ -39,11 +39,13 @@ pub fn NoteEditorPage() -> impl IntoView {
         let api = api_for_save.clone();
         let s = slug();
         let id = note_id();
-        let t = title.get();
-        let c = content.get();
+        let req = crate::api::UpdateNoteRequest {
+            title: Some(title.get()),
+            content: content.get(),
+        };
         set_save_state.set(SaveState::Saving);
         spawn_local(async move {
-            match api.update_note(&s, &id, &t, &c).await {
+            match api.update_note(&s, &id, req).await {
                 Ok(()) => set_save_state.set(SaveState::Saved),
                 Err(_) => set_save_state.set(SaveState::Error),
             }
