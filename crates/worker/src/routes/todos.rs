@@ -80,7 +80,7 @@ pub async fn create_todo(
     let assigned_name = body.assigned_name.unwrap_or_default();
     let (todo_id, seq_num) = ws_db
         .insert_todo(
-            body.title.trim(),
+            &body.title, // already trimmed at deserialize (CreateTodoRequest)
             body.priority.unwrap_or(2),
             &tags_json,
             &assigned_to,
@@ -129,7 +129,7 @@ pub async fn update_todo(
     ws_db
         .update_todo(
             &todo_id,
-            body.title.as_deref().map(str::trim),
+            body.title.as_deref(), // already trimmed at deserialize (UpdateTodoRequest)
             body.status.as_deref(),
             body.priority,
             body.assigned_to.as_deref(),

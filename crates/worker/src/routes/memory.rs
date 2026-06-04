@@ -41,6 +41,7 @@ pub async fn list(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Resp
 #[derive(Deserialize, Validate)]
 pub struct CreateBody {
     key: Option<String>,
+    #[serde(deserialize_with = "grumps_core::dto::de_trim")]
     #[validate(length(min = 1, code = "memory.value_required"))]
     value: String,
     kind: grumps_memory::MemoryKind,
