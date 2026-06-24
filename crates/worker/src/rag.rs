@@ -141,7 +141,11 @@ pub async fn embed(env: &Env, text: &str) -> Result<Vec<f32>> {
 /// Ingest a chat message: embed + upsert to Vectorize via CF REST API.
 ///
 /// Skips messages shorter than 20 chars.
-/// Vector ID: `{workspace_slug}:{sender_member_id}:{timestamp}`.
+/// Vector ID: `{sender_member_id}:{timestamp_millis}`. The workspace is already
+/// carried by the `namespace` + metadata (it scopes queries), so it's left out
+/// of the id; and the timestamp is compacted to epoch millis so the id stays
+/// within Vectorize's 64-byte id limit (a UUID member id + RFC3339 timestamp
+/// would overflow it).
 pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> {
     if meta.text.len() < 20 {
         return Ok(());
@@ -153,10 +157,11 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
     let account_id = env.secret("CF_ACCOUNT_ID")?.to_string();
     let token = env.secret("CF_API_TOKEN")?.to_string();
 
-    let id = format!(
-        "{}:{}:{}",
-        meta.workspace_slug, meta.sender_member_id, meta.timestamp
-    );
+    // Compact the RFC3339 timestamp to epoch millis to keep the id <= 64 bytes.
+    let ts_compact = chrono::DateTime::parse_from_rfc3339(&meta.timestamp)
+        .map(|dt| dt.timestamp_millis().to_string())
+        .unwrap_or_else(|_| meta.timestamp.clone());
+    let id = format!("{}:{}", meta.sender_member_id, ts_compact);
 
     let body = VectorizeUpsertBody {
         vectors: vec![VectorizeVector {
@@ -167,7 +172,7 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
         }],
     };
 
-    let url = format!("{}/upsert", vectorize_base(&account_id, "CHAT_RAG"));
+    let url = format!("{}/upsert", vectorize_base(&account_id, "grumps-chat-rag"));
     let body_str = serde_json::to_string(&body)
         .map_err(|e| Error::RustError(e.to_string()))?;
 
@@ -202,7 +207,7 @@ pub async fn query_chat_history(
         return_metadata: true,
     };
 
-    let url = format!("{}/query", vectorize_base(&account_id, "CHAT_RAG"));
+    let url = format!("{}/query", vectorize_base(&account_id, "grumps-chat-rag"));
     let body_str = serde_json::to_string(&body)
         .map_err(|e| Error::RustError(e.to_string()))?;
 
