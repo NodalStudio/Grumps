@@ -41,6 +41,18 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     };
 
+    crate::observability::log_inbound(
+        &crate::observability::request_id(&req),
+        "whatsapp",
+        &inbound.channel_id,
+        &inbound.sender_id,
+        &inbound.sender_name,
+        &inbound.message_id,
+        inbound.text.as_deref(),
+        inbound.is_mention_to_bot,
+        inbound.is_direct_message,
+    );
+
     // 3. Dedup via KV
     let kv = ctx.kv("KV")?;
     let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
