@@ -43,7 +43,7 @@ pub fn query_memory() -> Value {
 pub fn query_chat_history() -> Value {
     json!({
         "name": "query_chat_history",
-        "description": "Semantic search over past chat messages in this group. Use when the user asks 'what did we say about...', 'when did X happen', etc. Each result is a matching message PLUS the surrounding conversation (a context window) and an `anchor_id`. If a window is still not enough, call `read_chat_around` with that `anchor_id` to pull more.",
+        "description": "Semantic search over this group's past chat messages. Call this WHENEVER the answer depends on something said earlier that is not in the messages currently in front of you — e.g. the user refers to a past discussion, asks 'what did we decide/say about X', 'when did X happen', 'what was that thing about…', or mentions a person/plan/topic you have no current context for. When in doubt, search rather than answering from memory — the recent messages you can see are only a small window of the full history. Each result is a matching message PLUS the surrounding conversation (a context window) and an `anchor_id`; if that window is still not enough, call `read_chat_around` with the `anchor_id` to pull more.",
         "input_schema": {
             "type": "object",
             "properties": {
