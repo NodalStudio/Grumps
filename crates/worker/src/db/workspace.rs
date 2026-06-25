@@ -434,37 +434,31 @@ impl<'a> WorkspaceDb<'a> {
     }
 
     /// Fetch the messages surrounding an anchor message, in chronological order,
-    /// including the anchor itself. Two bounded queries keyed on the UUIDv7 id
-    /// (which is time-ordered): `before` messages strictly before the anchor and
-    /// `after` messages from the anchor onward. Robust to gaps — `LIMIT` caps
-    /// each side regardless of id arithmetic.
+    /// including the anchor itself. Keyed on the time-ordered UUIDv7 id: up to
+    /// `before` messages strictly before the anchor and `after` from the anchor
+    /// onward. Done in ONE query (a single D1 subrequest) — each REST call counts
+    /// against the Worker per-invocation subrequest budget, so we avoid a
+    /// query-per-side. Robust to gaps; `LIMIT` caps each side.
     pub async fn get_messages_around(
         &self,
         anchor_id: &str,
         before: i64,
         after: i64,
     ) -> Result<Vec<ChatMessageRow>> {
-        let before_resp = self
+        let resp = self
             .q(
-                "SELECT id, sender_name, text, created_at FROM messages \
-                 WHERE id < ?1 ORDER BY id DESC LIMIT ?2",
-                vec![anchor_id.into(), before.into()],
+                "SELECT id, sender_name, text, created_at FROM \
+                   (SELECT id, sender_name, text, created_at FROM messages \
+                    WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
+                 UNION ALL \
+                 SELECT id, sender_name, text, created_at FROM \
+                   (SELECT id, sender_name, text, created_at FROM messages \
+                    WHERE id >= ?1 ORDER BY id ASC LIMIT ?3) \
+                 ORDER BY id ASC",
+                vec![anchor_id.into(), before.into(), after.into()],
             )
             .await?;
-        let mut older: Vec<ChatMessageRow> = extract_rows(&before_resp)?;
-        older.reverse(); // DESC -> chronological
-
-        let after_resp = self
-            .q(
-                "SELECT id, sender_name, text, created_at FROM messages \
-                 WHERE id >= ?1 ORDER BY id ASC LIMIT ?2",
-                vec![anchor_id.into(), after.into()],
-            )
-            .await?;
-        let newer: Vec<ChatMessageRow> = extract_rows(&after_resp)?;
-
-        older.extend(newer);
-        Ok(older)
+        extract_rows(&resp)
     }
 
     // --- Activity log ---

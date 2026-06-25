@@ -152,11 +152,11 @@ fn timezone_seed_default_is_utc() {
     );
 }
 
-/// The RAG context window (`WorkspaceDb::get_messages_around`) issues two bounded
-/// queries keyed on the time-ordered UUIDv7 id. This exercises the exact query
-/// shapes against the real `messages` schema, and proves a SHORT reply (never
-/// embedded into Vectorize) is still returned as part of the window — the whole
-/// point of the messages history table.
+/// The RAG context window (`WorkspaceDb::get_messages_around`) issues ONE bounded
+/// UNION query keyed on the time-ordered UUIDv7 id. This exercises the exact
+/// query shape against the real `messages` schema, and proves a SHORT reply
+/// (never embedded into Vectorize) is still returned as part of the window — the
+/// whole point of the messages history table.
 #[test]
 fn messages_window_around_anchor() {
     let c = Connection::open_in_memory().unwrap();
@@ -182,30 +182,27 @@ fn messages_window_around_anchor() {
         .unwrap();
     }
 
-    let select = |sql: &str, anchor: &str, limit: i64| -> Vec<String> {
-        let mut stmt = c.prepare(sql).unwrap();
-        let it = stmt
-            .query_map(rusqlite::params![anchor, limit], |r| r.get::<_, String>(0))
-            .unwrap();
-        it.map(|r| r.unwrap()).collect()
-    };
-
+    // The exact single-query shape used by WorkspaceDb::get_messages_around:
+    // a `before` subquery (newest-first, limited) UNION an `after` subquery
+    // (anchor onward, limited), re-sorted chronologically.
     let anchor = "019e0002";
-    // `before`: strictly-earlier messages, newest-first (the impl reverses these).
-    let mut older = select(
-        "SELECT text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2",
-        anchor,
-        5,
-    );
-    older.reverse();
-    // `after`: anchor onward, chronological.
-    let newer = select(
-        "SELECT text FROM messages WHERE id >= ?1 ORDER BY id ASC LIMIT ?2",
-        anchor,
-        5,
-    );
-
-    let window: Vec<String> = older.into_iter().chain(newer).collect();
+    let mut stmt = c
+        .prepare(
+            "SELECT id, text FROM \
+               (SELECT id, text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
+             UNION ALL \
+             SELECT id, text FROM \
+               (SELECT id, text FROM messages WHERE id >= ?1 ORDER BY id ASC LIMIT ?3) \
+             ORDER BY id ASC",
+        )
+        .unwrap();
+    let window: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 5_i64, 5_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
     assert_eq!(
         window,
         vec![

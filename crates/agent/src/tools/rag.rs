@@ -9,6 +9,10 @@ const MAX_SIDE_MSGS: i64 = 15;
 /// Approximate context budget per side of a match (in characters). Adapts the
 /// window to message length: many short messages vs few long ones.
 const SIDE_BUDGET_CHARS: usize = 1200;
+/// Only the top-ranked hits get a context window — each expansion is a D1
+/// subrequest, and a Worker invocation has a bounded subrequest budget shared
+/// with the rest of the agent turn. Lower-ranked hits are returned match-only.
+const MAX_EXPANDED_HITS: usize = 3;
 
 /// Semantic search over chat history, each hit expanded into the surrounding
 /// conversation. A single matching message rarely carries the full meaning in a
@@ -25,10 +29,11 @@ pub async fn query_chat_history(ctx: &ToolContext<'_>, args: Value) -> worker::R
         super::rag_pipeline::query_chat_history(ctx.env, ctx.workspace_slug, query, limit).await?;
 
     let mut results = Vec::with_capacity(hits.len());
-    for h in &hits {
+    for (i, h) in hits.iter().enumerate() {
         // Expand the match into a conversational window (best-effort: a missing
-        // anchor — e.g. a legacy vector — just yields the match alone).
-        let context = if h.anchor_id.is_empty() {
+        // anchor — e.g. a legacy vector — just yields the match alone). Only the
+        // top MAX_EXPANDED_HITS get a window to bound subrequest usage.
+        let context = if h.anchor_id.is_empty() || i >= MAX_EXPANDED_HITS {
             Vec::new()
         } else {
             let window = ctx
