@@ -151,3 +151,73 @@ fn timezone_seed_default_is_utc() {
         "new workspaces default to UTC, not a locale-specific zone"
     );
 }
+
+/// The RAG context window (`WorkspaceDb::get_messages_around`) issues two bounded
+/// queries keyed on the time-ordered UUIDv7 id. This exercises the exact query
+/// shapes against the real `messages` schema, and proves a SHORT reply (never
+/// embedded into Vectorize) is still returned as part of the window — the whole
+/// point of the messages history table.
+#[test]
+fn messages_window_around_anchor() {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(include_str!("../../../migrations/workspace/0001_init.sql"))
+        .expect("apply 0001_init"); // members
+    c.execute_batch(include_str!(
+        "../../../migrations/workspace/0010_messages.sql"
+    ))
+    .expect("apply 0010_messages");
+
+    // Lexicographically-ordered ids stand in for UUIDv7's time-ordering.
+    let rows = [
+        ("019e0001", "Les amis, on part ou en vacances cet ete ?"),
+        ("019e0002", "L'Italie !"), // the short answer — the anchor
+        ("019e0003", "Ok parfait ca me va"),
+        ("019e0004", "Autre sujet sans rapport"),
+    ];
+    for (id, text) in rows {
+        c.execute(
+            "INSERT INTO messages (id, platform, text) VALUES (?1, 'telegram', ?2)",
+            rusqlite::params![id, text],
+        )
+        .unwrap();
+    }
+
+    let select = |sql: &str, anchor: &str, limit: i64| -> Vec<String> {
+        let mut stmt = c.prepare(sql).unwrap();
+        let it = stmt
+            .query_map(rusqlite::params![anchor, limit], |r| r.get::<_, String>(0))
+            .unwrap();
+        it.map(|r| r.unwrap()).collect()
+    };
+
+    let anchor = "019e0002";
+    // `before`: strictly-earlier messages, newest-first (the impl reverses these).
+    let mut older = select(
+        "SELECT text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2",
+        anchor,
+        5,
+    );
+    older.reverse();
+    // `after`: anchor onward, chronological.
+    let newer = select(
+        "SELECT text FROM messages WHERE id >= ?1 ORDER BY id ASC LIMIT ?2",
+        anchor,
+        5,
+    );
+
+    let window: Vec<String> = older.into_iter().chain(newer).collect();
+    assert_eq!(
+        window,
+        vec![
+            "Les amis, on part ou en vacances cet ete ?".to_string(),
+            "L'Italie !".to_string(),
+            "Ok parfait ca me va".to_string(),
+            "Autre sujet sans rapport".to_string(),
+        ],
+        "window is chronological, anchor included, and keeps the short reply"
+    );
+    assert!(
+        window.contains(&"L'Italie !".to_string()),
+        "the short (non-embedded) answer must survive in the window"
+    );
+}
