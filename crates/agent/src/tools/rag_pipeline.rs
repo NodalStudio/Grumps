@@ -20,6 +20,11 @@ pub struct ChatVectorMetadata {
     pub sender_name: String,
     pub text: String,
     pub timestamp: String,
+    /// UUIDv7 id of this message's row in the `messages` history table. Stored
+    /// so a query hit can be expanded into a conversational window (and so the
+    /// LLM can call `read_chat_around` with it). Empty for legacy vectors.
+    #[serde(default)]
+    pub anchor_id: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -28,6 +33,9 @@ pub struct QueryHit {
     pub timestamp: String,
     pub text: String,
     pub score: f32,
+    /// UUIDv7 anchor (messages.id) for context-window expansion. May be empty
+    /// for vectors written before the messages table existed.
+    pub anchor_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -232,6 +240,7 @@ pub async fn query_chat_history(
                 timestamp: meta["timestamp"].as_str().unwrap_or("").to_string(),
                 text: meta["text"].as_str().unwrap_or("").to_string(),
                 score: m.score,
+                anchor_id: meta["anchor_id"].as_str().unwrap_or("").to_string(),
             })
         })
         .collect();

@@ -74,7 +74,10 @@ LANGUAGE: Respond in {lang} unless the user writes in another language.
 MEMORY POLICY:
 - You have access to the workspace's persistent memory via tools.
 - Pinned memories below are always relevant. Use them.
-- For questions about past events, use query_chat_history.
+- For questions about past events, use query_chat_history; each result already
+  includes the surrounding conversation. If that window is not enough to answer
+  (e.g. the reply is in a nearby message), call read_chat_around with the
+  result's anchor_id to read more before/after.
 - Save things to memory only if they have lasting value.
 
 PINNED MEMORY:
