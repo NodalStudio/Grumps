@@ -75,9 +75,15 @@ struct VectorizeQueryBody<'a> {
     vector: &'a [f32],
     #[serde(rename = "topK")]
     top_k: u32,
-    filter: serde_json::Value,
+    // Scope the query to this workspace's namespace — vectors are upserted with
+    // `namespace = workspace_slug`, and a query without it searches the default
+    // namespace and finds nothing. (Filtering by metadata instead would require a
+    // metadata index, which we don't create — namespace partitioning is enough.)
+    namespace: &'a str,
+    // Vectorize v2 expects a string enum here ("all" | "indexed" | "none"),
+    // NOT a boolean — sending `true` returns a 400 JSON-parse error.
     #[serde(rename = "returnMetadata")]
-    return_metadata: bool,
+    return_metadata: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -217,8 +223,8 @@ pub async fn query_chat_history(
     let body = VectorizeQueryBody {
         vector: &vector,
         top_k: limit,
-        filter: serde_json::json!({ "workspace_slug": workspace_slug }),
-        return_metadata: true,
+        namespace: workspace_slug,
+        return_metadata: "all",
     };
 
     let url = format!("{}/query", vectorize_base(&account_id, "grumps-chat-rag"));
