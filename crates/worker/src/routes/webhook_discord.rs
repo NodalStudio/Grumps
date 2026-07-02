@@ -22,6 +22,18 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         _ => return Response::ok("ok"),
     };
 
+    crate::observability::log_inbound(
+        &crate::observability::request_id(&req),
+        "discord",
+        &inbound.channel_id,
+        &inbound.sender_id,
+        &inbound.sender_name,
+        &inbound.message_id,
+        inbound.text.as_deref(),
+        inbound.is_mention_to_bot,
+        inbound.is_direct_message,
+    );
+
     // KV dedup
     let kv = ctx.kv("KV")?;
     let key = format!("msg:discord:{}", inbound.message_id);
