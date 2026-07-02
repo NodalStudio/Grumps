@@ -114,6 +114,27 @@ pub struct UpdateNoteRequest {
     pub content: String,
 }
 
+/// Response of `GET /api/w/:slug/notes/:id/links`: backlink target ref.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct LinkRef {
+    pub id: String,
+    pub title: Option<String>,
+}
+
+/// One outgoing wikilink edge, resolved (or not) to a note id.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct OutgoingLink {
+    pub display: String,
+    pub id: Option<String>,
+}
+
+/// Response of `GET /api/w/:slug/notes/:id/links`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct NoteLinksResponse {
+    pub backlinks: Vec<LinkRef>,
+    pub outgoing: Vec<OutgoingLink>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +210,19 @@ mod tests {
         let r: CreateTodoRequest = serde_json::from_str(r#"{"title":"  buy milk  "}"#).unwrap();
         assert_eq!(r.title, "buy milk");
         assert!(r.validate().is_ok());
+    }
+
+    #[test]
+    fn note_links_response_serializes() {
+        let r = super::NoteLinksResponse {
+            backlinks: vec![super::LinkRef { id: "n1".into(), title: Some("Wifi".into()) }],
+            outgoing: vec![
+                super::OutgoingLink { display: "Wifi".into(), id: Some("n1".into()) },
+                super::OutgoingLink { display: "Ghost".into(), id: None },
+            ],
+        };
+        let j = serde_json::to_value(&r).unwrap();
+        assert_eq!(j["backlinks"][0]["id"], "n1");
+        assert_eq!(j["outgoing"][1]["id"], serde_json::Value::Null);
     }
 }

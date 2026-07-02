@@ -442,6 +442,64 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    /// Backlinks (notes linking to this one, by normalized title) and this
+    /// note's outgoing links with resolved ids (most-recent note wins on
+    /// duplicate titles; None = unresolved).
+    pub async fn get_note_links(
+        &self,
+        note_id: &str,
+    ) -> Result<grumps_core::dto::NoteLinksResponse> {
+        // Backlinks: who points at THIS note's normalized title.
+        let backlink_resp = self.q(
+            "SELECT n.id AS id, n.title AS title \
+             FROM note_links l JOIN notes n ON n.id = l.from_id \
+             WHERE l.to_title_norm = (SELECT title_norm FROM notes WHERE id = ?1) \
+               AND (SELECT title_norm FROM notes WHERE id = ?1) IS NOT NULL \
+             ORDER BY n.updated_at DESC",
+            vec![note_id.into()],
+        )
+        .await?;
+
+        #[derive(Deserialize)]
+        struct BRow {
+            id: String,
+            title: Option<String>,
+        }
+        let backlinks = extract_rows::<BRow>(&backlink_resp)?
+            .into_iter()
+            .map(|r| grumps_core::dto::LinkRef {
+                id: r.id,
+                title: r.title,
+            })
+            .collect();
+
+        // Outgoing: this note's edges, each resolved to the most-recent match.
+        let out_resp = self.q(
+            "SELECT l.display AS display, \
+                    (SELECT id FROM notes WHERE title_norm = l.to_title_norm \
+                     ORDER BY updated_at DESC LIMIT 1) AS id \
+             FROM note_links l WHERE l.from_id = ?1 \
+             ORDER BY rowid",
+            vec![note_id.into()],
+        )
+        .await?;
+
+        #[derive(Deserialize)]
+        struct ORow {
+            display: String,
+            id: Option<String>,
+        }
+        let outgoing = extract_rows::<ORow>(&out_resp)?
+            .into_iter()
+            .map(|r| grumps_core::dto::OutgoingLink {
+                display: r.display,
+                id: r.id,
+            })
+            .collect();
+
+        Ok(grumps_core::dto::NoteLinksResponse { backlinks, outgoing })
+    }
+
     // --- Todos (extended) ---
 
     pub async fn update_todo(

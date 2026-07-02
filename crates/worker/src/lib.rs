@@ -146,6 +146,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/api/w/:slug/notes/:id",
             extract::route(routes::notes::get_note),
         )
+        .get_async(
+            "/api/w/:slug/notes/:id/links",
+            extract::route(routes::notes::note_links),
+        )
         .put_async(
             "/api/w/:slug/notes/:id",
             extract::route_json(routes::notes::update_note),
