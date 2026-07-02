@@ -45,6 +45,29 @@ fn month_bucket_key() -> String {
     format!("llm_calls_{}_{:02}", now.year(), now.month())
 }
 
+/// Generate a time-ordered UUIDv7 string. Built from `chrono::Utc::now()` rather
+/// than `Uuid::now_v7()` (whose `SystemTime` clock can panic on wasm32). Because
+/// the prefix encodes the timestamp, lexicographic order == chronological order,
+/// which is what lets the `messages` table use the id itself as the order key.
+fn new_v7_id() -> String {
+    let now = chrono::Utc::now();
+    let ts = uuid::Timestamp::from_unix(
+        uuid::NoContext,
+        now.timestamp().max(0) as u64,
+        now.timestamp_subsec_nanos(),
+    );
+    uuid::Uuid::new_v7(ts).to_string()
+}
+
+/// A row of the per-workspace `messages` chat-history log.
+#[derive(Deserialize, Debug, Clone)]
+pub struct ChatMessageRow {
+    pub id: String,
+    pub sender_name: Option<String>,
+    pub text: String,
+    pub created_at: String,
+}
+
 pub struct WorkspaceDb<'a> {
     client: &'a D1RestClient,
     database_id: String,
@@ -409,6 +432,72 @@ impl<'a> WorkspaceDb<'a> {
             .into_iter()
             .map(|r| (r.id, r.title, r.source, r.created_at))
             .collect())
+    }
+
+    // --- Messages (chat-history log for RAG context windows) ---
+
+    /// Append an inbound message to the history log. The id is a freshly minted
+    /// UUIDv7 (time-ordered) returned to the caller so it can be stored as the
+    /// anchor in the message's Vectorize metadata. Every message is logged,
+    /// including very short ones, so context windows are complete.
+    pub async fn insert_message(
+        &self,
+        platform: &str,
+        message_id: &str,
+        member_id: &str,
+        sender_name: &str,
+        text: &str,
+        created_at_rfc3339: &str,
+    ) -> Result<String> {
+        let id = new_v7_id();
+        self.q(
+            "INSERT INTO messages (id, platform, message_id, member_id, sender_name, text, created_at) \
+             VALUES (?1, ?2, NULLIF(?3,''), NULLIF(?4,''), NULLIF(?5,''), ?6, ?7)",
+            vec![
+                id.clone().into(),
+                platform.into(),
+                message_id.into(),
+                member_id.into(),
+                sender_name.into(),
+                text.into(),
+                created_at_rfc3339.into(),
+            ],
+        )
+        .await?;
+        Ok(id)
+    }
+
+    /// Fetch the messages surrounding an anchor message, in chronological order,
+    /// including the anchor itself. Keyed on the time-ordered UUIDv7 id: up to
+    /// `before` messages strictly before the anchor and up to `after` strictly
+    /// after it. The anchor is selected on its own, so it never consumes a slot
+    /// of either limit (`after: 0` still returns it). Done in ONE query (a
+    /// single D1 subrequest) — each REST call counts against the Worker
+    /// per-invocation subrequest budget, so we avoid a query-per-side. Robust
+    /// to gaps; `LIMIT` caps each side.
+    pub async fn get_messages_around(
+        &self,
+        anchor_id: &str,
+        before: i64,
+        after: i64,
+    ) -> Result<Vec<ChatMessageRow>> {
+        let resp = self
+            .q(
+                "SELECT id, sender_name, text, created_at FROM \
+                   (SELECT id, sender_name, text, created_at FROM messages \
+                    WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
+                 UNION ALL \
+                 SELECT id, sender_name, text, created_at FROM messages \
+                    WHERE id = ?1 \
+                 UNION ALL \
+                 SELECT id, sender_name, text, created_at FROM \
+                   (SELECT id, sender_name, text, created_at FROM messages \
+                    WHERE id > ?1 ORDER BY id ASC LIMIT ?3) \
+                 ORDER BY id ASC",
+                vec![anchor_id.into(), before.into(), after.into()],
+            )
+            .await?;
+        extract_rows(&resp)
     }
 
     // --- Activity log ---

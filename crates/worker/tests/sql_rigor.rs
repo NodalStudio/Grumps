@@ -151,3 +151,102 @@ fn timezone_seed_default_is_utc() {
         "new workspaces default to UTC, not a locale-specific zone"
     );
 }
+
+/// The RAG context window (`WorkspaceDb::get_messages_around`) issues ONE bounded
+/// UNION query keyed on the time-ordered UUIDv7 id. This exercises the exact
+/// query shape against the real `messages` schema, and proves a SHORT reply
+/// (never embedded into Vectorize) is still returned as part of the window — the
+/// whole point of the messages history table.
+#[test]
+fn messages_window_around_anchor() {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(include_str!("../../../migrations/workspace/0001_init.sql"))
+        .expect("apply 0001_init"); // members
+    c.execute_batch(include_str!(
+        "../../../migrations/workspace/0010_messages.sql"
+    ))
+    .expect("apply 0010_messages");
+
+    // Lexicographically-ordered ids stand in for UUIDv7's time-ordering.
+    let rows = [
+        ("019e0001", "Les amis, on part ou en vacances cet ete ?"),
+        ("019e0002", "L'Italie !"), // the short answer — the anchor
+        ("019e0003", "Ok parfait ca me va"),
+        ("019e0004", "Autre sujet sans rapport"),
+    ];
+    for (id, text) in rows {
+        c.execute(
+            "INSERT INTO messages (id, platform, text) VALUES (?1, 'telegram', ?2)",
+            rusqlite::params![id, text],
+        )
+        .unwrap();
+    }
+
+    // The exact single-query shape used by WorkspaceDb::get_messages_around:
+    // a `before` subquery (newest-first, limited), the anchor row on its own
+    // (so it never consumes an `after` slot), and a strictly-after subquery,
+    // re-sorted chronologically.
+    const WINDOW_SQL: &str = "SELECT id, text FROM \
+           (SELECT id, text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
+         UNION ALL \
+         SELECT id, text FROM messages WHERE id = ?1 \
+         UNION ALL \
+         SELECT id, text FROM \
+           (SELECT id, text FROM messages WHERE id > ?1 ORDER BY id ASC LIMIT ?3) \
+         ORDER BY id ASC";
+    let anchor = "019e0002";
+    let mut stmt = c.prepare(WINDOW_SQL).unwrap();
+    let window: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 5_i64, 5_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        window,
+        vec![
+            "Les amis, on part ou en vacances cet ete ?".to_string(),
+            "L'Italie !".to_string(),
+            "Ok parfait ca me va".to_string(),
+            "Autre sujet sans rapport".to_string(),
+        ],
+        "window is chronological, anchor included, and keeps the short reply"
+    );
+    assert!(
+        window.contains(&"L'Italie !".to_string()),
+        "the short (non-embedded) answer must survive in the window"
+    );
+
+    // `after` counts messages STRICTLY after the anchor: after=0 keeps the
+    // anchor, and after=1 returns exactly one later message — the tool schema
+    // says "how many later messages to include", so the anchor must not
+    // consume a slot of that limit.
+    let window0: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 1_i64, 0_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        window0,
+        vec![
+            "Les amis, on part ou en vacances cet ete ?".to_string(),
+            "L'Italie !".to_string(),
+        ],
+        "after=0 still returns the anchor itself"
+    );
+    let window1: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 0_i64, 1_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        window1,
+        vec!["L'Italie !".to_string(), "Ok parfait ca me va".to_string(),],
+        "after=1 returns the anchor plus exactly one later message"
+    );
+}

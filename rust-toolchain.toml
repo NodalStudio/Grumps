@@ -1,3 +1,7 @@
 [toolchain]
-channel = "stable-x86_64-pc-windows-msvc"
+# Plain `stable` so the toolchain resolves to the host default on every
+# platform (msvc on Windows, gnu on Linux/CI). The previous explicit msvc
+# triple broke `cargo`/`worker-build` on Linux. CI already forces
+# RUSTUP_TOOLCHAIN=stable, so this matches what CI uses.
+channel = "stable"
 targets = ["wasm32-unknown-unknown"]

@@ -20,6 +20,11 @@ pub struct ChatVectorMetadata {
     pub sender_name: String,
     pub text: String,
     pub timestamp: String,
+    /// UUIDv7 id of this message's row in the `messages` history table. Stored
+    /// so a query hit can be expanded into a conversational window (and so the
+    /// LLM can call `read_chat_around` with it). Empty for legacy vectors.
+    #[serde(default)]
+    pub anchor_id: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -28,6 +33,9 @@ pub struct QueryHit {
     pub timestamp: String,
     pub text: String,
     pub score: f32,
+    /// UUIDv7 anchor (messages.id) for context-window expansion. May be empty
+    /// for vectors written before the messages table existed.
+    pub anchor_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -67,9 +75,15 @@ struct VectorizeQueryBody<'a> {
     vector: &'a [f32],
     #[serde(rename = "topK")]
     top_k: u32,
-    filter: serde_json::Value,
+    // Scope the query to this workspace's namespace — vectors are upserted with
+    // `namespace = workspace_slug`, and a query without it searches the default
+    // namespace and finds nothing. (Filtering by metadata instead would require a
+    // metadata index, which we don't create — namespace partitioning is enough.)
+    namespace: &'a str,
+    // Vectorize v2 expects a string enum here ("all" | "indexed" | "none"),
+    // NOT a boolean — sending `true` returns a 400 JSON-parse error.
     #[serde(rename = "returnMetadata")]
-    return_metadata: bool,
+    return_metadata: &'a str,
 }
 
 #[derive(Deserialize)]
@@ -141,7 +155,13 @@ pub async fn embed(env: &Env, text: &str) -> Result<Vec<f32>> {
 /// Ingest a chat message: embed + upsert to Vectorize via CF REST API.
 ///
 /// Skips messages shorter than 20 chars.
-/// Vector ID: `{workspace_slug}:{sender_member_id}:{timestamp}`.
+/// Vector ID: `{sender_member_id}:{timestamp_nanos}`. The workspace is already
+/// carried by the `namespace` + metadata (it scopes queries), so it's left out
+/// of the id; and the timestamp is compacted to epoch nanos so the id stays
+/// within Vectorize's 64-byte id limit (a UUID member id + RFC3339 timestamp
+/// would overflow it). Nanosecond precision matters: upserts dedupe by id, so
+/// a coarser timestamp would silently overwrite same-member messages ingested
+/// in the same tick (e.g. a forwarded batch).
 pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> {
     if meta.text.len() < 20 {
         return Ok(());
@@ -153,10 +173,16 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
     let account_id = env.secret("CF_ACCOUNT_ID")?.to_string();
     let token = env.secret("CF_API_TOKEN")?.to_string();
 
-    let id = format!(
-        "{}:{}:{}",
-        meta.workspace_slug, meta.sender_member_id, meta.timestamp
-    );
+    // Compact the RFC3339 timestamp to epoch nanos to keep the id <= 64 bytes
+    // (36-byte UUID + ':' + 19 digits = 56) without losing sub-ms uniqueness.
+    let ts_compact = chrono::DateTime::parse_from_rfc3339(&meta.timestamp)
+        .map(|dt| {
+            dt.timestamp_nanos_opt()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| dt.timestamp_millis().to_string())
+        })
+        .unwrap_or_else(|_| meta.timestamp.clone());
+    let id = format!("{}:{}", meta.sender_member_id, ts_compact);
 
     let body = VectorizeUpsertBody {
         vectors: vec![VectorizeVector {
@@ -167,7 +193,7 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
         }],
     };
 
-    let url = format!("{}/upsert", vectorize_base(&account_id, "CHAT_RAG"));
+    let url = format!("{}/upsert", vectorize_base(&account_id, "grumps-chat-rag"));
     let body_str = serde_json::to_string(&body).map_err(|e| Error::RustError(e.to_string()))?;
 
     cf_post(&url, &token, &body_str).await?;
@@ -197,11 +223,11 @@ pub async fn query_chat_history(
     let body = VectorizeQueryBody {
         vector: &vector,
         top_k: limit,
-        filter: serde_json::json!({ "workspace_slug": workspace_slug }),
-        return_metadata: true,
+        namespace: workspace_slug,
+        return_metadata: "all",
     };
 
-    let url = format!("{}/query", vectorize_base(&account_id, "CHAT_RAG"));
+    let url = format!("{}/query", vectorize_base(&account_id, "grumps-chat-rag"));
     let body_str = serde_json::to_string(&body).map_err(|e| Error::RustError(e.to_string()))?;
 
     let resp_text = cf_post(&url, &token, &body_str).await?;
@@ -220,6 +246,7 @@ pub async fn query_chat_history(
                 timestamp: meta["timestamp"].as_str().unwrap_or("").to_string(),
                 text: meta["text"].as_str().unwrap_or("").to_string(),
                 score: m.score,
+                anchor_id: meta["anchor_id"].as_str().unwrap_or("").to_string(),
             })
         })
         .collect();

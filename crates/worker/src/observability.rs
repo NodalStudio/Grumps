@@ -82,6 +82,41 @@ pub fn log_request_out(rid: &str, status: u16, ms: u64) {
     );
 }
 
+/// Log every inbound platform message at info level. Unconditional — fires in
+/// production too (unlike the `DEBUG_TRACE`-gated per-branch traces), so it is a
+/// temporary full-visibility measure for the bot rollout. Includes the message
+/// text. These lines go to Cloudflare Workers Logs (observability is enabled in
+/// `wrangler.toml`, ~3-day retention), never to committed source — so no PII
+/// lands in the repo. Remove or gate this once the bot flow is trusted.
+#[allow(clippy::too_many_arguments)]
+pub fn log_inbound(
+    rid: &str,
+    platform: &str,
+    channel_id: &str,
+    sender_id: &str,
+    sender_name: &str,
+    message_id: &str,
+    text: Option<&str>,
+    is_mention: bool,
+    is_dm: bool,
+) {
+    log(
+        Level::Info,
+        rid,
+        "msg.in",
+        &json!({
+            "platform": platform,
+            "channel_id": channel_id,
+            "sender_id": sender_id,
+            "sender_name": sender_name,
+            "msg_id": message_id,
+            "is_mention": is_mention,
+            "is_dm": is_dm,
+            "text": text,
+        }),
+    );
+}
+
 /// Structured error event with where-it-happened context.
 pub fn log_error(rid: &str, location: &str, detail: &str) {
     log(

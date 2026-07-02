@@ -84,6 +84,7 @@ pub async fn dispatch(
         "query_memory" => memory::query_memory(ctx, args).await,
         "save_memory" => memory::save_memory(ctx, args).await,
         "query_chat_history" => rag::query_chat_history(ctx, args).await,
+        "read_chat_around" => rag::read_chat_around(ctx, args).await,
         "create_todo" => crud::create_todo(ctx, args).await,
         "create_note" => crud::create_note(ctx, args).await,
         "create_event" => crud::create_event(ctx, args).await,

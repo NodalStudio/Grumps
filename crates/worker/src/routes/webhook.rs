@@ -41,6 +41,18 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     };
 
+    crate::observability::log_inbound(
+        &crate::observability::request_id(&req),
+        "whatsapp",
+        &inbound.channel_id,
+        &inbound.sender_id,
+        &inbound.sender_name,
+        &inbound.message_id,
+        inbound.text.as_deref(),
+        inbound.is_mention_to_bot,
+        inbound.is_direct_message,
+    );
+
     // 3. Dedup via KV
     let kv = ctx.kv("KV")?;
     let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
@@ -101,6 +113,26 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         None => false,
     };
 
+    // Persist to the chat-history log (every message, even short ones) and keep
+    // the row's UUIDv7 as the anchor for RAG context windows. Best-effort.
+    let anchor_id = match ws_db
+        .insert_message(
+            "whatsapp",
+            &inbound.message_id,
+            &member_id,
+            &inbound.sender_name,
+            text,
+            &inbound.timestamp.to_rfc3339(),
+        )
+        .await
+    {
+        Ok(id) => id,
+        Err(e) => {
+            worker::console_log!("message log error (whatsapp): {e}");
+            String::new()
+        }
+    };
+
     // RAG ingest (best-effort, non-blocking on failure)
     {
         let meta = grumps_agent::tools::rag_pipeline::ChatVectorMetadata {
@@ -110,6 +142,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             sender_name: inbound.sender_name.to_string(),
             text: text.to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
+            anchor_id: anchor_id.clone(),
         };
         if let Err(e) = grumps_agent::tools::rag_pipeline::ingest_message(&ctx.env, &meta).await {
             worker::console_log!("RAG ingest error (whatsapp): {e}");
