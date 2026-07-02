@@ -73,8 +73,16 @@ pub async fn read_chat_around(ctx: &ToolContext<'_>, args: Value) -> worker::Res
         .and_then(|v| v.as_str())
         .ok_or_else(|| worker::Error::RustError("read_chat_around: missing 'anchor_id'".into()))?;
     // Bound each side to keep the tool from dragging the whole history in.
-    let before = args.get("before").and_then(|v| v.as_i64()).unwrap_or(5).clamp(0, 25);
-    let after = args.get("after").and_then(|v| v.as_i64()).unwrap_or(5).clamp(0, 25);
+    let before = args
+        .get("before")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(5)
+        .clamp(0, 25);
+    let after = args
+        .get("after")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(5)
+        .clamp(0, 25);
 
     let window = ctx.db.get_messages_around(anchor_id, before, after).await?;
 

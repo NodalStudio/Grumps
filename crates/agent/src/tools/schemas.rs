@@ -244,8 +244,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_tools_count_is_11() {
-        assert_eq!(all_tools().len(), 11);
+    fn all_tools_count_is_12() {
+        assert_eq!(all_tools().len(), 12);
     }
 
     #[test]
