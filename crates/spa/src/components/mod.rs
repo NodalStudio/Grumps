@@ -11,4 +11,5 @@ pub mod sidebar;
 pub mod todo_card;
 pub mod todo_filters;
 pub mod ui;
+pub mod wikilink;
 pub mod workspace_switcher;

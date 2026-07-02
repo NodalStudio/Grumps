@@ -29,6 +29,14 @@ pub fn NoteEditorPage() -> impl IntoView {
         async move { api.get_note(&s, &id).await.ok() }
     });
 
+    let api_for_links = use_api();
+    let links = LocalResource::new(move || {
+        let api = api_for_links.clone();
+        let s = slug();
+        let id = note_id();
+        async move { api.get_note_links(&s, &id).await.ok() }
+    });
+
     let (editing, set_editing) = signal(false);
     let (content, set_content) = signal(String::new());
     let (title, set_title) = signal(String::new());
@@ -121,8 +129,43 @@ pub fn NoteEditorPage() -> impl IntoView {
                                 }.into_any()
                             } else {
                                 view! {
-                                    <div class="prose max-w-none p-6 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
-                                        <pre class="whitespace-pre-wrap text-sm">{content.get()}</pre>
+                                    <div>
+                                        <div class="prose max-w-none p-6 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
+                                            {move || {
+                                                let slug_v = slug();
+                                                let resolver: std::collections::HashMap<String, String> =
+                                                    links.get().flatten().map(|l| {
+                                                        l.outgoing.into_iter()
+                                                            .filter_map(|o| o.id.map(|id| (grumps_core::wikilink::normalize_title(&o.display), id)))
+                                                            .collect()
+                                                    }).unwrap_or_default();
+                                                crate::components::wikilink::render_note_content(content.get(), resolver, slug_v)
+                                            }}
+                                        </div>
+                                        {move || {
+                                            let bl = links.get().flatten().map(|l| l.backlinks).unwrap_or_default();
+                                            if bl.is_empty() {
+                                                ().into_any()
+                                            } else {
+                                                let slug_v = slug();
+                                                view! {
+                                                    <div class="mt-6">
+                                                        <h3 class="font-display text-sm mb-2">{move || tr("page.note_editor.backlinks_heading")}</h3>
+                                                        <ul class="flex flex-col gap-1">
+                                                            <For
+                                                                each=move || bl.clone()
+                                                                key=|r| r.id.clone()
+                                                                children=move |r| {
+                                                                    let href = format!("{}/w/{}/notes/{}", crate::demo::router_base(), slug_v, r.id);
+                                                                    let label = r.title.clone().unwrap_or_else(|| tr("page.note_editor.untitled"));
+                                                                    view! { <li><a href=href class="text-sm underline">{label}</a></li> }
+                                                                }
+                                                            />
+                                                        </ul>
+                                                    </div>
+                                                }.into_any()
+                                            }
+                                        }}
                                     </div>
                                 }.into_any()
                             }}
