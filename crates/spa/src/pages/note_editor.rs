@@ -37,10 +37,19 @@ pub fn NoteEditorPage() -> impl IntoView {
         async move { api.get_note_links(&s, &id).await.ok() }
     });
 
+    let api_for_titles = use_api();
+    let all_notes = LocalResource::new(move || {
+        let api = api_for_titles.clone();
+        let s = slug();
+        async move { api.get_notes(&s).await.unwrap_or_default() }
+    });
+
     let (editing, set_editing) = signal(false);
     let (content, set_content) = signal(String::new());
     let (title, set_title) = signal(String::new());
     let (save_state, set_save_state) = signal(SaveState::Idle);
+    // Current [[partial query, or None when the picker is closed.
+    let (link_query, set_link_query) = signal(None::<String>);
 
     let api_for_save = use_api();
     let save = StoredValue::new(move || {
@@ -122,9 +131,61 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                 class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
                                                 style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
                                                 prop:value=content
-                                                on:input=move |ev| set_content.set(event_target_value(&ev))
+                                                on:input=move |ev| {
+                                                    let v = event_target_value(&ev);
+                                                    set_content.set(v.clone());
+                                                    // Open the picker when the caret sits in an unclosed [[…
+                                                    match v.rsplit_once("[[") {
+                                                        Some((_, tail)) if !tail.contains("]]") && !tail.contains('\n') => {
+                                                            set_link_query.set(Some(tail.to_string()));
+                                                        }
+                                                        _ => set_link_query.set(None),
+                                                    }
+                                                }
                                             ></textarea>
                                         </Field>
+                                        {move || {
+                                            match link_query.get() {
+                                                None => ().into_any(),
+                                                Some(q) => {
+                                                    let qn = grumps_core::wikilink::normalize_title(&q);
+                                                    let matches: Vec<_> = all_notes.get().unwrap_or_default()
+                                                        .into_iter()
+                                                        .filter_map(|n| n.title.clone())
+                                                        .filter(|t| grumps_core::wikilink::normalize_title(t).contains(&qn))
+                                                        .take(8)
+                                                        .collect();
+                                                    if matches.is_empty() {
+                                                        view! { <div class="text-sm text-ink/50 px-2 py-1">{tr("page.note_editor.link_picker_empty")}</div> }.into_any()
+                                                    } else {
+                                                        view! {
+                                                            <ul class="border-2 border-ink rounded-xs mt-1 bg-cream-light max-h-48 overflow-y-auto">
+                                                                {matches.into_iter().map(|title_text| {
+                                                                    let title_for_click = title_text.clone();
+                                                                    view! {
+                                                                        <li>
+                                                                            <button
+                                                                                type="button"
+                                                                                class="w-full text-left px-2 py-1 text-sm hover:bg-cream"
+                                                                                on:click=move |_| {
+                                                                                    set_content.update(|c| {
+                                                                                        if let Some(idx) = c.rfind("[[") {
+                                                                                            c.truncate(idx);
+                                                                                            c.push_str(&format!("[[{}]]", title_for_click));
+                                                                                        }
+                                                                                    });
+                                                                                    set_link_query.set(None);
+                                                                                }
+                                                                            >{title_text}</button>
+                                                                        </li>
+                                                                    }
+                                                                }).collect::<Vec<_>>()}
+                                                            </ul>
+                                                        }.into_any()
+                                                    }
+                                                }
+                                            }
+                                        }}
                                     </div>
                                 }.into_any()
                             } else {
