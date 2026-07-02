@@ -141,11 +141,13 @@ pub async fn embed(env: &Env, text: &str) -> Result<Vec<f32>> {
 /// Ingest a chat message: embed + upsert to Vectorize via CF REST API.
 ///
 /// Skips messages shorter than 20 chars.
-/// Vector ID: `{sender_member_id}:{timestamp_millis}`. The workspace is already
+/// Vector ID: `{sender_member_id}:{timestamp_nanos}`. The workspace is already
 /// carried by the `namespace` + metadata (it scopes queries), so it's left out
-/// of the id; and the timestamp is compacted to epoch millis so the id stays
+/// of the id; and the timestamp is compacted to epoch nanos so the id stays
 /// within Vectorize's 64-byte id limit (a UUID member id + RFC3339 timestamp
-/// would overflow it).
+/// would overflow it). Nanosecond precision matters: upserts dedupe by id, so
+/// a coarser timestamp would silently overwrite same-member messages ingested
+/// in the same tick (e.g. a forwarded batch).
 pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> {
     if meta.text.len() < 20 {
         return Ok(());
@@ -157,9 +159,14 @@ pub async fn ingest_message(env: &Env, meta: &ChatVectorMetadata) -> Result<()> 
     let account_id = env.secret("CF_ACCOUNT_ID")?.to_string();
     let token = env.secret("CF_API_TOKEN")?.to_string();
 
-    // Compact the RFC3339 timestamp to epoch millis to keep the id <= 64 bytes.
+    // Compact the RFC3339 timestamp to epoch nanos to keep the id <= 64 bytes
+    // (36-byte UUID + ':' + 19 digits = 56) without losing sub-ms uniqueness.
     let ts_compact = chrono::DateTime::parse_from_rfc3339(&meta.timestamp)
-        .map(|dt| dt.timestamp_millis().to_string())
+        .map(|dt| {
+            dt.timestamp_nanos_opt()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| dt.timestamp_millis().to_string())
+        })
         .unwrap_or_else(|_| meta.timestamp.clone());
     let id = format!("{}:{}", meta.sender_member_id, ts_compact);
 
