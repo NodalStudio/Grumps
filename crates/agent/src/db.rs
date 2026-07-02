@@ -55,6 +55,16 @@ pub struct MemberShort {
     pub role: String,
 }
 
+/// A chat-history message, used to build conversational context windows around
+/// a RAG match. `id` is the message's UUIDv7 (time-ordered) anchor.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub id: String,
+    pub sender_name: Option<String>,
+    pub text: String,
+    pub created_at: String,
+}
+
 #[async_trait::async_trait(?Send)]
 pub trait AgentDb {
     // --- memory ---
@@ -149,6 +159,17 @@ pub trait AgentDb {
         confidence: f64,
         reason: &str,
     ) -> worker::Result<()>;
+
+    // --- chat history (RAG context windows) ---
+    /// Fetch the messages around an anchor message id (chronological order,
+    /// anchor included): `before` strictly-earlier messages and `after`
+    /// messages from the anchor onward.
+    async fn get_messages_around(
+        &self,
+        anchor_id: &str,
+        before: i64,
+        after: i64,
+    ) -> worker::Result<Vec<ChatMessage>>;
 
     // --- agent sessions ---
     async fn upsert_agent_session(

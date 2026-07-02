@@ -83,6 +83,26 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         None => false,
     };
 
+    // Persist to the chat-history log (every message, even short ones) and keep
+    // the row's UUIDv7 as the anchor for RAG context windows. Best-effort.
+    let anchor_id = match ws_db
+        .insert_message(
+            "discord",
+            &inbound.message_id,
+            &member_id,
+            &inbound.sender_name,
+            text,
+            &inbound.timestamp.to_rfc3339(),
+        )
+        .await
+    {
+        Ok(id) => id,
+        Err(e) => {
+            worker::console_log!("message log error (discord): {e}");
+            String::new()
+        }
+    };
+
     // RAG ingest (best-effort, non-blocking on failure)
     {
         let meta = grumps_agent::tools::rag_pipeline::ChatVectorMetadata {
@@ -92,6 +112,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             sender_name: inbound.sender_name.to_string(),
             text: text.to_string(),
             timestamp: chrono::Utc::now().to_rfc3339(),
+            anchor_id: anchor_id.clone(),
         };
         if let Err(e) = grumps_agent::tools::rag_pipeline::ingest_message(&ctx.env, &meta).await {
             worker::console_log!("RAG ingest error (discord): {e}");

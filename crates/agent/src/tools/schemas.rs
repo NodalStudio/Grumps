@@ -1,4 +1,4 @@
-//! Static JSON schemas for the 11 agent tools sent to Anthropic API.
+//! Static JSON schemas for the agent tools sent to Anthropic API.
 //! See spec § 8.4.
 
 use serde_json::{json, Value};
@@ -7,6 +7,7 @@ pub fn all_tools() -> Vec<Value> {
     vec![
         query_memory(),
         query_chat_history(),
+        read_chat_around(),
         save_memory(),
         create_todo(),
         create_note(),
@@ -42,7 +43,7 @@ pub fn query_memory() -> Value {
 pub fn query_chat_history() -> Value {
     json!({
         "name": "query_chat_history",
-        "description": "Semantic search over past chat messages in this group. Use when the user asks 'what did we say about...', 'when did X happen', etc.",
+        "description": "Semantic search over this group's past chat messages. Call this WHENEVER the answer depends on something said earlier that is not in the messages currently in front of you — e.g. the user refers to a past discussion, asks 'what did we decide/say about X', 'when did X happen', 'what was that thing about…', or mentions a person/plan/topic you have no current context for. When in doubt, search rather than answering from memory — the recent messages you can see are only a small window of the full history. Each result is a matching message PLUS the surrounding conversation (a context window) and an `anchor_id`; if that window is still not enough, call `read_chat_around` with the `anchor_id` to pull more.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -52,6 +53,22 @@ pub fn query_chat_history() -> Value {
                 "limit": { "type": "integer", "default": 8 }
             },
             "required": ["query"]
+        }
+    })
+}
+
+pub fn read_chat_around() -> Value {
+    json!({
+        "name": "read_chat_around",
+        "description": "Read the messages immediately before and after a known message, in chronological order. Use to expand the context around a `query_chat_history` result (pass its `anchor_id`) when the answer might be in a neighbouring message.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "anchor_id": { "type": "string", "description": "The anchor_id of a message returned by query_chat_history" },
+                "before": { "type": "integer", "default": 5, "description": "How many earlier messages to include (max 25)" },
+                "after": { "type": "integer", "default": 5, "description": "How many later messages to include (max 25)" }
+            },
+            "required": ["anchor_id"]
         }
     })
 }

@@ -2,8 +2,8 @@
 //! Bridges the agent's database trait to worker's existing WorkspaceDb methods.
 
 use grumps_agent::db::{
-    AgentDb, LlmCostByModel, LlmErrorEntry, LlmInvocationCount, LlmLatencyByModel, MemberShort,
-    QualitySignalCount,
+    AgentDb, ChatMessage, LlmCostByModel, LlmErrorEntry, LlmInvocationCount, LlmLatencyByModel,
+    MemberShort, QualitySignalCount,
 };
 use grumps_calendar::{Event, NewEvent};
 use grumps_memory::{MemoryEntry, NewMemoryEntry};
@@ -34,6 +34,26 @@ impl AgentDb for WorkspaceDb<'_> {
                 id: r.id,
                 display_name: r.display_name,
                 role: r.role,
+            })
+            .collect())
+    }
+
+    async fn get_messages_around(
+        &self,
+        anchor_id: &str,
+        before: i64,
+        after: i64,
+    ) -> Result<Vec<ChatMessage>> {
+        // Disambiguate the inherent WorkspaceDb method from this trait method
+        // (same name) to avoid resolving to the trait method recursively.
+        let rows = WorkspaceDb::get_messages_around(self, anchor_id, before, after).await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| ChatMessage {
+                id: r.id,
+                sender_name: r.sender_name,
+                text: r.text,
+                created_at: r.created_at,
             })
             .collect())
     }
