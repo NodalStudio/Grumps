@@ -90,7 +90,9 @@ Parser requirements:
 
 **Chosen approach: a title-keyed edge table, resolved at query time.**
 
-New migration `migrations/workspace/0002_note_links.sql`:
+New migration `migrations/workspace/0010_note_links.sql` (version 10, `data:
+false`), registered in `crates/worker/src/migrations.rs::workspace_migrations()`
+and applied by the existing idempotent runner (`apply_pending`):
 
 ```sql
 -- Precomputed normalized title on notes so joins are pure SQL equality
