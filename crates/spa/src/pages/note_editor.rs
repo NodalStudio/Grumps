@@ -5,7 +5,7 @@ use crate::components::ui::field::Field;
 use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_navigate, use_params_map};
 
 #[derive(Copy, Clone, PartialEq)]
 enum SaveState {
@@ -29,10 +29,34 @@ pub fn NoteEditorPage() -> impl IntoView {
         async move { api.get_note(&s, &id).await.ok() }
     });
 
+    let api_for_links = use_api();
+    let links = LocalResource::new(move || {
+        let api = api_for_links.clone();
+        let s = slug();
+        let id = note_id();
+        async move { api.get_note_links(&s, &id).await.ok() }
+    });
+
+    let api_for_titles = use_api();
+    let all_notes = LocalResource::new(move || {
+        let api = api_for_titles.clone();
+        let s = slug();
+        async move { api.get_notes(&s).await.unwrap_or_default() }
+    });
+
+    // Held for the unresolved-wikilink "create note on click" action below.
+    // `StoredValue` (Copy) so the doubly-nested reactive closures around the
+    // preview view can each grab a fresh clone without moving the original
+    // out of an enclosing `move` closure (which would make it FnOnce).
+    let api_for_wikilink_create = StoredValue::new(use_api());
+    let navigate = StoredValue::new_local(use_navigate());
+
     let (editing, set_editing) = signal(false);
     let (content, set_content) = signal(String::new());
     let (title, set_title) = signal(String::new());
     let (save_state, set_save_state) = signal(SaveState::Idle);
+    // Current [[partial query, or None when the picker is closed.
+    let (link_query, set_link_query) = signal(None::<String>);
 
     let api_for_save = use_api();
     let save = StoredValue::new(move || {
@@ -46,7 +70,13 @@ pub fn NoteEditorPage() -> impl IntoView {
         set_save_state.set(SaveState::Saving);
         spawn_local(async move {
             match api.update_note(&s, &id, req).await {
-                Ok(()) => set_save_state.set(SaveState::Saved),
+                Ok(()) => {
+                    set_save_state.set(SaveState::Saved);
+                    // The worker rebuilt note_links from the new content; the
+                    // preview resolver must not keep serving the pre-save map,
+                    // or links added this session render as unresolved.
+                    links.refetch();
+                }
                 Err(_) => set_save_state.set(SaveState::Error),
             }
         });
@@ -114,15 +144,124 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                 class="w-full min-h-[400px] p-4 border-2 border-ink rounded-xs text-sm font-mono outline-hidden resize-y"
                                                 style="background: var(--cream); font-family: 'JetBrains Mono', monospace;"
                                                 prop:value=content
-                                                on:input=move |ev| set_content.set(event_target_value(&ev))
+                                                on:input=move |ev| {
+                                                    let v = event_target_value(&ev);
+                                                    set_content.set(v.clone());
+                                                    // Open the picker when the caret sits in an unclosed [[…
+                                                    match v.rsplit_once("[[") {
+                                                        Some((_, tail)) if !tail.contains("]]") && !tail.contains('\n') => {
+                                                            set_link_query.set(Some(tail.to_string()));
+                                                        }
+                                                        _ => set_link_query.set(None),
+                                                    }
+                                                }
                                             ></textarea>
                                         </Field>
+                                        {move || {
+                                            match link_query.get() {
+                                                None => ().into_any(),
+                                                Some(q) => {
+                                                    let qn = grumps_core::wikilink::normalize_title(&q);
+                                                    let matches: Vec<_> = all_notes.get().unwrap_or_default()
+                                                        .into_iter()
+                                                        .filter_map(|n| n.title.clone())
+                                                        .filter(|t| grumps_core::wikilink::normalize_title(t).contains(&qn))
+                                                        .take(8)
+                                                        .collect();
+                                                    if matches.is_empty() {
+                                                        view! { <div class="text-sm text-ink/50 px-2 py-1">{tr("page.note_editor.link_picker_empty")}</div> }.into_any()
+                                                    } else {
+                                                        view! {
+                                                            <ul class="border-2 border-ink rounded-xs mt-1 bg-cream-light max-h-48 overflow-y-auto">
+                                                                {matches.into_iter().map(|title_text| {
+                                                                    let title_for_click = title_text.clone();
+                                                                    view! {
+                                                                        <li>
+                                                                            <button
+                                                                                type="button"
+                                                                                class="w-full text-left px-2 py-1 text-sm hover:bg-cream"
+                                                                                on:click=move |_| {
+                                                                                    set_content.update(|c| {
+                                                                                        if let Some(idx) = c.rfind("[[") {
+                                                                                            c.truncate(idx);
+                                                                                            c.push_str(&format!("[[{}]]", title_for_click));
+                                                                                        }
+                                                                                    });
+                                                                                    set_link_query.set(None);
+                                                                                }
+                                                                            >{title_text}</button>
+                                                                        </li>
+                                                                    }
+                                                                }).collect::<Vec<_>>()}
+                                                            </ul>
+                                                        }.into_any()
+                                                    }
+                                                }
+                                            }
+                                        }}
                                     </div>
                                 }.into_any()
                             } else {
                                 view! {
-                                    <div class="prose max-w-none p-6 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
-                                        <pre class="whitespace-pre-wrap text-sm">{content.get()}</pre>
+                                    <div>
+                                        <div class="prose max-w-none p-6 border-2 border-ink rounded-xs" style="background: var(--cream-light);">
+                                            {move || {
+                                                let slug_v = slug();
+                                                let resolver: std::collections::HashMap<String, String> =
+                                                    links.get().flatten().map(|l| {
+                                                        l.outgoing.into_iter()
+                                                            .filter_map(|o| o.id.map(|id| (o.target_norm, id)))
+                                                            .collect()
+                                                    }).unwrap_or_default();
+                                                let api = api_for_wikilink_create.get_value();
+                                                let nav = navigate.get_value();
+                                                let slug_for_create = slug_v.clone();
+                                                let on_create_unresolved = move |target: String| {
+                                                    let api = api.clone();
+                                                    let nav = nav.clone();
+                                                    let s = slug_for_create.clone();
+                                                    spawn_local(async move {
+                                                        // Seed with an H1 so the note has
+                                                        // sensible starting content AND passes
+                                                        // the worker's `content` min=1 validation
+                                                        // (`de_trim` trims to "# {target}").
+                                                        let req = crate::api::CreateNoteRequest {
+                                                            content: format!("# {}\n", target),
+                                                            title: Some(target),
+                                                        };
+                                                        if let Ok(new_note) = api.create_note(&s, req).await {
+                                                            let path = format!("{}/w/{}/notes/{}", crate::demo::router_base(), s, new_note.id);
+                                                            nav(&path, Default::default());
+                                                        }
+                                                    });
+                                                };
+                                                crate::components::wikilink::render_note_content(content.get(), resolver, slug_v, on_create_unresolved)
+                                            }}
+                                        </div>
+                                        {move || {
+                                            let bl = links.get().flatten().map(|l| l.backlinks).unwrap_or_default();
+                                            if bl.is_empty() {
+                                                ().into_any()
+                                            } else {
+                                                let slug_v = slug();
+                                                view! {
+                                                    <div class="mt-6">
+                                                        <h3 class="font-display text-sm mb-2">{move || tr("page.note_editor.backlinks_heading")}</h3>
+                                                        <ul class="flex flex-col gap-1">
+                                                            <For
+                                                                each=move || bl.clone()
+                                                                key=|r| r.id.clone()
+                                                                children=move |r| {
+                                                                    let href = format!("{}/w/{}/notes/{}", crate::demo::router_base(), slug_v, r.id);
+                                                                    let label = r.title.clone().unwrap_or_else(|| tr("page.note_editor.untitled"));
+                                                                    view! { <li><a href=href class="text-sm underline">{label}</a></li> }
+                                                                }
+                                                            />
+                                                        </ul>
+                                                    </div>
+                                                }.into_any()
+                                            }
+                                        }}
                                     </div>
                                 }.into_any()
                             }}

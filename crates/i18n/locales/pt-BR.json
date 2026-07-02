@@ -400,5 +400,8 @@
   "toast.schedule_created": "Agendamento criado.",
   "toast.schedule_deleted": "Agendamento excluído.",
   "toast.memory_created": "Memória salva.",
-  "toast.memory_deleted": "Memória excluída."
+  "toast.memory_deleted": "Memória excluída.",
+  "page.note_editor.backlinks_heading": "Vinculado de",
+  "page.note_editor.wikilink_create": "Criar nota “{title}”?",
+  "page.note_editor.link_picker_empty": "Nenhuma nota correspondente"
 }

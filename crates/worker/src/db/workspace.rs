@@ -343,6 +343,38 @@ impl<'a> WorkspaceDb<'a> {
 
     // --- Notes ---
 
+    /// Replace all outgoing link edges for a note with those parsed from its
+    /// content. Called after every insert/update so web, API, and chat-created
+    /// notes are all indexed uniformly.
+    async fn rebuild_note_links(&self, note_id: &str, content: &str) -> Result<()> {
+        self.q(
+            "DELETE FROM note_links WHERE from_id = ?1",
+            vec![note_id.into()],
+        )
+        .await?;
+        // One multi-row INSERT per chunk (not one per edge): a link-heavy note
+        // must not burn a D1 subrequest per edge out of the Worker's budget.
+        // Chunked to stay well under D1's bound-parameter limit.
+        let edges = grumps_core::wikilink::link_edges(content);
+        for chunk in edges.chunks(30) {
+            let placeholders: Vec<String> = (0..chunk.len())
+                .map(|j| format!("(?{}, ?{}, ?{})", j * 3 + 1, j * 3 + 2, j * 3 + 3))
+                .collect();
+            let sql = format!(
+                "INSERT OR IGNORE INTO note_links (from_id, to_title_norm, display) VALUES {}",
+                placeholders.join(", ")
+            );
+            let mut params = Vec::with_capacity(chunk.len() * 3);
+            for edge in chunk {
+                params.push(note_id.into());
+                params.push(edge.to_title_norm.clone().into());
+                params.push(edge.display.clone().into());
+            }
+            self.q(&sql, params).await?;
+        }
+        Ok(())
+    }
+
     pub async fn insert_note(
         &self,
         title: &str,
@@ -351,8 +383,10 @@ impl<'a> WorkspaceDb<'a> {
         created_by: &str,
     ) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
-        self.q("INSERT INTO notes (id, title, content, source, created_by, created_at, updated_at) VALUES (?1, NULLIF(?2,''), ?3, ?4, ?5, datetime('now'), datetime('now'))",
-            vec![id.clone().into(), title.into(), content.into(), source.into(), created_by.into()]).await?;
+        let title_norm = grumps_core::wikilink::normalize_title(title);
+        self.q("INSERT INTO notes (id, title, title_norm, content, source, created_by, created_at, updated_at) VALUES (?1, NULLIF(?2,''), NULLIF(?3,''), ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            vec![id.clone().into(), title.into(), title_norm.into(), content.into(), source.into(), created_by.into()]).await?;
+        self.rebuild_note_links(&id, content).await?;
         Ok(id)
     }
 
@@ -496,15 +530,87 @@ impl<'a> WorkspaceDb<'a> {
         content: &str,
         _editor_id: &str,
     ) -> Result<()> {
-        self.q("UPDATE notes SET title = NULLIF(?1,''), content = ?2, updated_at = datetime('now') WHERE id = ?3",
-            vec![title.into(), content.into(), note_id.into()]).await?;
+        let title_norm = grumps_core::wikilink::normalize_title(title);
+        self.q("UPDATE notes SET title = NULLIF(?1,''), title_norm = NULLIF(?2,''), content = ?3, updated_at = datetime('now') WHERE id = ?4",
+            vec![title.into(), title_norm.into(), content.into(), note_id.into()]).await?;
+        self.rebuild_note_links(note_id, content).await?;
         Ok(())
     }
 
     pub async fn delete_note(&self, note_id: &str) -> Result<()> {
+        self.q(
+            "DELETE FROM note_links WHERE from_id = ?1",
+            vec![note_id.into()],
+        )
+        .await?;
         self.q("DELETE FROM notes WHERE id = ?1", vec![note_id.into()])
             .await?;
         Ok(())
+    }
+
+    /// Backlinks (notes linking to this one, by normalized title) and this
+    /// note's outgoing links with resolved ids (most-recent note wins on
+    /// duplicate titles; None = unresolved).
+    pub async fn get_note_links(
+        &self,
+        note_id: &str,
+    ) -> Result<grumps_core::dto::NoteLinksResponse> {
+        // Backlinks: who points at THIS note's normalized title.
+        let backlink_resp = self
+            .q(
+                "SELECT n.id AS id, n.title AS title \
+             FROM note_links l JOIN notes n ON n.id = l.from_id \
+             WHERE l.to_title_norm = (SELECT title_norm FROM notes WHERE id = ?1) \
+               AND (SELECT title_norm FROM notes WHERE id = ?1) IS NOT NULL \
+             ORDER BY n.updated_at DESC",
+                vec![note_id.into()],
+            )
+            .await?;
+
+        #[derive(Deserialize)]
+        struct BRow {
+            id: String,
+            title: Option<String>,
+        }
+        let backlinks = extract_rows::<BRow>(&backlink_resp)?
+            .into_iter()
+            .map(|r| grumps_core::dto::LinkRef {
+                id: r.id,
+                title: r.title,
+            })
+            .collect();
+
+        // Outgoing: this note's edges, each resolved to the most-recent match.
+        let out_resp = self
+            .q(
+                "SELECT l.display AS display, l.to_title_norm AS target_norm, \
+                    (SELECT id FROM notes WHERE title_norm = l.to_title_norm \
+                     ORDER BY updated_at DESC LIMIT 1) AS id \
+             FROM note_links l WHERE l.from_id = ?1 \
+             ORDER BY rowid",
+                vec![note_id.into()],
+            )
+            .await?;
+
+        #[derive(Deserialize)]
+        struct ORow {
+            display: String,
+            target_norm: String,
+            id: Option<String>,
+        }
+        let outgoing = extract_rows::<ORow>(&out_resp)?
+            .into_iter()
+            .map(|r| grumps_core::dto::OutgoingLink {
+                display: r.display,
+                target_norm: r.target_norm,
+                id: r.id,
+            })
+            .collect();
+
+        Ok(grumps_core::dto::NoteLinksResponse {
+            backlinks,
+            outgoing,
+        })
     }
 
     // --- Todos (extended) ---

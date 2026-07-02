@@ -400,5 +400,8 @@
   "toast.schedule_created": "تم إنشاء الجدول.",
   "toast.schedule_deleted": "تم حذف الجدول.",
   "toast.memory_created": "تم حفظ الذاكرة.",
-  "toast.memory_deleted": "تم حذف الذاكرة."
+  "toast.memory_deleted": "تم حذف الذاكرة.",
+  "page.note_editor.backlinks_heading": "مرتبط من",
+  "page.note_editor.wikilink_create": "إنشاء ملاحظة ‏«{title}»؟",
+  "page.note_editor.link_picker_empty": "لا توجد ملاحظات مطابقة"
 }

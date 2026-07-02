@@ -400,5 +400,8 @@
   "toast.schedule_created": "スケジュールを作成しました。",
   "toast.schedule_deleted": "スケジュールを削除しました。",
   "toast.memory_created": "メモリを保存しました。",
-  "toast.memory_deleted": "メモリを削除しました。"
+  "toast.memory_deleted": "メモリを削除しました。",
+  "page.note_editor.backlinks_heading": "リンク元",
+  "page.note_editor.wikilink_create": "ノート「{title}」を作成しますか？",
+  "page.note_editor.link_picker_empty": "一致するノートがありません"
 }

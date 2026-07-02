@@ -48,6 +48,11 @@ pub struct NoteItem {
     pub updated_at: Option<String>,
 }
 
+// Link DTOs are the core wire types verbatim — re-exported (not copied) so a
+// field change on the worker side is a compile error here, not a silent serde
+// mismatch. `NoteLinks` keeps the shorter SPA-side name.
+pub use grumps_core::dto::{LinkRef, NoteLinksResponse as NoteLinks, OutgoingLink};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemberItem {
     pub id: String,

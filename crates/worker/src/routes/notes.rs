@@ -69,6 +69,21 @@ pub async fn get_note(req: Request, ctx: RouteContext<()>, m: Member) -> Result<
     }
 }
 
+// ── GET /api/w/:slug/notes/:id/links ──────────────────────────────────────────
+
+pub async fn note_links(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    let note_id = ctx
+        .param("id")
+        .ok_or_else(|| Error::RustError("missing id".into()))?
+        .to_string();
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
+    let links = ws_db.get_note_links(&note_id).await?;
+
+    middleware::with_cors(&req, Response::from_json(&links)?)
+}
+
 // ── PUT /api/w/:slug/notes/:id ────────────────────────────────────────────────
 
 pub async fn update_note(

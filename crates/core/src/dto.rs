@@ -114,6 +114,30 @@ pub struct UpdateNoteRequest {
     pub content: String,
 }
 
+/// Response of `GET /api/w/:slug/notes/:id/links`: backlink target ref.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct LinkRef {
+    pub id: String,
+    pub title: Option<String>,
+}
+
+/// One outgoing wikilink edge, resolved (or not) to a note id.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct OutgoingLink {
+    pub display: String,
+    /// Normalized target title (the `[[target]]` before any `|alias`), used to
+    /// resolve the link regardless of its displayed text.
+    pub target_norm: String,
+    pub id: Option<String>,
+}
+
+/// Response of `GET /api/w/:slug/notes/:id/links`.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct NoteLinksResponse {
+    pub backlinks: Vec<LinkRef>,
+    pub outgoing: Vec<OutgoingLink>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +213,35 @@ mod tests {
         let r: CreateTodoRequest = serde_json::from_str(r#"{"title":"  buy milk  "}"#).unwrap();
         assert_eq!(r.title, "buy milk");
         assert!(r.validate().is_ok());
+    }
+
+    #[test]
+    fn note_links_response_serializes() {
+        let r = super::NoteLinksResponse {
+            backlinks: vec![super::LinkRef {
+                id: "n1".into(),
+                title: Some("Wifi".into()),
+            }],
+            outgoing: vec![
+                super::OutgoingLink {
+                    display: "the office wifi".into(),
+                    target_norm: "wifi".into(),
+                    id: Some("n1".into()),
+                },
+                super::OutgoingLink {
+                    display: "Ghost".into(),
+                    target_norm: "ghost".into(),
+                    id: None,
+                },
+            ],
+        };
+        let j = serde_json::to_value(&r).unwrap();
+        assert_eq!(j["backlinks"][0]["id"], "n1");
+        // Aliased link: display differs from the target, but target_norm carries
+        // the resolvable title so the SPA resolves it regardless of display text.
+        assert_eq!(j["outgoing"][0]["display"], "the office wifi");
+        assert_eq!(j["outgoing"][0]["target_norm"], "wifi");
+        assert_eq!(j["outgoing"][0]["id"], "n1");
+        assert_eq!(j["outgoing"][1]["id"], serde_json::Value::Null);
     }
 }

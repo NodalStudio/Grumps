@@ -400,5 +400,8 @@
   "toast.schedule_created": "Programación creada.",
   "toast.schedule_deleted": "Programación eliminada.",
   "toast.memory_created": "Recuerdo guardado.",
-  "toast.memory_deleted": "Recuerdo eliminado."
+  "toast.memory_deleted": "Recuerdo eliminado.",
+  "page.note_editor.backlinks_heading": "Enlazado desde",
+  "page.note_editor.wikilink_create": "¿Crear nota «{title}»?",
+  "page.note_editor.link_picker_empty": "Sin notas coincidentes"
 }

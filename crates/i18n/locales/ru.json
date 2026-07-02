@@ -400,5 +400,8 @@
   "toast.schedule_created": "Расписание создано.",
   "toast.schedule_deleted": "Расписание удалено.",
   "toast.memory_created": "Память сохранена.",
-  "toast.memory_deleted": "Память удалена."
+  "toast.memory_deleted": "Память удалена.",
+  "page.note_editor.backlinks_heading": "Ссылаются",
+  "page.note_editor.wikilink_create": "Создать заметку «{title}»?",
+  "page.note_editor.link_picker_empty": "Нет подходящих заметок"
 }
