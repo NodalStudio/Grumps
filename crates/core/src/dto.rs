@@ -125,6 +125,9 @@ pub struct LinkRef {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub struct OutgoingLink {
     pub display: String,
+    /// Normalized target title (the `[[target]]` before any `|alias`), used to
+    /// resolve the link regardless of its displayed text.
+    pub target_norm: String,
     pub id: Option<String>,
 }
 
@@ -221,17 +224,24 @@ mod tests {
             }],
             outgoing: vec![
                 super::OutgoingLink {
-                    display: "Wifi".into(),
+                    display: "the office wifi".into(),
+                    target_norm: "wifi".into(),
                     id: Some("n1".into()),
                 },
                 super::OutgoingLink {
                     display: "Ghost".into(),
+                    target_norm: "ghost".into(),
                     id: None,
                 },
             ],
         };
         let j = serde_json::to_value(&r).unwrap();
         assert_eq!(j["backlinks"][0]["id"], "n1");
+        // Aliased link: display differs from the target, but target_norm carries
+        // the resolvable title so the SPA resolves it regardless of display text.
+        assert_eq!(j["outgoing"][0]["display"], "the office wifi");
+        assert_eq!(j["outgoing"][0]["target_norm"], "wifi");
+        assert_eq!(j["outgoing"][0]["id"], "n1");
         assert_eq!(j["outgoing"][1]["id"], serde_json::Value::Null);
     }
 }

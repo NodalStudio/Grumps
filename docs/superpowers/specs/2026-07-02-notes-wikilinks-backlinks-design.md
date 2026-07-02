@@ -208,9 +208,6 @@ Per the project hard rule, no user-facing literals in source. New English keys
 These were surfaced during implementation review and consciously accepted for v1
 (none block the core linking/backlinks value):
 
-- **Aliased-link resolution keys on display text.** Plain `[[Title]]` links
-  resolve; `[[Target|Alias]]` links resolve on the alias, so they may render as
-  unresolved. Fixing needs `OutgoingLink` to carry the parsed `target` as well.
 - **`[[` autocomplete completes the last open `[[` in the buffer** and, on
   select, replaces from that `[[` to the buffer end — so text typed *after* an
   open `[[` (when the caret isn't at the end) is discarded. Fine for the

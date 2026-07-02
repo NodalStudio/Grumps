@@ -57,6 +57,7 @@ pub struct LinkRef {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutgoingLink {
     pub display: String,
+    pub target_norm: String,
     pub id: Option<String>,
 }
 

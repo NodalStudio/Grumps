@@ -481,7 +481,7 @@ impl<'a> WorkspaceDb<'a> {
         // Outgoing: this note's edges, each resolved to the most-recent match.
         let out_resp = self
             .q(
-                "SELECT l.display AS display, \
+                "SELECT l.display AS display, l.to_title_norm AS target_norm, \
                     (SELECT id FROM notes WHERE title_norm = l.to_title_norm \
                      ORDER BY updated_at DESC LIMIT 1) AS id \
              FROM note_links l WHERE l.from_id = ?1 \
@@ -493,12 +493,14 @@ impl<'a> WorkspaceDb<'a> {
         #[derive(Deserialize)]
         struct ORow {
             display: String,
+            target_norm: String,
             id: Option<String>,
         }
         let outgoing = extract_rows::<ORow>(&out_resp)?
             .into_iter()
             .map(|r| grumps_core::dto::OutgoingLink {
                 display: r.display,
+                target_norm: r.target_norm,
                 id: r.id,
             })
             .collect();

@@ -204,7 +204,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                 let resolver: std::collections::HashMap<String, String> =
                                                     links.get().flatten().map(|l| {
                                                         l.outgoing.into_iter()
-                                                            .filter_map(|o| o.id.map(|id| (grumps_core::wikilink::normalize_title(&o.display), id)))
+                                                            .filter_map(|o| o.id.map(|id| (o.target_norm, id)))
                                                             .collect()
                                                     }).unwrap_or_default();
                                                 let api = api_for_wikilink_create.get_value();
