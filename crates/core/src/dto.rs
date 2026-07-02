@@ -215,10 +215,19 @@ mod tests {
     #[test]
     fn note_links_response_serializes() {
         let r = super::NoteLinksResponse {
-            backlinks: vec![super::LinkRef { id: "n1".into(), title: Some("Wifi".into()) }],
+            backlinks: vec![super::LinkRef {
+                id: "n1".into(),
+                title: Some("Wifi".into()),
+            }],
             outgoing: vec![
-                super::OutgoingLink { display: "Wifi".into(), id: Some("n1".into()) },
-                super::OutgoingLink { display: "Ghost".into(), id: None },
+                super::OutgoingLink {
+                    display: "Wifi".into(),
+                    id: Some("n1".into()),
+                },
+                super::OutgoingLink {
+                    display: "Ghost".into(),
+                    id: None,
+                },
             ],
         };
         let j = serde_json::to_value(&r).unwrap();
