@@ -90,7 +90,7 @@ Parser requirements:
 
 **Chosen approach: a title-keyed edge table, resolved at query time.**
 
-New migration `migrations/workspace/0010_note_links.sql` (version 10, `data:
+New migration `migrations/workspace/0011_note_links.sql` (version 11, `data:
 false`), registered in `crates/worker/src/migrations.rs::workspace_migrations()`
 and applied by the existing idempotent runner (`apply_pending`):
 

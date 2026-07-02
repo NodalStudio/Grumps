@@ -79,11 +79,14 @@ pub fn workspace_migrations() -> Vec<Migration> {
             data: false,
             sql: include_str!("../../../migrations/workspace/0009_member_locale.sql"),
         },
+        // Version 10 is reserved by the in-flight messages migration
+        // (feat/rag-context-window); note_links takes 11 to avoid a
+        // same-version collision in the per-workspace runner.
         Migration {
-            version: 10,
+            version: 11,
             name: "note_links",
             data: false,
-            sql: include_str!("../../../migrations/workspace/0010_note_links.sql"),
+            sql: include_str!("../../../migrations/workspace/0011_note_links.sql"),
         },
     ]
 }
