@@ -70,7 +70,13 @@ pub fn NoteEditorPage() -> impl IntoView {
         set_save_state.set(SaveState::Saving);
         spawn_local(async move {
             match api.update_note(&s, &id, req).await {
-                Ok(()) => set_save_state.set(SaveState::Saved),
+                Ok(()) => {
+                    set_save_state.set(SaveState::Saved);
+                    // The worker rebuilt note_links from the new content; the
+                    // preview resolver must not keep serving the pre-save map,
+                    // or links added this session render as unresolved.
+                    links.refetch();
+                }
                 Err(_) => set_save_state.set(SaveState::Error),
             }
         });
