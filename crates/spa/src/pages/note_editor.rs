@@ -215,9 +215,13 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                     let nav = nav.clone();
                                                     let s = slug_for_create.clone();
                                                     spawn_local(async move {
+                                                        // Seed with an H1 so the note has
+                                                        // sensible starting content AND passes
+                                                        // the worker's `content` min=1 validation
+                                                        // (`de_trim` trims to "# {target}").
                                                         let req = crate::api::CreateNoteRequest {
+                                                            content: format!("# {}\n", target),
                                                             title: Some(target),
-                                                            content: String::new(),
                                                         };
                                                         if let Ok(new_note) = api.create_note(&s, req).await {
                                                             let path = format!("{}/w/{}/notes/{}", crate::demo::router_base(), s, new_note.id);
