@@ -79,6 +79,12 @@ pub fn workspace_migrations() -> Vec<Migration> {
             data: false,
             sql: include_str!("../../../migrations/workspace/0009_member_locale.sql"),
         },
+        Migration {
+            version: 10,
+            name: "note_links",
+            data: false,
+            sql: include_str!("../../../migrations/workspace/0010_note_links.sql"),
+        },
     ]
 }
 
