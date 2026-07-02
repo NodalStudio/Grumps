@@ -59,6 +59,11 @@ pub fn extract_wikilinks(content: &str) -> Vec<Wikilink> {
 
         let c = bytes[i];
         at_line_start = c == b'\n';
+        // An inline code span never crosses a line: an unpaired backtick must
+        // not suppress wikilinks for the rest of the document.
+        if at_line_start {
+            in_inline = false;
+        }
 
         if in_fence {
             i += 1;
@@ -156,6 +161,15 @@ mod tests {
     #[test]
     fn skips_inline_code() {
         assert!(extract_wikilinks("use `[[notliteral]]` here").is_empty());
+    }
+
+    #[test]
+    fn unpaired_backtick_does_not_suppress_later_lines() {
+        // Regression: a lone backtick used to leave the inline-code state set
+        // for the rest of the document, silently dropping every later link.
+        let links = extract_wikilinks("the shelf is 5` wide\n\nsee [[Wifi]] for the password");
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "Wifi");
     }
 
     #[test]
