@@ -329,12 +329,25 @@ impl<'a> WorkspaceDb<'a> {
             vec![note_id.into()],
         )
         .await?;
-        for edge in grumps_core::wikilink::link_edges(content) {
-            self.q(
-                "INSERT OR IGNORE INTO note_links (from_id, to_title_norm, display) VALUES (?1, ?2, ?3)",
-                vec![note_id.into(), edge.to_title_norm.into(), edge.display.into()],
-            )
-            .await?;
+        // One multi-row INSERT per chunk (not one per edge): a link-heavy note
+        // must not burn a D1 subrequest per edge out of the Worker's budget.
+        // Chunked to stay well under D1's bound-parameter limit.
+        let edges = grumps_core::wikilink::link_edges(content);
+        for chunk in edges.chunks(30) {
+            let placeholders: Vec<String> = (0..chunk.len())
+                .map(|j| format!("(?{}, ?{}, ?{})", j * 3 + 1, j * 3 + 2, j * 3 + 3))
+                .collect();
+            let sql = format!(
+                "INSERT OR IGNORE INTO note_links (from_id, to_title_norm, display) VALUES {}",
+                placeholders.join(", ")
+            );
+            let mut params = Vec::with_capacity(chunk.len() * 3);
+            for edge in chunk {
+                params.push(note_id.into());
+                params.push(edge.to_title_norm.clone().into());
+                params.push(edge.display.clone().into());
+            }
+            self.q(&sql, params).await?;
         }
         Ok(())
     }
