@@ -183,19 +183,19 @@ fn messages_window_around_anchor() {
     }
 
     // The exact single-query shape used by WorkspaceDb::get_messages_around:
-    // a `before` subquery (newest-first, limited) UNION an `after` subquery
-    // (anchor onward, limited), re-sorted chronologically.
+    // a `before` subquery (newest-first, limited), the anchor row on its own
+    // (so it never consumes an `after` slot), and a strictly-after subquery,
+    // re-sorted chronologically.
+    const WINDOW_SQL: &str = "SELECT id, text FROM \
+           (SELECT id, text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
+         UNION ALL \
+         SELECT id, text FROM messages WHERE id = ?1 \
+         UNION ALL \
+         SELECT id, text FROM \
+           (SELECT id, text FROM messages WHERE id > ?1 ORDER BY id ASC LIMIT ?3) \
+         ORDER BY id ASC";
     let anchor = "019e0002";
-    let mut stmt = c
-        .prepare(
-            "SELECT id, text FROM \
-               (SELECT id, text FROM messages WHERE id < ?1 ORDER BY id DESC LIMIT ?2) \
-             UNION ALL \
-             SELECT id, text FROM \
-               (SELECT id, text FROM messages WHERE id >= ?1 ORDER BY id ASC LIMIT ?3) \
-             ORDER BY id ASC",
-        )
-        .unwrap();
+    let mut stmt = c.prepare(WINDOW_SQL).unwrap();
     let window: Vec<String> = stmt
         .query_map(rusqlite::params![anchor, 5_i64, 5_i64], |r| {
             r.get::<_, String>(1)
@@ -216,5 +216,37 @@ fn messages_window_around_anchor() {
     assert!(
         window.contains(&"L'Italie !".to_string()),
         "the short (non-embedded) answer must survive in the window"
+    );
+
+    // `after` counts messages STRICTLY after the anchor: after=0 keeps the
+    // anchor, and after=1 returns exactly one later message — the tool schema
+    // says "how many later messages to include", so the anchor must not
+    // consume a slot of that limit.
+    let window0: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 1_i64, 0_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        window0,
+        vec![
+            "Les amis, on part ou en vacances cet ete ?".to_string(),
+            "L'Italie !".to_string(),
+        ],
+        "after=0 still returns the anchor itself"
+    );
+    let window1: Vec<String> = stmt
+        .query_map(rusqlite::params![anchor, 0_i64, 1_i64], |r| {
+            r.get::<_, String>(1)
+        })
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    assert_eq!(
+        window1,
+        vec!["L'Italie !".to_string(), "Ok parfait ca me va".to_string(),],
+        "after=1 returns the anchor plus exactly one later message"
     );
 }
