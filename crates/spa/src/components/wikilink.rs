@@ -2,16 +2,20 @@
 //! Only linkifies wikilinks — full markdown rendering is out of scope (§9.4).
 //! adapted from blamouche/browsidian, used with permission.
 
-use crate::i18n::tr;
+use crate::i18n::tr_p;
 use grumps_core::wikilink::{extract_wikilinks, normalize_title};
 use leptos::prelude::*;
 use std::collections::HashMap;
 
 /// `resolver`: normalized target title -> existing note id.
+/// `on_create_unresolved`: called with the raw `[[target]]` text when an
+/// unresolved link is clicked; the caller (which holds the `Api` handle and
+/// navigator) is responsible for creating the note and navigating to it.
 pub fn render_note_content(
     content: String,
     resolver: HashMap<String, String>,
     slug: String,
+    on_create_unresolved: impl Fn(String) + Clone + 'static,
 ) -> AnyView {
     let links = extract_wikilinks(&content);
     let mut nodes: Vec<AnyView> = Vec::new();
@@ -33,10 +37,14 @@ pub fn render_note_content(
                 );
             }
             None => {
+                let target = link.target.clone();
+                let tooltip = tr_p("page.note_editor.wikilink_create", &[("title", &target)]);
+                let handler = on_create_unresolved.clone();
                 nodes.push(
                     view! {
-                        <span class="text-ink/50 underline decoration-dotted"
-                              title=tr("page.note_editor.wikilink_unresolved")>
+                        <span class="text-ink/50 underline decoration-dotted cursor-pointer"
+                              title=tooltip
+                              on:click=move |_| handler(target.clone())>
                             {label}
                         </span>
                     }

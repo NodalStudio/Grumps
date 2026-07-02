@@ -402,7 +402,6 @@
   "toast.memory_created": "Memoria salvata.",
   "toast.memory_deleted": "Memoria eliminata.",
   "page.note_editor.backlinks_heading": "Collegato da",
-  "page.note_editor.wikilink_unresolved": "Questa nota non esiste ancora",
   "page.note_editor.wikilink_create": "Creare la nota «{title}»?",
   "page.note_editor.link_picker_empty": "Nessuna nota corrispondente"
 }

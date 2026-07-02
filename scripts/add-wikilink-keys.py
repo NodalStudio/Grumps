@@ -10,15 +10,6 @@ KEYS = {
         "hi": "यहाँ से लिंक", "zh-CN": "被链接自", "ja": "リンク元",
         "ko": "링크한 노트", "id": "Ditautkan dari",
     },
-    "page.note_editor.wikilink_unresolved": {
-        "en": "This note doesn't exist yet", "es": "Esta nota aún no existe",
-        "pt-BR": "Esta nota ainda não existe", "fr": "Cette note n'existe pas encore",
-        "de": "Diese Notiz existiert noch nicht", "it": "Questa nota non esiste ancora",
-        "ru": "Такой заметки пока нет", "tr": "Bu not henüz yok",
-        "ar": "هذه الملاحظة غير موجودة بعد", "hi": "यह नोट अभी मौजूद नहीं है",
-        "zh-CN": "此笔记尚不存在", "ja": "このノートはまだありません",
-        "ko": "아직 없는 노트예요", "id": "Catatan ini belum ada",
-    },
     "page.note_editor.wikilink_create": {
         "en": "Create note “{title}”?", "es": "¿Crear nota «{title}»?",
         "pt-BR": "Criar nota “{title}”?", "fr": "Créer la note « {title} » ?",

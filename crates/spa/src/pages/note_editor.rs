@@ -5,7 +5,7 @@ use crate::components::ui::field::Field;
 use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_navigate, use_params_map};
 
 #[derive(Copy, Clone, PartialEq)]
 enum SaveState {
@@ -43,6 +43,13 @@ pub fn NoteEditorPage() -> impl IntoView {
         let s = slug();
         async move { api.get_notes(&s).await.unwrap_or_default() }
     });
+
+    // Held for the unresolved-wikilink "create note on click" action below.
+    // `StoredValue` (Copy) so the doubly-nested reactive closures around the
+    // preview view can each grab a fresh clone without moving the original
+    // out of an enclosing `move` closure (which would make it FnOnce).
+    let api_for_wikilink_create = StoredValue::new(use_api());
+    let navigate = StoredValue::new_local(use_navigate());
 
     let (editing, set_editing) = signal(false);
     let (content, set_content) = signal(String::new());
@@ -200,7 +207,25 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                             .filter_map(|o| o.id.map(|id| (grumps_core::wikilink::normalize_title(&o.display), id)))
                                                             .collect()
                                                     }).unwrap_or_default();
-                                                crate::components::wikilink::render_note_content(content.get(), resolver, slug_v)
+                                                let api = api_for_wikilink_create.get_value();
+                                                let nav = navigate.get_value();
+                                                let slug_for_create = slug_v.clone();
+                                                let on_create_unresolved = move |target: String| {
+                                                    let api = api.clone();
+                                                    let nav = nav.clone();
+                                                    let s = slug_for_create.clone();
+                                                    spawn_local(async move {
+                                                        let req = crate::api::CreateNoteRequest {
+                                                            title: Some(target),
+                                                            content: String::new(),
+                                                        };
+                                                        if let Ok(new_note) = api.create_note(&s, req).await {
+                                                            let path = format!("{}/w/{}/notes/{}", crate::demo::router_base(), s, new_note.id);
+                                                            nav(&path, Default::default());
+                                                        }
+                                                    });
+                                                };
+                                                crate::components::wikilink::render_note_content(content.get(), resolver, slug_v, on_create_unresolved)
                                             }}
                                         </div>
                                         {move || {

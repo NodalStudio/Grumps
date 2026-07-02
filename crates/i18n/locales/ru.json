@@ -402,7 +402,6 @@
   "toast.memory_created": "Память сохранена.",
   "toast.memory_deleted": "Память удалена.",
   "page.note_editor.backlinks_heading": "Ссылаются",
-  "page.note_editor.wikilink_unresolved": "Такой заметки пока нет",
   "page.note_editor.wikilink_create": "Создать заметку «{title}»?",
   "page.note_editor.link_picker_empty": "Нет подходящих заметок"
 }

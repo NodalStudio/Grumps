@@ -402,7 +402,6 @@
   "toast.memory_created": "Hafıza kaydedildi.",
   "toast.memory_deleted": "Hafıza silindi.",
   "page.note_editor.backlinks_heading": "Bağlantı verenler",
-  "page.note_editor.wikilink_unresolved": "Bu not henüz yok",
   "page.note_editor.wikilink_create": "“{title}” notu oluşturulsun mu?",
   "page.note_editor.link_picker_empty": "Eşleşen not yok"
 }
