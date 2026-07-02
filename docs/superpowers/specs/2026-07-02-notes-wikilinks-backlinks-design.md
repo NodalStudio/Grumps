@@ -203,6 +203,32 @@ Per the project hard rule, no user-facing literals in source. New English keys
   still indexed for backlinks). Can be added later without schema change.
 - Graph view.
 
+## 10. Accepted v1 limitations (implemented as-built)
+
+These were surfaced during implementation review and consciously accepted for v1
+(none block the core linking/backlinks value):
+
+- **Aliased-link resolution keys on display text.** Plain `[[Title]]` links
+  resolve; `[[Target|Alias]]` links resolve on the alias, so they may render as
+  unresolved. Fixing needs `OutgoingLink` to carry the parsed `target` as well.
+- **`[[` autocomplete completes the last open `[[` in the buffer** and, on
+  select, replaces from that `[[` to the buffer end — so text typed *after* an
+  open `[[` (when the caret isn't at the end) is discarded. Fine for the
+  append-while-typing common case; a caret-index-precise version is future work.
+- **`rebuild_note_links` is non-atomic** (DELETE then per-edge INSERT; the D1
+  layer exposes no transaction primitive). A crash mid-rebuild leaves one note's
+  outgoing edges stale/missing; it self-heals on that note's next save and never
+  affects other notes or crashes reads.
+- **`title_norm` backfill is best-effort.** The migration's SQL
+  `lower(trim(title))` is ASCII-only and doesn't collapse inner whitespace, so it
+  can differ from the Rust `normalize_title` authority for non-ASCII/multi-space
+  titles. This can only *miss* a resolution (never mis-resolve), and each row is
+  corrected on its next save.
+
+The create-on-click flow for unresolved links (spec §3/§6) **is** implemented:
+clicking an unresolved `[[Target]]` creates a note titled `Target` (seeded with a
+`# Target` heading so it passes content validation) and navigates to its editor.
+
 ## 10. Isolation summary
 
 | Unit | Purpose | Depends on |
