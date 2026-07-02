@@ -3,8 +3,6 @@
 //! shared by both the worker (link indexing) and the SPA (rendering).
 //! adapted from blamouche/browsidian, used with permission.
 
-use std::ops::Range;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Wikilink {
     pub target: String,
@@ -40,6 +38,14 @@ pub fn extract_wikilinks(content: &str) -> Vec<Wikilink> {
     let mut at_line_start = true;
 
     while i < bytes.len() {
+        // Keep every `content[i..]` slice below on a valid char boundary: `i`
+        // walks byte-by-byte, so on multi-byte UTF-8 chars it lands mid-char.
+        // Byte-level `bytes[i]` reads are fine; string slices would panic.
+        if !content.is_char_boundary(i) {
+            i += 1;
+            continue;
+        }
+
         // Fenced code: a line starting with ``` toggles the fence.
         if at_line_start && content[i..].starts_with("```") {
             in_fence = !in_fence;
@@ -158,6 +164,42 @@ mod tests {
         let links = extract_wikilinks(src);
         assert_eq!(links.len(), 1);
         assert_eq!(links[0].target, "yes");
+    }
+
+    #[test]
+    fn extracts_link_after_multibyte_char() {
+        // Regression: `i` walks byte-by-byte; slicing `content[i..]` on a
+        // non-char-boundary index used to panic. `é` is 2 bytes.
+        let links = extract_wikilinks("café [[note]] end");
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "note");
+        assert_eq!(links[0].alias, None);
+    }
+
+    #[test]
+    fn extracts_non_ascii_target() {
+        let src = "voir [[café]] ici";
+        let links = extract_wikilinks(src);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "café");
+        // Span must still slice back to the exact link text.
+        assert_eq!(&src[links[0].start..links[0].end], "[[café]]");
+    }
+
+    #[test]
+    fn extracts_link_in_cjk_and_emoji_body() {
+        let links = extract_wikilinks("日本語 [[wifi]] 🎉");
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "wifi");
+    }
+
+    #[test]
+    fn edges_normalize_non_ascii_target() {
+        let edges = link_edges("[[Café]] [[café]] and 🎉 [[Other]]");
+        assert_eq!(edges.len(), 2);
+        assert_eq!(edges[0].to_title_norm, "café");
+        assert_eq!(edges[0].display, "Café");
+        assert_eq!(edges[1].to_title_norm, "other");
     }
 
     #[test]
