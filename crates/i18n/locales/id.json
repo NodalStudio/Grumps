@@ -400,5 +400,9 @@
   "toast.schedule_created": "Jadwal dibuat.",
   "toast.schedule_deleted": "Jadwal dihapus.",
   "toast.memory_created": "Memori disimpan.",
-  "toast.memory_deleted": "Memori dihapus."
+  "toast.memory_deleted": "Memori dihapus.",
+  "page.note_editor.backlinks_heading": "Ditautkan dari",
+  "page.note_editor.wikilink_unresolved": "Catatan ini belum ada",
+  "page.note_editor.wikilink_create": "Buat catatan “{title}”?",
+  "page.note_editor.link_picker_empty": "Tidak ada catatan yang cocok"
 }

@@ -400,5 +400,9 @@
   "toast.schedule_created": "शेड्यूल बनाया गया।",
   "toast.schedule_deleted": "शेड्यूल हटाया गया।",
   "toast.memory_created": "मेमोरी सहेजी गई।",
-  "toast.memory_deleted": "मेमोरी हटाई गई।"
+  "toast.memory_deleted": "मेमोरी हटाई गई।",
+  "page.note_editor.backlinks_heading": "यहाँ से लिंक",
+  "page.note_editor.wikilink_unresolved": "यह नोट अभी मौजूद नहीं है",
+  "page.note_editor.wikilink_create": "नोट “{title}” बनाएँ?",
+  "page.note_editor.link_picker_empty": "कोई मिलती नोट नहीं"
 }

@@ -400,5 +400,9 @@
   "toast.schedule_created": "Zeitplan erstellt.",
   "toast.schedule_deleted": "Zeitplan gelöscht.",
   "toast.memory_created": "Notiz gespeichert.",
-  "toast.memory_deleted": "Notiz gelöscht."
+  "toast.memory_deleted": "Notiz gelöscht.",
+  "page.note_editor.backlinks_heading": "Verlinkt von",
+  "page.note_editor.wikilink_unresolved": "Diese Notiz existiert noch nicht",
+  "page.note_editor.wikilink_create": "Notiz „{title}“ erstellen?",
+  "page.note_editor.link_picker_empty": "Keine passenden Notizen"
 }

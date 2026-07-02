@@ -400,5 +400,9 @@
   "toast.schedule_created": "Schedule created.",
   "toast.schedule_deleted": "Schedule deleted.",
   "toast.memory_created": "Memory saved.",
-  "toast.memory_deleted": "Memory deleted."
+  "toast.memory_deleted": "Memory deleted.",
+  "page.note_editor.backlinks_heading": "Linked from",
+  "page.note_editor.wikilink_unresolved": "This note doesn't exist yet",
+  "page.note_editor.wikilink_create": "Create note “{title}”?",
+  "page.note_editor.link_picker_empty": "No matching notes"
 }

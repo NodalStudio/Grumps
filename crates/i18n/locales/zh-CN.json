@@ -400,5 +400,9 @@
   "toast.schedule_created": "日程已创建。",
   "toast.schedule_deleted": "日程已删除。",
   "toast.memory_created": "记忆已保存。",
-  "toast.memory_deleted": "记忆已删除。"
+  "toast.memory_deleted": "记忆已删除。",
+  "page.note_editor.backlinks_heading": "被链接自",
+  "page.note_editor.wikilink_unresolved": "此笔记尚不存在",
+  "page.note_editor.wikilink_create": "创建笔记“{title}”?",
+  "page.note_editor.link_picker_empty": "没有匹配的笔记"
 }

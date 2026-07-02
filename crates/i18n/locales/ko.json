@@ -400,5 +400,9 @@
   "toast.schedule_created": "일정이 생성되었습니다.",
   "toast.schedule_deleted": "일정이 삭제되었습니다.",
   "toast.memory_created": "메모리가 저장되었습니다.",
-  "toast.memory_deleted": "메모리가 삭제되었습니다."
+  "toast.memory_deleted": "메모리가 삭제되었습니다.",
+  "page.note_editor.backlinks_heading": "링크한 노트",
+  "page.note_editor.wikilink_unresolved": "아직 없는 노트예요",
+  "page.note_editor.wikilink_create": "노트 “{title}”를 만들까요?",
+  "page.note_editor.link_picker_empty": "일치하는 노트가 없어요"
 }
