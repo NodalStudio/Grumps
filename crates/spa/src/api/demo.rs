@@ -84,6 +84,12 @@ impl Api for DemoApi {
     async fn delete_note(&self, _slug: &str, _id: &str) -> Result<(), String> {
         Ok(())
     }
+    async fn get_note_links(&self, _slug: &str, _id: &str) -> Result<NoteLinks, String> {
+        Ok(NoteLinks {
+            backlinks: vec![],
+            outgoing: vec![],
+        })
+    }
 
     async fn get_history(&self, _slug: &str) -> Result<Vec<ActivityItem>, String> {
         Ok(crate::demo::activity())

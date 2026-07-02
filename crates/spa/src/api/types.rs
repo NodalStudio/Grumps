@@ -49,6 +49,24 @@ pub struct NoteItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkRef {
+    pub id: String,
+    pub title: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutgoingLink {
+    pub display: String,
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteLinks {
+    pub backlinks: Vec<LinkRef>,
+    pub outgoing: Vec<OutgoingLink>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemberItem {
     pub id: String,
     pub platform_user_id: String,

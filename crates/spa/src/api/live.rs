@@ -153,6 +153,10 @@ impl Api for LiveApi {
     async fn delete_note(&self, slug: &str, id: &str) -> Result<(), String> {
         self.delete(&format!("/api/w/{}/notes/{}", slug, id)).await
     }
+    async fn get_note_links(&self, slug: &str, id: &str) -> Result<NoteLinks, String> {
+        self.get(&format!("/api/w/{}/notes/{}/links", slug, id))
+            .await
+    }
 
     async fn get_history(&self, slug: &str) -> Result<Vec<ActivityItem>, String> {
         self.get(&format!("/api/w/{}/history", slug)).await
