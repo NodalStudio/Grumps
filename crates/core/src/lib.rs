@@ -5,4 +5,5 @@ pub mod member;
 pub mod note;
 pub mod timeutil;
 pub mod todo;
+pub mod wikilink;
 pub mod workspace;
