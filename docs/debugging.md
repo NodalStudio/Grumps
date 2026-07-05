@@ -8,23 +8,24 @@ There is **no classic step-debugger** for Rust+WASM on Cloudflare Workers — yo
 
 A Telegram message flows like this:
 
-```
-POST /webhook/telegram
-  └─ webhook_telegram.rs : handle_incoming()
-       ├─ verify X-Telegram-Bot-Api-Secret-Token header   (403 if missing/wrong)
-       ├─ my_chat_member ?  → route_chat_member() → FirstAdd / Promotion / archive
-       ├─ private chat, unknown ? → provision_workspace_dm()   (DM provisioning)
-       └─ normal text message:
-            ├─ parser::parse(clean_text, is_mention, is_dm, …)   ← structured classification
-            └─ handler::handle_message(…)                         ← the big match
-                 ├─ try_route_via_agent()   ← @grumps fast-path (LLM agent)
-                 └─ match parse_result {
-                       AddTodos / AddSingleTodo(→ LLM classify) / Note / Done / List / Help …
-                    }
-            └─ for each reply → tg.build_send_request() → Telegram API
+```mermaid
+flowchart TD
+  A["POST /webhook/telegram"] --> B["webhook_telegram.rs\nhandle_incoming()"]
+  B --> C{"Verify secret header"}
+  C -- "no" --> X["403"]
+  C -- "yes" --> D{"my_chat_member?"}
+  D -- "yes" --> E["route_chat_member()\nFirstAdd / Promotion / archive"]
+  D -- "no" --> F{"Private chat and unknown?"}
+  F -- "yes" --> G["provision_workspace_dm()\nDM provisioning"]
+  F -- "no" --> H["Normal text message"]
+  H --> I["parser::parse()\nstructured classification"]
+  I --> J["handler::handle_message()\nthe big match"]
+  J --> K["try_route_via_agent()\n@grumps fast-path"]
+  J --> L["match parse_result\nAddTodos / AddSingleTodo / Note / Done / List / Help ..."]
+  J --> M["for each reply\ntg.build_send_request() -> Telegram API"]
 ```
 
-The two branch points that matter most: `parser::parse` (`crates/nlu`) decides *what kind* of message it is, and `handler::handle_message` (`crates/worker/src/handler.rs`) runs the matching branch. WhatsApp and Discord follow the same shape via their own webhook handlers (`webhook.rs`, `webhook_discord.rs`), converging on the same `handler::handle_message`.
+The two branch points that matter most: `parser::parse` (`crates/nlu`) decides _what kind_ of message it is, and `handler::handle_message` (`crates/worker/src/handler.rs`) runs the matching branch. WhatsApp and Discord follow the same shape via their own webhook handlers (`webhook.rs`, `webhook_discord.rs`), converging on the same `handler::handle_message`.
 
 ## Level 1 — Replay a message and watch it live
 
@@ -78,14 +79,14 @@ PATH="/c/Users/mayer/.cargo/bin:$PATH" ~/.cargo/bin/cargo.exe test \
 
 ## Quick reference
 
-| Goal | Tool |
-|---|---|
-| Run the worker locally | `npx wrangler dev` |
-| Inject a fake message | `./replay-webhook.sh tg "…"` (`--dm` for private chat) |
-| Watch logs locally | the `wrangler dev` terminal |
-| Watch logs in production | `npx wrangler tail` |
-| Confirm a branch was taken | add a `log_event("debug.…", …)` probe |
-| True breakpoint step-debug | native `cargo test` on the pure logic |
+| Goal                       | Tool                                                   |
+| -------------------------- | ------------------------------------------------------ |
+| Run the worker locally     | `npx wrangler dev`                                     |
+| Inject a fake message      | `./replay-webhook.sh tg "…"` (`--dm` for private chat) |
+| Watch logs locally         | the `wrangler dev` terminal                            |
+| Watch logs in production   | `npx wrangler tail`                                    |
+| Confirm a branch was taken | add a `log_event("debug.…", …)` probe                  |
+| True breakpoint step-debug | native `cargo test` on the pure logic                  |
 
 ## Strengthening diagnosis when something goes wrong
 
@@ -93,13 +94,13 @@ Every request now emits a correlation id derived from Cloudflare's `cf-ray` head
 
 Structured log lines, all greppable by `[level]` and `rid=`:
 
-| Event | When | Fields |
-|---|---|---|
-| `http.in` | every request, before routing | `method`, `path` |
-| `http.out` | every request, after routing | `status`, `ms` (latency); level is `error` for 5xx, `warn` for 4xx |
-| `error` | any 5xx or `AppError::Internal` | `where`, `detail` |
-| `tg.message` | every inbound Telegram text | `msg_id`, `is_mention`, `is_dm` (metadata only, no content) |
-| `tg.trace` | Telegram text, only when `DEBUG_TRACE=1` | `sender`, `text` (full content), `variant` (chosen `ParseResult`), `raw` (the full update body — replayable verbatim via `replay-webhook.sh`) |
+| Event        | When                                     | Fields                                                                                                                                        |
+| ------------ | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `http.in`    | every request, before routing            | `method`, `path`                                                                                                                              |
+| `http.out`   | every request, after routing             | `status`, `ms` (latency); level is `error` for 5xx, `warn` for 4xx                                                                            |
+| `error`      | any 5xx or `AppError::Internal`          | `where`, `detail`                                                                                                                             |
+| `tg.message` | every inbound Telegram text              | `msg_id`, `is_mention`, `is_dm` (metadata only, no content)                                                                                   |
+| `tg.trace`   | Telegram text, only when `DEBUG_TRACE=1` | `sender`, `text` (full content), `variant` (chosen `ParseResult`), `raw` (the full update body — replayable verbatim via `replay-webhook.sh`) |
 
 Flip verbose content tracing on without redeploying: set `DEBUG_TRACE=1` (Cloudflare dashboard env var in prod, or `.dev.vars` locally). `tg.message` is always on and content-free; `tg.trace` carries the full message content and is gated.
 
