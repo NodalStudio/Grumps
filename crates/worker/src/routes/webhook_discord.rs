@@ -208,9 +208,6 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         inbound.quoted_message_id.is_some(),
     );
 
-    // LLM client (optional)
-    let llm = crate::llm_client::LlmClient::from_env(&ctx.env).ok();
-
     let result = handler::handle_message(
         Some(&ctx.env),
         text,
@@ -218,12 +215,10 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &inbound.message_id,
         inbound.quoted_message_id.as_deref(),
         inbound.quoted_message_text.as_deref(),
-        &inbound.sender_name,
         &ws_db,
         &member_id,
         &workspace.slug,
         &workspace.locale,
-        llm.as_ref(),
         &workspace.plan,
     )
     .await?;
@@ -245,7 +240,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         // Track bot message
         if let Ok(json) = resp.json::<serde_json::Value>().await {
             if let Some(msg_id) = json.get("id").and_then(|v| v.as_str()) {
-                let _ = ws_db.track_bot_message(msg_id, None).await;
+                let _ = ws_db
+                    .track_bot_message(msg_id, msg.todo_id.as_deref())
+                    .await;
             }
         }
     }

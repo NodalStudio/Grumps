@@ -8,7 +8,7 @@ pub async fn handle_cron(env: &Env) -> Result<()> {
     let index_db = db::get_index_db(env)?;
     let d1_client = D1RestClient::from_env(env)?;
 
-    let wa = crate::routes::webhook::build_adapter_from_env(env)?;
+    let wa = crate::routes::webhook_whatsapp::build_adapter_from_env(env)?;
 
     // Reminders are no longer fired here. They are scheduled_actions fired by
     // each workspace's Durable Object alarm (tz-correct recurrence). Legacy
@@ -119,10 +119,7 @@ async fn check_and_send_recaps(
         );
 
         // Send to WhatsApp group
-        let msg = OutboundMessage {
-            text,
-            reply_to: None,
-        };
+        let msg = OutboundMessage::text(text);
         let (url, body) = wa
             .build_send_request(&ws.platform_channel_id, &msg)
             .map_err(|e| Error::RustError(format!("{:?}", e)))?;
@@ -136,6 +133,9 @@ async fn check_and_send_recaps(
             .with_headers(headers)
             .with_body(Some(wasm_bindgen::JsValue::from_str(&body)));
         let req = Request::new_with_init(&url, &init)?;
+        // TODO(whatsapp): once WhatsApp is wired up, read the sent message id
+        // from the response and `track_bot_message` it (as the scheduler path
+        // does for Telegram) so replies to this recap are recognized.
         let _ = Fetch::Request(req).send().await;
 
         // Mark as sent (expires after 24h)

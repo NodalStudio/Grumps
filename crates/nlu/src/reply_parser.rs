@@ -1,7 +1,11 @@
 use crate::parser::{ParseResult, TaskCardAction};
 use grumps_core::todo::Priority;
 
-pub fn parse_reply(text: &str) -> ParseResult {
+/// Parse a reply to a bot task card. Returns `Some` only for recognized card
+/// verbs; unrecognized text (casual chatter) and explicit `@grumps` commands
+/// return `None` so the caller can fall through to normal parsing instead of
+/// swallowing the message as a bogus card action.
+pub fn parse_reply(text: &str) -> Option<ParseResult> {
     let lower = text.trim().to_lowercase();
     let original = text.trim();
     let action = match lower.as_str() {
@@ -10,6 +14,9 @@ pub fn parse_reply(text: &str) -> ParseResult {
         "!high" | "!!!" => TaskCardAction::ChangePriority(Priority::High),
         "!low" => TaskCardAction::ChangePriority(Priority::Low),
         _ if lower.starts_with("edit ") => TaskCardAction::Edit(original[5..].trim().into()),
+        // A reply that mentions the bot is an explicit command, not a
+        // reassignment — let normal mention parsing handle it.
+        _ if lower.starts_with("@grumps") => return None,
         _ if lower.starts_with('@') && original.len() > 1 => {
             TaskCardAction::Reassign(original[1..].trim().into())
         }
@@ -19,9 +26,10 @@ pub fn parse_reply(text: &str) -> ParseResult {
         _ if lower.starts_with("status:") || lower.starts_with("status ") => {
             TaskCardAction::ChangeStatus(original[7..].trim().into())
         }
-        _ => TaskCardAction::Snooze(original.into()),
+        // Not a recognized card verb — fall through to normal parsing.
+        _ => return None,
     };
-    ParseResult::TaskCardReply(action)
+    Some(ParseResult::TaskCardReply(action))
 }
 
 #[cfg(test)]
@@ -32,8 +40,8 @@ mod tests {
 
     fn action(text: &str) -> TaskCardAction {
         match parse_reply(text) {
-            ParseResult::TaskCardReply(a) => a,
-            other => panic!("Expected TaskCardReply, got {:?}", other),
+            Some(ParseResult::TaskCardReply(a)) => a,
+            other => panic!("Expected Some(TaskCardReply), got {:?}", other),
         }
     }
 
@@ -131,28 +139,35 @@ mod tests {
     }
 
     #[test]
-    fn snooze_fallback() {
-        for text in &["tomorrow", "monday", "in 2h", "next week", "random text"] {
-            assert_eq!(
-                action(text),
-                TaskCardAction::Snooze((*text).into()),
-                "failed for '{text}'"
-            );
+    fn unrecognized_text_falls_through() {
+        // Casual chatter and bare date words are no longer swallowed as a card
+        // action — they return None so the caller falls through to normal
+        // parsing (or ignores the message).
+        for text in &[
+            "tomorrow",
+            "monday",
+            "in 2h",
+            "next week",
+            "random text",
+            "thanks",
+        ] {
+            assert_eq!(parse_reply(text), None, "failed for '{text}'");
         }
     }
 
     #[test]
-    fn snooze_preserves_original_text() {
-        assert_eq!(action("In 2H"), TaskCardAction::Snooze("In 2H".into()));
+    fn explicit_mention_command_falls_through() {
+        // "@grumps list" as a reply is a command, not a reassignment.
+        assert_eq!(parse_reply("@grumps list"), None);
     }
 
     #[test]
-    fn bare_at_sign_is_snooze() {
-        assert_eq!(action("@"), TaskCardAction::Snooze("@".into()));
+    fn bare_at_sign_falls_through() {
+        assert_eq!(parse_reply("@"), None);
     }
 
     #[test]
-    fn bare_hash_is_snooze() {
-        assert_eq!(action("#"), TaskCardAction::Snooze("#".into()));
+    fn bare_hash_falls_through() {
+        assert_eq!(parse_reply("#"), None);
     }
 }

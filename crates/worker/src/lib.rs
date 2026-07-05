@@ -8,7 +8,6 @@ mod durable_objects;
 mod error;
 mod extract;
 mod handler;
-mod llm_client;
 mod middleware;
 mod migrations;
 mod provisioning;
@@ -58,8 +57,11 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         // Health
         .get("/health", routes::health::handle)
         // WhatsApp webhook
-        .get_async("/webhook/whatsapp", routes::webhook::handle_verify)
-        .post_async("/webhook/whatsapp", routes::webhook::handle_incoming)
+        .get_async("/webhook/whatsapp", routes::webhook_whatsapp::handle_verify)
+        .post_async(
+            "/webhook/whatsapp",
+            routes::webhook_whatsapp::handle_incoming,
+        )
         // Telegram webhook
         .post_async(
             "/webhook/telegram",

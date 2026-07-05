@@ -8,7 +8,15 @@ use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
 use grumps_messaging::telegram::TelegramAdapter;
 use worker::*;
 
-pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) -> Result<()> {
+/// Send a message to a workspace's chat group. Returns the platform message id
+/// of the sent message when the platform reports it (Telegram), so callers can
+/// record it via `track_bot_message` for reply detection. `None` for platforms
+/// that don't (yet) surface an id.
+pub async fn send_to_workspace(
+    env: &Env,
+    ws_slug: &str,
+    out: &OutboundMessage,
+) -> Result<Option<String>> {
     let index = get_index_db(env)?;
     let (platform, channel_id) = lookup_platform_channel(&index, ws_slug)
         .await?
@@ -25,7 +33,11 @@ pub async fn send_to_workspace(env: &Env, ws_slug: &str, out: &OutboundMessage) 
     }
 }
 
-async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<()> {
+async fn send_via_telegram(
+    env: &Env,
+    chat_id: &str,
+    out: &OutboundMessage,
+) -> Result<Option<String>> {
     let adapter = TelegramAdapter::new(
         env.secret("TG_BOT_TOKEN")?.to_string(),
         env.var("TG_BOT_USERNAME")?.to_string(),
@@ -41,6 +53,16 @@ async fn send_via_telegram(env: &Env, chat_id: &str, out: &OutboundMessage) -> R
         .with_headers(headers)
         .with_body(Some(body.into()));
     let req = Request::new_with_init(&url, &init)?;
-    Fetch::Request(req).send().await?;
-    Ok(())
+    let mut resp = Fetch::Request(req).send().await?;
+    // Best-effort: read back the sent message id for reply tracking.
+    let sent_id = resp
+        .json::<serde_json::Value>()
+        .await
+        .ok()
+        .and_then(|json| {
+            json.pointer("/result/message_id")
+                .and_then(|v| v.as_i64())
+                .map(|id| id.to_string())
+        });
+    Ok(sent_id)
 }

@@ -39,7 +39,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
     }
 
     let send_result = match action.action_type {
-        ActionType::Reminder => execute_reminder(env, &ws, action).await,
+        ActionType::Reminder => execute_reminder(env, &ws, &db, action).await,
         ActionType::EventNotify => execute_event_notify(env, &ws, &db, action).await,
         ActionType::Recap => execute_recap(env, &ws, &db, action).await,
         ActionType::FollowUp | ActionType::AgentTask => {
@@ -133,6 +133,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
 async fn execute_reminder(
     env: &Env,
     ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
     action: &ScheduledAction,
 ) -> Result<()> {
     let text = action
@@ -142,7 +143,10 @@ async fn execute_reminder(
         .unwrap_or(&action.title);
     let loc = grumps_i18n::Locale::from_code(&ws.locale);
     let body = grumps_i18n::t(loc, "agent.reminder.fire", &[("text", text)]);
-    send_to_group(env, ws, &body).await
+    // If the reminder is linked to a todo, carry it so a "done" reply completes
+    // that todo.
+    let todo_id = action.payload.get("todo_id").and_then(|v| v.as_str());
+    send_to_group(env, ws, db, &body, todo_id).await
 }
 
 async fn execute_event_notify(
@@ -180,7 +184,7 @@ async fn execute_event_notify(
             ("location", location.as_str()),
         ],
     );
-    send_to_group(env, ws, &body).await
+    send_to_group(env, ws, db, &body, None).await
 }
 
 async fn execute_recap(
@@ -240,7 +244,7 @@ async fn execute_recap(
         data.reminders,
         &locale,
     );
-    send_to_group(env, ws, &body).await?;
+    send_to_group(env, ws, db, &body, None).await?;
     // Mark today's recap as sent so the cron path (and any other scheduled
     // recap) skips it for the rest of the local day.
     kv.put(&recap_key, "1")?
@@ -250,13 +254,23 @@ async fn execute_recap(
     Ok(())
 }
 
-async fn send_to_group(env: &Env, ws: &WorkspaceMetaRow, body: &str) -> Result<()> {
+async fn send_to_group(
+    env: &Env,
+    ws: &WorkspaceMetaRow,
+    db: &WorkspaceDb<'_>,
+    body: &str,
+    todo_id: Option<&str>,
+) -> Result<()> {
     use grumps_messaging::adapter::OutboundMessage;
-    let out = OutboundMessage {
-        text: body.to_string(),
-        reply_to: None,
-    };
-    crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await
+    let out = OutboundMessage::text(body.to_string());
+    // Record the sent message so a later reply to it is recognized as a reply
+    // to Grumps (is_bot_message) and resolves to the linked todo, if any. Only
+    // Telegram returns an id today; other platforms yield None and are skipped.
+    if let Some(sent_id) = crate::messaging_dispatch::send_to_workspace(env, &ws.slug, &out).await?
+    {
+        let _ = db.track_bot_message(&sent_id, todo_id).await;
+    }
+    Ok(())
 }
 
 // The stubbed ConditionContext was removed: it could not evaluate conditions

@@ -14,7 +14,10 @@ pub enum ParseResult {
     Help,
     WorkspaceLink,
     Status,
-    AddSingleTodo(ParsedTodo),
+    /// Mention/DM text that matched no deterministic command. The caller routes
+    /// this to the LLM agent as a last resort (or, with no agent available,
+    /// falls back to creating a single todo from the text).
+    Freeform(String),
     TaskCardReply(TaskCardAction),
     QuotedTodo,
     QuotedNote,
@@ -73,7 +76,13 @@ pub fn parse(
 ) -> ParseResult {
     let trimmed = text.trim();
     if is_reply_to_bot {
-        return crate::reply_parser::parse_reply(trimmed);
+        // Only recognized task-card verbs (done, reassign, …) act on the replied
+        // card. Anything else (casual chatter, an explicit @grumps command)
+        // falls through to normal parsing instead of being swallowed as a bogus
+        // card action.
+        if let Some(r) = crate::reply_parser::parse_reply(trimmed) {
+            return r;
+        }
     }
     if has_quoted_message && is_mention {
         if let Some(r) = crate::command_parser::try_parse_quoted_command(trimmed) {
@@ -103,12 +112,38 @@ mod tests {
 
     #[test]
     fn dm_routes_to_command_parser() {
-        // DM with no known command → default action (currently Ignore from stub)
-        let r = parse("hello", false, true, false, false);
-        // Once command_parser is implemented this will be AddSingleTodo, for now it's Ignore from stub
-        assert!(matches!(
-            r,
-            ParseResult::Ignore | ParseResult::AddSingleTodo(_)
-        ));
+        // A DM with no recognized command is unrecognized free text, routed to
+        // the agent as a last resort.
+        assert_eq!(
+            parse("hello", false, true, false, false),
+            ParseResult::Freeform("hello".to_string())
+        );
+    }
+
+    #[test]
+    fn reply_with_non_card_text_falls_through() {
+        // Replying "thanks" to a bot message that isn't a task card must NOT be
+        // interpreted as a card action; with no mention it is ignored.
+        assert_eq!(
+            parse("thanks", false, false, true, true),
+            ParseResult::Ignore
+        );
+    }
+
+    #[test]
+    fn reply_with_card_verb_is_card_action() {
+        assert_eq!(
+            parse("done", false, false, true, true),
+            ParseResult::TaskCardReply(TaskCardAction::Done)
+        );
+    }
+
+    #[test]
+    fn reply_with_explicit_command_falls_through() {
+        // "@grumps list" typed as a reply is a command, not a reassignment.
+        assert_eq!(
+            parse("@grumps list", true, false, true, true),
+            ParseResult::ListTodos(ListFilter::Open)
+        );
     }
 }

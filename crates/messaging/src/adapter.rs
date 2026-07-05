@@ -22,6 +22,22 @@ pub struct InboundMessage {
 pub struct OutboundMessage {
     pub text: String,
     pub reply_to: Option<String>,
+    /// The todo this message is a card for, if any. Lets the webhook send loop
+    /// record `bot_messages.todo_id` so a later reply to the card resolves to
+    /// the right todo. `None` for non-card messages.
+    #[serde(default)]
+    pub todo_id: Option<String>,
+}
+
+impl OutboundMessage {
+    /// A plain message not tied to any todo.
+    pub fn text(text: String) -> Self {
+        Self {
+            text,
+            reply_to: None,
+            todo_id: None,
+        }
+    }
 }
 
 pub trait MessagingPlatform {

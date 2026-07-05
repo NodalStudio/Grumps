@@ -124,10 +124,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                         let _ = send_message(
                             &tg,
                             &chat_id,
-                            &grumps_messaging::adapter::OutboundMessage {
-                                text: welcome,
-                                reply_to: None,
-                            },
+                            &grumps_messaging::adapter::OutboundMessage::text(welcome),
                         )
                         .await;
 
@@ -369,9 +366,6 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         );
     }
 
-    // LLM client (optional)
-    let llm = crate::llm_client::LlmClient::from_env(&ctx.env).ok();
-
     let result = handler::handle_message(
         Some(&ctx.env),
         &clean_text,
@@ -379,12 +373,10 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &inbound.message_id,
         inbound.quoted_message_id.as_deref(),
         inbound.quoted_message_text.as_deref(),
-        &inbound.sender_name,
         &ws_db,
         &member_id,
         &workspace.slug,
         &workspace.locale,
-        llm.as_ref(),
         &workspace.plan,
     )
     .await?;
@@ -405,7 +397,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         // Track bot message
         if let Ok(json) = resp.json::<serde_json::Value>().await {
             if let Some(msg_id) = json.pointer("/result/message_id").and_then(|v| v.as_i64()) {
-                let _ = ws_db.track_bot_message(&msg_id.to_string(), None).await;
+                let _ = ws_db
+                    .track_bot_message(&msg_id.to_string(), msg.todo_id.as_deref())
+                    .await;
             }
         }
     }
@@ -463,10 +457,7 @@ async fn handle_first_add(
         &[("slug", &slug), ("bot", &tg.bot_username)],
     );
 
-    let msg = grumps_messaging::adapter::OutboundMessage {
-        text: welcome,
-        reply_to: None,
-    };
+    let msg = grumps_messaging::adapter::OutboundMessage::text(welcome);
     let _ = send_message(tg, &chat_id, &msg).await;
 
     // Link the TG user who added the bot to the workspace + register their identity.
@@ -520,10 +511,7 @@ async fn handle_promotion(
     };
     let text = t(locale, key, &[]);
 
-    let msg = grumps_messaging::adapter::OutboundMessage {
-        text,
-        reply_to: None,
-    };
+    let msg = grumps_messaging::adapter::OutboundMessage::text(text);
     let _ = send_message(tg, &chat_id, &msg).await;
 
     // The promoted user becomes workspace admin.

@@ -87,13 +87,13 @@ impl MessagingPlatform for TelegramAdapter {
             .map(|t| t.to_lowercase().contains(&bot_mention.to_lowercase()))
             .unwrap_or(false);
 
-        // Check if reply to bot
-        let is_reply_to_bot = msg
-            .reply_to_message
-            .as_ref()
-            .and_then(|r| r.from.as_ref())
-            .map(|u| u.is_bot.unwrap_or(false))
-            .unwrap_or(false);
+        // Note: we intentionally do NOT fold "reply to a bot" into
+        // is_mention_to_bot. `reply_to_message.from.is_bot` is true for a reply
+        // to ANY bot in the group (e.g. another bot), which would make Grumps
+        // butt into messages not addressed to it. Whether a reply targets Grumps
+        // specifically is resolved worker-side via `is_bot_message(quoted_id)`
+        // (only Grumps' own sent messages are tracked) and passed to the parser
+        // as its own `is_reply_to_bot` argument.
 
         let (quoted_id, quoted_text) = msg
             .reply_to_message
@@ -112,7 +112,7 @@ impl MessagingPlatform for TelegramAdapter {
             sender_name,
             text,
             timestamp,
-            is_mention_to_bot: is_mention || is_private || is_reply_to_bot,
+            is_mention_to_bot: is_mention || is_private,
             is_direct_message: is_private,
             quoted_message_id: quoted_id,
             quoted_message_text: quoted_text,
@@ -289,7 +289,10 @@ mod tests {
             .parse_webhook(&serde_json::to_vec(&payload).unwrap())
             .unwrap()
             .unwrap();
-        assert!(msg.is_mention_to_bot); // reply to bot counts
+        // A reply to a bot no longer counts as a mention at the adapter level:
+        // "reply to Grumps specifically" is resolved worker-side via
+        // is_bot_message. Here there is no @mention and it's a group chat.
+        assert!(!msg.is_mention_to_bot);
         assert_eq!(msg.quoted_message_id, Some("40".into()));
     }
 
@@ -304,10 +307,7 @@ mod tests {
 
     #[test]
     fn build_send_request_group() {
-        let msg = OutboundMessage {
-            text: "Hello".into(),
-            reply_to: None,
-        };
+        let msg = OutboundMessage::text("Hello".into());
         let (url, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(url.contains("123:ABC"));
         assert!(body.contains("-100123"));
@@ -356,6 +356,7 @@ mod tests {
         let msg = OutboundMessage {
             text: "Done.".into(),
             reply_to: Some("42".into()),
+            todo_id: None,
         };
         let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(body.contains("reply_to_message_id"));

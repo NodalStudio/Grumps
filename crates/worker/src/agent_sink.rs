@@ -13,10 +13,12 @@ pub struct WorkerMessagingSink<'a> {
 impl<'a> MessagingSink for WorkerMessagingSink<'a> {
     async fn send(&self, text: &str) -> Result<()> {
         use grumps_messaging::adapter::OutboundMessage;
-        let out = OutboundMessage {
-            text: text.to_string(),
-            reply_to: None,
-        };
-        crate::messaging_dispatch::send_to_workspace(self.env, &self.ws_slug, &out).await
+        let out = OutboundMessage::text(text.to_string());
+        // Intentionally not tracked as a bot message: these are the agent's
+        // conversational replies, not task cards. Recording them would make a
+        // "done" reply resolve to no todo yet report success. Conversation
+        // continuity is handled by the agent session, not the card-reply path.
+        crate::messaging_dispatch::send_to_workspace(self.env, &self.ws_slug, &out).await?;
+        Ok(())
     }
 }

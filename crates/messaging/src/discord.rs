@@ -248,10 +248,7 @@ mod tests {
 
     #[test]
     fn build_send_request() {
-        let msg = OutboundMessage {
-            text: "Hello".into(),
-            reply_to: None,
-        };
+        let msg = OutboundMessage::text("Hello".into());
         let (url, body) = adapter().build_send_request("ch1", &msg).unwrap();
         assert!(url.contains("ch1"));
         assert!(body.contains("Hello"));
@@ -262,6 +259,7 @@ mod tests {
         let msg = OutboundMessage {
             text: "Done.".into(),
             reply_to: Some("msg42".into()),
+            todo_id: None,
         };
         let (_, body) = adapter().build_send_request("ch1", &msg).unwrap();
         assert!(body.contains("message_reference"));

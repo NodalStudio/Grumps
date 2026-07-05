@@ -36,14 +36,9 @@ pub fn parse_mention(text: &str) -> ParseResult {
         "help" | "?" => ParseResult::Help,
         "link" | "workspace" | "web" => ParseResult::WorkspaceLink,
         "status" | "summary" | "recap" => ParseResult::Status,
-        _ => {
-            let parsed = entity::extract_todo_from_line(trimmed);
-            if parsed.title.is_empty() {
-                ParseResult::Status
-            } else {
-                ParseResult::AddSingleTodo(parsed)
-            }
-        }
+        // Unrecognized text: hand off to the agent as a last resort (the caller
+        // falls back to a single-todo add when no agent is available).
+        _ => ParseResult::Freeform(trimmed.to_string()),
     }
 }
 
@@ -270,15 +265,12 @@ mod tests {
     }
 
     #[test]
-    fn test_default_add_todo() {
-        let result = parse_mention("@grumps buy bread @Bob");
-        match result {
-            ParseResult::AddSingleTodo(todo) => {
-                assert_eq!(todo.title, "buy bread");
-                assert_eq!(todo.assignee_mention, Some("Bob".to_string()));
-            }
-            other => panic!("Expected AddSingleTodo, got {:?}", other),
-        }
+    fn test_default_freeform() {
+        // Text with no recognized command keyword is free text for the agent.
+        assert_eq!(
+            parse_mention("@grumps buy bread @Bob"),
+            ParseResult::Freeform("buy bread @Bob".to_string())
+        );
     }
 
     #[test]

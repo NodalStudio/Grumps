@@ -83,6 +83,27 @@ fn reminder_due_comparison_survives_t_vs_space() {
 }
 
 #[test]
+fn assignee_filter_is_case_insensitive() {
+    // The parser lowercases the requested assignee ("@Pierre" -> "pierre") but
+    // todos store the name in its original case. The list query must compare via
+    // LOWER() so `list @Pierre` finds Pierre's open todos.
+    let c = conn();
+    c.execute(
+        "INSERT INTO todos (id, seq_num, title, status, assigned_name) VALUES ('t1', 1, 'buy bread', 'open', 'Pierre')",
+        [],
+    )
+    .unwrap();
+
+    // The exact query shape used by get_todos_filtered's assignee branch.
+    let found = count(
+        &c,
+        "SELECT COUNT(*) FROM todos WHERE LOWER(assigned_name) = ?1 AND status IN ('open','in_progress')",
+        &["pierre"],
+    );
+    assert_eq!(found, 1, "lowercased filter matches original-case name");
+}
+
+#[test]
 fn this_week_window_filters_by_bound() {
     let c = conn();
     c.execute("INSERT INTO todos (id, seq_num, title, status, completed_at) VALUES ('t1', 1, 'in', 'done', '2026-05-30T10:00:00Z')", []).unwrap();

@@ -240,7 +240,10 @@ impl<'a> WorkspaceDb<'a> {
             "all" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status != 'deleted' ORDER BY created_at DESC", vec![]),
             "done" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status = 'done' ORDER BY completed_at DESC", vec![]),
             "mine" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_to = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![member_id.unwrap_or("").into()]),
-            _ if filter.starts_with("assignee:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_name = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
+            // Assignee filter is case-insensitive: the parser lowercases the
+            // requested name (e.g. "@Pierre" -> "pierre") but todos store the
+            // name in its original case, so compare via LOWER().
+            _ if filter.starts_with("assignee:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE LOWER(assigned_name) = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
             _ if filter.starts_with("tag:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE tags LIKE ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![format!("%\"{}\"%" , &filter[4..]).into()]),
             _ => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC", vec![]),
         };
