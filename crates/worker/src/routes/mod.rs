@@ -14,5 +14,6 @@ pub mod todos;
 pub mod util;
 pub mod webhook_discord;
 pub mod webhook_telegram;
+pub mod webhook_waha;
 pub mod webhook_whatsapp;
 pub mod workspace_api;
