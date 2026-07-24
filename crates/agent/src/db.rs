@@ -76,6 +76,8 @@ pub trait AgentDb {
     async fn list_active_members(&self) -> worker::Result<Vec<MemberShort>>;
 
     // --- todos / notes ---
+    /// Returns `(todo_id, seq_num)` — the seq is needed to render the same
+    /// task card the deterministic parser path produces.
     async fn create_todo_simple(
         &self,
         title: &str,
@@ -84,7 +86,7 @@ pub trait AgentDb {
         priority: i32,
         tags: Vec<String>,
         created_by: Option<&str>,
-    ) -> worker::Result<String>;
+    ) -> worker::Result<(String, i64)>;
 
     async fn create_note_simple(
         &self,

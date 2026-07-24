@@ -3,8 +3,9 @@
 
 use crate::db::AgentDb;
 use crate::llm::gemini;
-use crate::tools::{self, ToolContext};
+use crate::tools::{self, CreatedTodoCard, ToolContext};
 use serde::Serialize;
+use std::cell::RefCell;
 use worker::*;
 
 #[derive(Debug, Clone, Serialize)]
@@ -14,6 +15,10 @@ pub struct RouteResult {
     /// Whether the agent already sent the message via sink (true) or expects the
     /// caller to send `final_text` (false).
     pub already_sent: bool,
+    /// Todos created via `create_todo` during this run. The caller renders a
+    /// real task card for each (see `formatter::task_card`) instead of relying
+    /// on the model's own prose — see `ToolContext::created_todos`.
+    pub created_todos: Vec<CreatedTodoCard>,
 }
 
 #[async_trait::async_trait(?Send)]
@@ -54,6 +59,7 @@ pub async fn route_message<'a>(
         db,
         language,
         timezone,
+        created_todos: RefCell::new(Vec::new()),
     };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).
@@ -62,6 +68,7 @@ pub async fn route_message<'a>(
         return Ok(RouteResult {
             final_text: result.final_text,
             already_sent: true,
+            created_todos: ctx.drain_created_todos(),
         });
     }
 
@@ -91,6 +98,7 @@ pub async fn route_message<'a>(
                 return Ok(RouteResult {
                     final_text: Some(msg),
                     already_sent: true,
+                    created_todos: ctx.drain_created_todos(),
                 });
             }
             Err(e) => {
@@ -108,6 +116,7 @@ pub async fn route_message<'a>(
     Ok(RouteResult {
         final_text: result.final_text,
         already_sent: true,
+        created_todos: ctx.drain_created_todos(),
     })
 }
 
@@ -116,8 +125,16 @@ fn format_crud_confirmation(locale: &str, intent: &str, result: &serde_json::Val
     let loc = Locale::from_code(locale);
     match intent {
         "create_todo" => {
-            let id = result.get("id").and_then(|v| v.as_str()).unwrap_or("?");
-            t(loc, "crud.todo_created", &[("id", id)])
+            // The task card sent right after this (see route_via_agent) already
+            // carries seq_num/title/assignee/deadline — show the human-facing
+            // seq here, not the internal UUID `id` (which is what this used to
+            // interpolate, and would have rendered as "#3f9a2b1c-...").
+            let seq = result
+                .get("seq_num")
+                .and_then(|v| v.as_i64())
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "?".to_string());
+            t(loc, "crud.todo_created", &[("id", &seq)])
         }
         "create_note" => t(loc, "crud.note_created", &[]),
         "create_event" => t(loc, "crud.event_created", &[]),

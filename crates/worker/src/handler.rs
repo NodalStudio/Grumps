@@ -788,12 +788,35 @@ async fn route_via_agent(
     .await;
 
     match route_result {
-        Ok(_) => {
+        Ok(route_result) => {
             // The agent may have created a scheduled_action / reminder; recompute
             // the workspace DO alarm so it fires promptly (the agent layer can't
             // arm the Durable Object itself). Best-effort.
             let _ = crate::routes::scheduled::reschedule_do(env, ws_slug).await;
-            Ok(HandlerResult::none())
+            // The agent's own reply (already sent via the sink) is deliberately
+            // terse about anything it created (see the RULES in prompt.rs) — the
+            // real task card is rendered here, from what create_todo recorded,
+            // exactly like the deterministic `TODO: x` parser path does.
+            let locale = grumps_i18n::Locale::from_code(ws_locale);
+            let cards = route_result
+                .created_todos
+                .into_iter()
+                .map(|c| OutboundMessage {
+                    text: formatter::task_card(
+                        c.seq_num,
+                        &c.title,
+                        c.assignee.as_deref(),
+                        c.deadline.as_deref(),
+                        c.priority,
+                        &c.tags,
+                        locale.code(),
+                    ),
+                    reply_to: None,
+                    todo_id: Some(c.id),
+                    markdown: false,
+                })
+                .collect();
+            Ok(HandlerResult::many(cards))
         }
         Err(e) => {
             worker::console_log!("agent route failed for ws={ws_slug}: {e}");

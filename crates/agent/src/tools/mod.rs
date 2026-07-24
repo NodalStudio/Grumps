@@ -13,7 +13,23 @@ pub mod web;
 
 use crate::db::AgentDb;
 use crate::router::MessagingSink;
+use std::cell::RefCell;
 use worker::Env;
+
+/// A todo created by `create_todo` during the current agent run, captured so
+/// the caller (worker) can render the same task card the deterministic
+/// `TODO: x` parser path produces — the model's own reply must not restate
+/// this (see the RULES section of `prompt::build_system_prompt`).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CreatedTodoCard {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+    pub assignee: Option<String>,
+    pub deadline: Option<String>,
+    pub priority: grumps_core::todo::Priority,
+    pub tags: Vec<String>,
+}
 
 /// Context passed to each tool handler.
 pub struct ToolContext<'a> {
@@ -27,6 +43,18 @@ pub struct ToolContext<'a> {
     /// IANA timezone of the workspace (e.g. "Europe/Paris"). Used to convert
     /// the local wall-clock times the model emits into UTC for storage.
     pub timezone: String,
+    /// Todos created via `create_todo` during this run (one `ToolContext` is
+    /// built once per agent run and shared across every tool call in it — see
+    /// `router::route_message` / `scheduler_executor::execute_action`).
+    /// Drained by the caller after the run to emit real task cards.
+    pub created_todos: RefCell<Vec<CreatedTodoCard>>,
+}
+
+impl ToolContext<'_> {
+    /// Take every card recorded so far, leaving the accumulator empty.
+    pub fn drain_created_todos(&self) -> Vec<CreatedTodoCard> {
+        self.created_todos.borrow_mut().drain(..).collect()
+    }
 }
 
 /// Parse a datetime string produced by the model into UTC.

@@ -82,15 +82,34 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 db: &db,
                 language,
                 timezone,
+                created_todos: std::cell::RefCell::new(Vec::new()),
             };
 
-            match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
+            let run_result = grumps_agent::loop_::run_oneshot(&ctx, &instruction).await;
+            // Same seam as the chat path (handler::route_via_agent): the model's
+            // own reply is deliberately terse about anything create_todo made
+            // (see prompt.rs RULES), so render the real task card here from
+            // what the tool call recorded on ctx.
+            let created_todos = ctx.drain_created_todos();
+            match run_result {
                 Ok(result) => {
                     console_log!(
                         "agent_task/follow_up executed: {} turns, {} tokens",
                         result.turns,
                         result.total_tokens
                     );
+                    for c in created_todos {
+                        let card = grumps_messaging::formatter::task_card(
+                            c.seq_num,
+                            &c.title,
+                            c.assignee.as_deref(),
+                            c.deadline.as_deref(),
+                            c.priority,
+                            &c.tags,
+                            &ctx.language,
+                        );
+                        let _ = send_to_group(env, &ws, &db, &card, Some(&c.id)).await;
+                    }
                     Ok(())
                 }
                 Err(e) => {
