@@ -27,15 +27,23 @@ pub struct OutboundMessage {
     /// the right todo. `None` for non-card messages.
     #[serde(default)]
     pub todo_id: Option<String>,
+    /// Whether the text contains intentional markup (e.g. `*bold*`/`_italic_`
+    /// in help text) that a platform should render with its native markdown
+    /// parser. Defaults to `false`: most bodies interpolate raw user content
+    /// (todo titles, tags, names) where a lone `_` or `*` would otherwise
+    /// break rendering (or, on Telegram, get the whole message rejected).
+    #[serde(default)]
+    pub markdown: bool,
 }
 
 impl OutboundMessage {
-    /// A plain message not tied to any todo.
+    /// A plain message not tied to any todo, with no markup.
     pub fn text(text: String) -> Self {
         Self {
             text,
             reply_to: None,
             todo_id: None,
+            markdown: false,
         }
     }
 }

@@ -21,6 +21,20 @@ impl HandlerResult {
                 text,
                 reply_to,
                 todo_id: None,
+                markdown: false,
+            }],
+        }
+    }
+    /// Like [`Self::one`], but flags the message as containing intentional
+    /// `*bold*`/`_italic_` markup (currently only `help_text`) so the
+    /// Telegram adapter renders it with `parse_mode: Markdown`.
+    pub fn one_markdown(text: String, reply_to: Option<String>) -> Self {
+        Self {
+            messages: vec![OutboundMessage {
+                text,
+                reply_to,
+                todo_id: None,
+                markdown: true,
             }],
         }
     }
@@ -108,7 +122,7 @@ pub async fn handle_message(
             grumps_i18n::t(locale, "agent.files.web_only", &[]),
             None,
         )),
-        ParseResult::Help => Ok(HandlerResult::one(formatter::help_text(), None)),
+        ParseResult::Help => Ok(HandlerResult::one_markdown(formatter::help_text(), None)),
         ParseResult::WorkspaceLink => Ok(HandlerResult::one(
             format!("grumps.app/w/{}", workspace_slug),
             None,
@@ -174,6 +188,7 @@ async fn handle_add_todos(
             text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
             reply_to: Some(msg_id.to_string()),
             todo_id: None,
+            markdown: false,
         });
     }
 
@@ -230,6 +245,7 @@ async fn handle_add_todos(
             text: card,
             reply_to,
             todo_id: Some(todo_id.clone()),
+            markdown: false,
         });
     }
 

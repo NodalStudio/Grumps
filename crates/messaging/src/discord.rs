@@ -260,6 +260,7 @@ mod tests {
             text: "Done.".into(),
             reply_to: Some("msg42".into()),
             todo_id: None,
+            markdown: false,
         };
         let (_, body) = adapter().build_send_request("ch1", &msg).unwrap();
         assert!(body.contains("message_reference"));

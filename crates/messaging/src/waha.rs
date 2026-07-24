@@ -618,6 +618,7 @@ mod tests {
             text: "Done.".into(),
             reply_to: Some("RAWID123".into()),
             todo_id: None,
+            markdown: false,
         };
         let (_, body) = a.build_send_request("10000000002@c.us", &msg).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
