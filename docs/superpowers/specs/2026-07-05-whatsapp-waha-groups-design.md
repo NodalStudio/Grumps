@@ -1,6 +1,51 @@
 # WhatsApp support via WAHA — real group chats
 
-**Status:** planned · **Date:** 2026-07-05
+**Status:** planned · **Date:** 2026-07-05 · **Revised:** 2026-07-24
+
+## Revisions (2026-07-24) — corrections after live WAHA deployment
+
+A local WAHA (2026.7.1 CORE, NOWEB engine) was deployed and linked;
+checking the spec against the running gateway and the current codebase
+surfaced these corrections. They override the sections below where they
+conflict.
+
+1. **WAHA webhooks are NOT Cloud-API-shaped.** The "Why WAHA" claim is
+   wrong: WAHA's format is its own (`{event, session, payload: {id,
+   from, participant, fromMe, body, ...}}`). What is reused is the
+   downstream pipeline (handler/NLU/DB), not the parsing. Phase 2's
+   full `parse_webhook` stands.
+2. **Mention detection cannot rely on `@grumps` text.** WhatsApp
+   renders mentions as `@<number>`, never a nickname. Reliable path:
+   `mentionedIds` compared against the bot's own JID, passed as config
+   (`WAHA_BOT_JID`). WhatsApp's LID migration means participants and
+   mentions may use either `...@c.us` or `...@lid` — both forms of the
+   bot identity must be configured and compared.
+3. **`fromMe: true` events MUST be dropped in `parse_webhook`** or the
+   bot replies to its own echoes in an infinite loop.
+4. **Replies must target `channel_id` (the chat JID), not
+   `sender_id`.** The Meta route's send loop targets the sender, which
+   is wrong in groups — a third latent defect to not copy.
+5. **Webhook HMAC is SHA-512** (`X-Webhook-Hmac` +
+   `X-Webhook-Hmac-Algorithm: sha512`), not the Meta-style
+   `sha256=`-prefixed `X-Hub-Signature-256`.
+6. **Message-id format consistency must be verified live**: reply-to-
+   card detection needs the id returned by `/api/sendText` to equal the
+   quote id in later webhooks. Validate with captured traffic before
+   freezing the adapter.
+7. **`pushName` is not guaranteed** — fall back to the JID's number
+   part for `sender_name`.
+8. **Decision: DB `platform` string stays `"whatsapp"`.** WAHA is a
+   transport; workspaces, messages, dispatch and the SPA keep the
+   existing WhatsApp channel. Only the route (`/webhook/waha`), the
+   adapter and its secrets are WAHA-named. The `"whatsapp"` arm of
+   `messaging_dispatch` is wired to WAHA REST.
+9. **"Media for free" needs verification on the CORE tier** before
+   Phase 3 is promised (our instance reports `tier: CORE`).
+10. **Webhook config is per-session via the API** (`config.webhooks` on
+    the session), not a dashboard toggle. Local dev: WAHA runs in
+    Docker, so the worker URL is `http://host.docker.internal:8787`.
+11. **Test fixtures come from captured real payloads** (live gateway →
+    local listener), not hand-written JSON.
 
 ## Why this exists
 
