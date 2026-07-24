@@ -17,7 +17,10 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
         if !in_deadline
             && (w.eq_ignore_ascii_case("before")
                 || w.eq_ignore_ascii_case("by")
-                || w.eq_ignore_ascii_case("for"))
+                || w.eq_ignore_ascii_case("for")
+                || w.eq_ignore_ascii_case("avant")
+                || w.eq_ignore_ascii_case("pour")
+                || w.eq_ignore_ascii_case("d'ici"))
         {
             if i + 1 < words.len() {
                 let next = words[i + 1].to_lowercase();
@@ -30,9 +33,19 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
                         | "friday"
                         | "saturday"
                         | "sunday"
+                        | "lundi"
+                        | "mardi"
+                        | "mercredi"
+                        | "jeudi"
+                        | "vendredi"
+                        | "samedi"
+                        | "dimanche"
                         | "tomorrow"
                         | "today"
                         | "tonight"
+                        | "demain"
+                        | "aujourd'hui"
+                        | "aujourdhui"
                         | "next"
                         | "end"
                 ) || next
@@ -73,6 +86,28 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
     if !deadline_parts.is_empty() {
         deadline_text = Some(deadline_parts.join(" "));
     }
+
+    // No trigger word ("before"/"avant"/...) fired, but the line still ends
+    // with a bare date word ("appeler le plombier demain"). Pull it out of
+    // the title so the two extraction paths (this one and the agent path,
+    // which already resolves such trailing words) agree. Skip when the
+    // word is a possessive/genitive reference ("le journal de demain")
+    // rather than a deadline.
+    if deadline_text.is_none() {
+        if let Some(last) = title_parts.last() {
+            if is_trailing_deadline_word(last) {
+                let preceded_by_possessive = title_parts.len() >= 2
+                    && matches!(
+                        title_parts[title_parts.len() - 2].to_lowercase().as_str(),
+                        "de" | "du" | "of"
+                    );
+                if !preceded_by_possessive {
+                    deadline_text = title_parts.pop();
+                }
+            }
+        }
+    }
+
     ParsedTodo {
         title: title_parts.join(" "),
         assignee_mention: assignee,
@@ -80,6 +115,35 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
         priority,
         tags,
     }
+}
+
+/// True if `w` (case-insensitive) is a bare date word that can stand as a
+/// trailing deadline with no trigger word ("...demain", "...friday").
+fn is_trailing_deadline_word(w: &str) -> bool {
+    let lower = w.to_lowercase();
+    matches!(
+        lower.as_str(),
+        "today"
+            | "tonight"
+            | "tomorrow"
+            | "demain"
+            | "aujourd'hui"
+            | "aujourdhui"
+            | "monday"
+            | "tuesday"
+            | "wednesday"
+            | "thursday"
+            | "friday"
+            | "saturday"
+            | "sunday"
+            | "lundi"
+            | "mardi"
+            | "mercredi"
+            | "jeudi"
+            | "vendredi"
+            | "samedi"
+            | "dimanche"
+    )
 }
 
 /// Case-insensitive search for an ASCII `needle`, returning a byte offset into
@@ -249,6 +313,41 @@ mod tests {
         let t = extract_todo_from_line("Buy gift for mom");
         assert_eq!(t.title, "Buy gift for mom");
         assert!(t.deadline_text.is_none());
+    }
+
+    #[test]
+    fn bare_trailing_demain() {
+        let t = extract_todo_from_line("appeler le plombier demain");
+        assert_eq!(t.title, "appeler le plombier");
+        assert_eq!(t.deadline_text, Some("demain".into()));
+    }
+
+    #[test]
+    fn deadline_avant_vendredi() {
+        let t = extract_todo_from_line("pain avant vendredi");
+        assert_eq!(t.title, "pain");
+        assert_eq!(t.deadline_text, Some("vendredi".into()));
+    }
+
+    #[test]
+    fn pour_non_date_stays_in_title() {
+        let t = extract_todo_from_line("pour maman");
+        assert_eq!(t.title, "pour maman");
+        assert!(t.deadline_text.is_none());
+    }
+
+    #[test]
+    fn le_journal_de_demain_no_deadline() {
+        let t = extract_todo_from_line("le journal de demain");
+        assert_eq!(t.title, "le journal de demain");
+        assert!(t.deadline_text.is_none());
+    }
+
+    #[test]
+    fn bare_trailing_friday() {
+        let t = extract_todo_from_line("call bob friday");
+        assert_eq!(t.title, "call bob");
+        assert_eq!(t.deadline_text, Some("friday".into()));
     }
 
     #[test]
