@@ -192,17 +192,32 @@ async fn handle_add_todos(
         });
     }
 
+    // Relative deadline hints ("friday", "demain", ...) are resolved to a real
+    // civil date in the workspace timezone *before* insert, so what the card
+    // displays is exactly what gets stored (see resolve_relative_date).
+    let tz = workspace_tz(ws_db).await;
+    let today = grumps_core::timeutil::today_in_tz(tz);
+
     // Individual task card per todo
     for parsed in &todos {
         let tags_json = serde_json::to_string(&parsed.tags).unwrap_or_else(|_| "[]".into());
         let assignee = parsed.assignee_mention.as_deref().unwrap_or("");
 
-        // Persist the deadline only when it's a real civil date (the LLM path
-        // normalizes to YYYY-MM-DD; raw regex hints like "friday" fall through).
-        let deadline = parsed
+        // Resolve the raw hint into the value that gets stored: an explicit
+        // YYYY-MM-DD (the LLM path already normalizes to this) passes through
+        // `resolve_relative_date`'s ISO branch; "friday"/"demain"/... resolve
+        // via the shared nlu resolver. Anything else stays unresolved — not
+        // persisted, but still shown on the card as raw text (prior behavior).
+        let resolved_deadline = parsed
             .deadline_text
             .as_deref()
-            .filter(|d| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok());
+            .and_then(|d| entity::resolve_relative_date(d, today))
+            .map(|d| d.format("%Y-%m-%d").to_string());
+        let deadline = resolved_deadline.as_deref();
+        let display_deadline = resolved_deadline
+            .as_deref()
+            .or(parsed.deadline_text.as_deref());
+
         let (todo_id, seq) = ws_db
             .insert_todo(
                 &parsed.title,
@@ -225,7 +240,7 @@ async fn handle_add_todos(
             seq,
             &parsed.title,
             parsed.assignee_mention.as_deref(),
-            parsed.deadline_text.as_deref(),
+            display_deadline,
             parsed.priority,
             &parsed.tags,
             locale.code(),
@@ -261,6 +276,7 @@ async fn handle_complete_todos(
 ) -> worker::Result<HandlerResult> {
     let open_todos = ws_db.get_open_todos().await?;
     let mut lines = Vec::new();
+    let mut extra_cards = Vec::new();
 
     for item in &items {
         match matcher::match_done(item, &open_todos) {
@@ -277,8 +293,15 @@ async fn handle_complete_todos(
                 );
                 if let Ok(Some(rec)) = ws_db.get_todo_recurrence(&m.todo_id).await {
                     if let Ok(Some(todo)) = ws_db.get_todo_by_seq(m.seq_num).await {
-                        let _ = ws_db.create_next_recurrence(&todo, &rec).await;
-                        line.push_str(&grumps_i18n::t(locale, "agent.card.next_occurrence", &[]));
+                        let tz = workspace_tz(ws_db).await;
+                        if let Ok(next) = ws_db.create_next_recurrence(&todo, &rec, tz).await {
+                            line.push_str(&grumps_i18n::t(
+                                locale,
+                                "agent.card.next_occurrence",
+                                &[],
+                            ));
+                            extra_cards.push(next_occurrence_card(&next, locale));
+                        }
                     }
                 }
                 lines.push(line);
@@ -308,10 +331,14 @@ async fn handle_complete_todos(
         }
     }
 
-    Ok(HandlerResult::one(
-        lines.join("\n\n"),
-        Some(msg_id.to_string()),
-    ))
+    let mut messages = vec![OutboundMessage {
+        text: lines.join("\n\n"),
+        reply_to: Some(msg_id.to_string()),
+        todo_id: None,
+        markdown: false,
+    }];
+    messages.extend(extra_cards);
+    Ok(HandlerResult::many(messages))
 }
 
 async fn handle_complete_single(
@@ -335,17 +362,30 @@ async fn handle_complete_single(
                         "agent.todo.completed",
                         &[("seq", &seq_str), ("title", &todo.title)],
                     );
+                    let mut messages = Vec::new();
                     if let Some(ref rec) = todo.recurrence {
                         if !rec.is_empty() {
-                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(&grumps_i18n::t(
-                                locale,
-                                "agent.card.next_occurrence",
-                                &[],
-                            ));
+                            let tz = workspace_tz(ws_db).await;
+                            if let Ok(next) = ws_db.create_next_recurrence(&todo, rec, tz).await {
+                                text.push_str(&grumps_i18n::t(
+                                    locale,
+                                    "agent.card.next_occurrence",
+                                    &[],
+                                ));
+                                messages.push(next_occurrence_card(&next, locale));
+                            }
                         }
                     }
-                    Ok(HandlerResult::one(text, Some(msg_id.to_string())))
+                    messages.insert(
+                        0,
+                        OutboundMessage {
+                            text,
+                            reply_to: Some(msg_id.to_string()),
+                            todo_id: None,
+                            markdown: false,
+                        },
+                    );
+                    Ok(HandlerResult::many(messages))
                 }
                 None => Ok(HandlerResult::one(
                     grumps_i18n::t(locale, "agent.todo.not_found", &[("seq", &seq_str)]),
@@ -548,6 +588,8 @@ async fn handle_card_reply(
         None
     };
 
+    let mut extra_cards: Vec<OutboundMessage> = Vec::new();
+
     let text = match action {
         TaskCardAction::Done => {
             if let Some(ref tid) = todo_id {
@@ -559,12 +601,15 @@ async fn handle_card_reply(
                 if let Ok(Some(todo)) = ws_db.get_todo_by_id(tid).await {
                     if let Some(ref rec) = todo.recurrence {
                         if !rec.is_empty() {
-                            let _ = ws_db.create_next_recurrence(&todo, rec).await;
-                            text.push_str(&grumps_i18n::t(
-                                locale,
-                                "agent.card.next_occurrence",
-                                &[],
-                            ));
+                            let tz = workspace_tz(ws_db).await;
+                            if let Ok(next) = ws_db.create_next_recurrence(&todo, rec, tz).await {
+                                text.push_str(&grumps_i18n::t(
+                                    locale,
+                                    "agent.card.next_occurrence",
+                                    &[],
+                                ));
+                                extra_cards.push(next_occurrence_card(&next, locale));
+                            }
                         }
                     }
                 }
@@ -586,7 +631,9 @@ async fn handle_card_reply(
         }
         TaskCardAction::Snooze(time) => {
             if let Some(ref tid) = todo_id {
-                match resolve_snooze_date(&time) {
+                let tz = workspace_tz(ws_db).await;
+                let today = grumps_core::timeutil::today_in_tz(tz);
+                match resolve_snooze_date(&time, today) {
                     Some(date) => {
                         ws_db.set_todo_deadline(tid, &date).await?;
                         ws_db
@@ -601,10 +648,33 @@ async fn handle_card_reply(
             }
         }
         TaskCardAction::Edit(title) => {
-            grumps_i18n::t(locale, "agent.card.updated", &[("title", &title)])
+            if let Some(ref tid) = todo_id {
+                ws_db
+                    .update_todo(tid, Some(&title), None, None, None, None)
+                    .await?;
+                ws_db
+                    .log_activity(member_id, "todo.edited", "todo", tid, "chat")
+                    .await?;
+                grumps_i18n::t(locale, "agent.card.updated", &[("title", &title)])
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
         }
         TaskCardAction::Reassign(person) => {
-            grumps_i18n::t(locale, "agent.card.reassigned", &[("person", &person)])
+            if let Some(ref tid) = todo_id {
+                // Chat replies only carry a display name, no resolved member
+                // id — mirrors handle_add_todos, which also stores the same
+                // mention text in both assignee columns.
+                ws_db
+                    .update_todo(tid, None, None, None, Some(&person), Some(&person))
+                    .await?;
+                ws_db
+                    .log_activity(member_id, "todo.reassigned", "todo", tid, "chat")
+                    .await?;
+                grumps_i18n::t(locale, "agent.card.reassigned", &[("person", &person)])
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
         }
         TaskCardAction::ChangePriority(p) => grumps_i18n::t(
             locale,
@@ -619,31 +689,66 @@ async fn handle_card_reply(
         }
     };
 
-    Ok(HandlerResult::one(text, Some(msg_id.to_string())))
+    let mut messages = vec![OutboundMessage {
+        text,
+        reply_to: Some(msg_id.to_string()),
+        todo_id: None,
+        markdown: false,
+    }];
+    messages.extend(extra_cards);
+    Ok(HandlerResult::many(messages))
+}
+
+/// Build the task card for a freshly-spawned recurrence occurrence, so a
+/// reply to it (done/snooze/edit/...) resolves via `todo_id`.
+fn next_occurrence_card(
+    next: &crate::db::NextOccurrence,
+    locale: grumps_i18n::Locale,
+) -> OutboundMessage {
+    let card = formatter::task_card(
+        next.seq_num,
+        &next.title,
+        next.assigned_name.as_deref(),
+        next.deadline.as_deref(),
+        grumps_core::todo::Priority::from_int(next.priority),
+        &next.tags,
+        locale.code(),
+    );
+    OutboundMessage {
+        text: card,
+        reply_to: None,
+        todo_id: Some(next.id.clone()),
+        markdown: false,
+    }
+}
+
+/// Resolve the workspace's IANA timezone setting, falling back to UTC.
+async fn workspace_tz(ws_db: &WorkspaceDb<'_>) -> chrono_tz::Tz {
+    let name = ws_db
+        .get_setting("timezone")
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    grumps_core::timeutil::tz_or_utc(&name)
 }
 
 /// Resolve a "snooze"/"snooze <text>" reply into a civil date (`YYYY-MM-DD`).
-/// Empty input (bare "snooze") means "push to tomorrow". Otherwise accept an
-/// explicit `YYYY-MM-DD` date or the keywords "tomorrow"/"demain". Anything
-/// else is unparseable and returns `None` so the caller leaves the todo
-/// untouched.
-fn resolve_snooze_date(time: &str) -> Option<String> {
+/// Empty input (bare "snooze") means "push to tomorrow". Otherwise delegates
+/// to the shared nlu resolver (`resolve_relative_date`), so an explicit
+/// `YYYY-MM-DD`, "tomorrow"/"demain", or a weekday name ("friday", "vendredi")
+/// all work here too — not just on todo creation. Anything else is
+/// unparseable and returns `None` so the caller leaves the todo untouched.
+fn resolve_snooze_date(time: &str, today: chrono::NaiveDate) -> Option<String> {
     let trimmed = time.trim();
-    let tomorrow = || {
-        (chrono::Utc::now() + chrono::Duration::days(1))
-            .format("%Y-%m-%d")
-            .to_string()
-    };
     if trimmed.is_empty() {
-        return Some(tomorrow());
+        return Some(
+            (today + chrono::Duration::days(1))
+                .format("%Y-%m-%d")
+                .to_string(),
+        );
     }
-    if chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d").is_ok() {
-        return Some(trimmed.to_string());
-    }
-    match trimmed.to_lowercase().as_str() {
-        "tomorrow" | "demain" => Some(tomorrow()),
-        _ => None,
-    }
+    entity::resolve_relative_date(trimmed, today).map(|d| d.format("%Y-%m-%d").to_string())
 }
 
 /// Last-resort routing: hand unrecognized free text to the LLM agent, which

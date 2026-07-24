@@ -1057,14 +1057,78 @@ impl<'a> WorkspaceDb<'a> {
         })
     }
 
-    /// Create the next occurrence of a recurring todo when the current one is completed.
-    pub async fn create_next_recurrence(&self, todo: &TodoRow, recurrence: &str) -> Result<()> {
+    /// Create the next occurrence of a recurring todo when the current one is
+    /// completed. Unlike the old version, this also computes a real deadline
+    /// for the new occurrence (from `recurrence`, evaluated in `tz`) and
+    /// returns enough of the new row for the caller to build its task card
+    /// (`formatter::task_card`) so the occurrence isn't invisible.
+    pub async fn create_next_recurrence(
+        &self,
+        todo: &TodoRow,
+        recurrence: &str,
+        tz: chrono_tz::Tz,
+    ) -> Result<NextOccurrence> {
+        #[derive(Deserialize)]
+        struct Parent {
+            title: String,
+            priority: i32,
+            tags: String,
+            assigned_to: Option<String>,
+            assigned_name: Option<String>,
+            created_by: Option<String>,
+        }
+        let resp = self
+            .q(
+                "SELECT title, priority, tags, assigned_to, assigned_name, created_by FROM todos WHERE id = ?1",
+                vec![todo.id.clone().into()],
+            )
+            .await?;
+        let parent: Parent = extract_first(&resp)?
+            .ok_or_else(|| Error::RustError(format!("parent todo not found: {}", todo.id)))?;
+
+        let deadline = next_recurrence_deadline(recurrence, tz);
+
         let id = uuid::Uuid::new_v4().to_string();
         self.q(
-            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, recurrence, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), (SELECT title FROM todos WHERE id = ?2), 'open', (SELECT priority FROM todos WHERE id = ?2), (SELECT tags FROM todos WHERE id = ?2), (SELECT assigned_to FROM todos WHERE id = ?2), (SELECT assigned_name FROM todos WHERE id = ?2), (SELECT created_by FROM todos WHERE id = ?2), 'system', ?3, datetime('now'), datetime('now'))",
-            vec![id.into(), todo.id.clone().into(), recurrence.into()],
-        ).await?;
-        Ok(())
+            "INSERT INTO todos (id, seq_num, title, status, priority, tags, assigned_to, assigned_name, created_by, source, recurrence, deadline, created_at, updated_at) VALUES (?1, (SELECT COALESCE(MAX(seq_num), 0) + 1 FROM todos), ?2, 'open', ?3, ?4, NULLIF(?5,''), NULLIF(?6,''), ?7, 'system', ?8, NULLIF(?9,''), datetime('now'), datetime('now'))",
+            vec![
+                id.clone().into(),
+                parent.title.clone().into(),
+                parent.priority.into(),
+                parent.tags.clone().into(),
+                parent.assigned_to.clone().unwrap_or_default().into(),
+                parent.assigned_name.clone().unwrap_or_default().into(),
+                parent.created_by.clone().unwrap_or_default().into(),
+                recurrence.into(),
+                deadline.clone().unwrap_or_default().into(),
+            ],
+        )
+        .await?;
+
+        #[derive(Deserialize)]
+        struct SeqRow {
+            seq_num: i64,
+        }
+        let resp = self
+            .q(
+                "SELECT seq_num FROM todos WHERE id = ?1",
+                vec![id.clone().into()],
+            )
+            .await?;
+        let seq_num = extract_first::<SeqRow>(&resp)?
+            .map(|r| r.seq_num)
+            .unwrap_or(0);
+
+        let tags: Vec<String> = serde_json::from_str(&parent.tags).unwrap_or_default();
+        Ok(NextOccurrence {
+            id,
+            seq_num,
+            title: parent.title,
+            priority: parent.priority,
+            tags,
+            assigned_name: parent.assigned_name,
+            deadline,
+        })
     }
 
     /// Get recurrence string for a todo.
@@ -1129,6 +1193,52 @@ pub struct TodoRow {
     pub title: String,
     pub status: String,
     pub recurrence: Option<String>,
+}
+
+/// The newly-spawned occurrence of a recurring todo, shaped for the caller to
+/// build a task card (`formatter::task_card`) — see `create_next_recurrence`.
+pub struct NextOccurrence {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+    pub priority: i32,
+    pub tags: Vec<String>,
+    pub assigned_name: Option<String>,
+    pub deadline: Option<String>,
+}
+
+/// Compute the next occurrence's civil-date deadline from a recurrence
+/// string, evaluated "from now" in the workspace timezone `tz`.
+///
+/// Reuses `grumps_scheduler::recurrence` (the same RRULE engine that drives
+/// scheduled actions) rather than reimplementing FREQ handling: `recurrence`
+/// is tried as a raw RRULE first (`FREQ=...`), and if that fails, as legacy
+/// free text (e.g. "weekly", "every friday") via `text_to_rrule`, anchored to
+/// today's weekday. This gets DAILY, WEEKLY(;BYDAY=...), MONTHLY and YEARLY
+/// all "for free" — the same 5 cases the scheduler supports — at the cost of
+/// only ever landing on the *next* matching date from today, never
+/// preserving an original day-of-month offset from the completed todo.
+fn next_recurrence_deadline(recurrence: &str, tz: chrono_tz::Tz) -> Option<String> {
+    use grumps_scheduler::recurrence::{next_occurrence, parse, text_to_rrule};
+
+    let trimmed = recurrence.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let now = chrono::Utc::now();
+    let rrule = if trimmed.to_uppercase().starts_with("FREQ=") {
+        trimmed.to_uppercase()
+    } else {
+        let weekday = grumps_core::timeutil::weekday_of(now, tz);
+        text_to_rrule(trimmed, weekday)?
+    };
+    let rule = parse(&rrule).ok()?;
+    let next = next_occurrence(&rule, now, tz)?;
+    Some(
+        grumps_core::timeutil::date_of(next, tz)
+            .format("%Y-%m-%d")
+            .to_string(),
+    )
 }
 
 #[derive(Deserialize, Debug, Serialize)]

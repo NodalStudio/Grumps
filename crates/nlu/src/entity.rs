@@ -99,6 +99,54 @@ fn find_ascii_ci(text: &str, needle: &str) -> Option<usize> {
     })
 }
 
+/// Resolve a relative deadline hint ("friday", "demain", an explicit
+/// `YYYY-MM-DD`, ...) to a civil date, given `today` (the caller computes
+/// `today` in the workspace timezone; this function is pure and tz-agnostic
+/// otherwise). Returns `None` for anything unrecognized — the caller then
+/// keeps the raw hint for display and skips persisting a deadline.
+///
+/// Accepted forms (case-insensitive):
+/// - `YYYY-MM-DD` — passed through unchanged.
+/// - `today` / `tonight` / `aujourd'hui` / `aujourdhui` — `today`.
+/// - `tomorrow` / `demain` — `today + 1 day`.
+/// - Full English or French weekday names (`friday`, `vendredi`, ...) — the
+///   NEXT future occurrence of that weekday, strictly after `today` (if
+///   `today` already is that weekday, this resolves to +7 days, never +0).
+pub fn resolve_relative_date(s: &str, today: chrono::NaiveDate) -> Option<chrono::NaiveDate> {
+    use chrono::{Datelike, Weekday};
+
+    let trimmed = s.trim();
+    if let Ok(d) = chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d") {
+        return Some(d);
+    }
+
+    let lower = trimmed.to_lowercase();
+    match lower.as_str() {
+        "today" | "tonight" | "aujourd'hui" | "aujourdhui" => return Some(today),
+        "tomorrow" | "demain" => return Some(today + chrono::Duration::days(1)),
+        _ => {}
+    }
+
+    let weekday = match lower.as_str() {
+        "monday" | "lundi" => Weekday::Mon,
+        "tuesday" | "mardi" => Weekday::Tue,
+        "wednesday" | "mercredi" => Weekday::Wed,
+        "thursday" | "jeudi" => Weekday::Thu,
+        "friday" | "vendredi" => Weekday::Fri,
+        "saturday" | "samedi" => Weekday::Sat,
+        "sunday" | "dimanche" => Weekday::Sun,
+        _ => return None,
+    };
+
+    // Next FUTURE occurrence — start the walk at tomorrow so a same-weekday
+    // `today` lands 7 days out, not 0.
+    let mut candidate = today + chrono::Duration::days(1);
+    while candidate.weekday() != weekday {
+        candidate += chrono::Duration::days(1);
+    }
+    Some(candidate)
+}
+
 pub fn strip_mention(text: &str) -> String {
     const MENTION: &str = "@grumps";
     let Some(pos) = find_ascii_ci(text, MENTION) else {
@@ -226,5 +274,105 @@ mod tests {
     #[test]
     fn strip_mention_only() {
         assert_eq!(strip_mention("@grumps"), "");
+    }
+
+    // --- resolve_relative_date ---
+    // Anchor: Wednesday 2026-07-22.
+    fn wed() -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(2026, 7, 22).unwrap()
+    }
+
+    #[test]
+    fn resolve_passthrough_iso_date() {
+        assert_eq!(
+            resolve_relative_date("2026-08-01", wed()),
+            chrono::NaiveDate::from_ymd_opt(2026, 8, 1)
+        );
+    }
+
+    #[test]
+    fn resolve_today_synonyms() {
+        for s in ["today", "TODAY", "tonight", "aujourd'hui", "aujourdhui"] {
+            assert_eq!(resolve_relative_date(s, wed()), Some(wed()), "input: {s}");
+        }
+    }
+
+    #[test]
+    fn resolve_tomorrow_synonyms() {
+        let tomorrow = wed() + chrono::Duration::days(1);
+        for s in ["tomorrow", "Tomorrow", "demain", "DEMAIN"] {
+            assert_eq!(
+                resolve_relative_date(s, wed()),
+                Some(tomorrow),
+                "input: {s}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_weekday_en_future() {
+        // Wed 2026-07-22 -> next Friday is 2026-07-24.
+        assert_eq!(
+            resolve_relative_date("friday", wed()),
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 24)
+        );
+    }
+
+    #[test]
+    fn resolve_weekday_fr_future() {
+        // Wed 2026-07-22 -> next "vendredi" is 2026-07-24.
+        assert_eq!(
+            resolve_relative_date("vendredi", wed()),
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 24)
+        );
+    }
+
+    #[test]
+    fn resolve_weekday_case_insensitive() {
+        assert_eq!(
+            resolve_relative_date("FrIdAy", wed()),
+            chrono::NaiveDate::from_ymd_opt(2026, 7, 24)
+        );
+    }
+
+    #[test]
+    fn resolve_same_weekday_as_today_rolls_to_next_week() {
+        // Today IS Wednesday: "wednesday" must resolve to +7 days, never +0.
+        assert_eq!(
+            resolve_relative_date("wednesday", wed()),
+            Some(wed() + chrono::Duration::days(7))
+        );
+        assert_eq!(
+            resolve_relative_date("mercredi", wed()),
+            Some(wed() + chrono::Duration::days(7))
+        );
+    }
+
+    #[test]
+    fn resolve_all_weekdays_en() {
+        let base = wed();
+        let cases = [
+            ("monday", 5),
+            ("tuesday", 6),
+            ("wednesday", 7),
+            ("thursday", 1),
+            ("friday", 2),
+            ("saturday", 3),
+            ("sunday", 4),
+        ];
+        for (name, days_out) in cases {
+            assert_eq!(
+                resolve_relative_date(name, base),
+                Some(base + chrono::Duration::days(days_out)),
+                "weekday: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolve_garbage_returns_none() {
+        for s in ["", "asap", "next month", "sometime", "🎉"] {
+            assert_eq!(resolve_relative_date(s, wed()), None, "input: {s}");
+        }
     }
 }
