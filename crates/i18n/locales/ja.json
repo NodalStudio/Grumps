@@ -335,6 +335,7 @@
   "agent.card.done": "完了。",
   "agent.card.next_occurrence": " ↻ 次回を作成しました。",
   "agent.card.deleted": "削除しました。",
+  "agent.card.no_target": "そのメッセージは Todo に紐付いていません。",
   "agent.card.snoozed": "⏰ {time} に延期しました。",
   "agent.card.updated": "✏️ 更新しました: 「{title}」。",
   "agent.card.reassigned": "👤 @{person} に再アサインしました。",

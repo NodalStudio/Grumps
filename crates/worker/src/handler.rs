@@ -521,8 +521,8 @@ async fn handle_card_reply(
 
     let text = match action {
         TaskCardAction::Done => {
-            let mut text = grumps_i18n::t(locale, "agent.card.done", &[]);
             if let Some(ref tid) = todo_id {
+                let mut text = grumps_i18n::t(locale, "agent.card.done", &[]);
                 ws_db.complete_todo(tid, member_id).await?;
                 ws_db
                     .log_activity(member_id, "todo.completed", "todo", tid, "chat")
@@ -539,8 +539,10 @@ async fn handle_card_reply(
                         }
                     }
                 }
+                text
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
             }
-            text
         }
         TaskCardAction::Delete => {
             if let Some(ref tid) = todo_id {
@@ -548,8 +550,10 @@ async fn handle_card_reply(
                 ws_db
                     .log_activity(member_id, "todo.deleted", "todo", tid, "chat")
                     .await?;
+                grumps_i18n::t(locale, "agent.card.deleted", &[])
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
             }
-            grumps_i18n::t(locale, "agent.card.deleted", &[])
         }
         TaskCardAction::Snooze(time) => {
             grumps_i18n::t(locale, "agent.card.snoozed", &[("time", &time)])
@@ -590,6 +594,7 @@ async fn route_via_agent(
     let sink = crate::agent_sink::WorkerMessagingSink {
         env,
         ws_slug: ws_slug.to_string(),
+        ws_db,
     };
 
     let has_session = ws_db

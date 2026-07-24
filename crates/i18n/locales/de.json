@@ -335,6 +335,7 @@
   "agent.card.done": "Erledigt.",
   "agent.card.next_occurrence": " ↻ Nächste Wiederholung erstellt.",
   "agent.card.deleted": "Gelöscht.",
+  "agent.card.no_target": "Diese Nachricht ist mit keiner Aufgabe verknüpft.",
   "agent.card.snoozed": "⏰ Verschoben auf {time}.",
   "agent.card.updated": "✏️ Aktualisiert: „{title}\".",
   "agent.card.reassigned": "👤 Neu zugewiesen an @{person}.",

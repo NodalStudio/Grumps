@@ -335,6 +335,7 @@
   "agent.card.done": "Tamam.",
   "agent.card.next_occurrence": " ↻ Sonraki yineleme oluşturuldu.",
   "agent.card.deleted": "Silindi.",
+  "agent.card.no_target": "Bu mesaj bir göreve bağlı değil.",
   "agent.card.snoozed": "⏰ {time} tarihine ertelendi.",
   "agent.card.updated": "✏️ Güncellendi: «{title}».",
   "agent.card.reassigned": "👤 @{person} kişisine atandı.",

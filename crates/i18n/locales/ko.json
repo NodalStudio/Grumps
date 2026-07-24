@@ -335,6 +335,7 @@
   "agent.card.done": "완료.",
   "agent.card.next_occurrence": " ↻ 다음 반복 생성됨.",
   "agent.card.deleted": "삭제됨.",
+  "agent.card.no_target": "해당 메시지는 Todo와 연결되어 있지 않아요.",
   "agent.card.snoozed": "⏰ {time}로 미룸.",
   "agent.card.updated": "✏️ 업데이트됨: 「{title}」.",
   "agent.card.reassigned": "👤 @{person}에게 재할당됨.",

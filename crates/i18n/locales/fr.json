@@ -335,6 +335,7 @@
   "agent.card.done": "Fait.",
   "agent.card.next_occurrence": " ↻ Occurrence suivante créée.",
   "agent.card.deleted": "Supprimée.",
+  "agent.card.no_target": "Ce message n'est lié à aucune tâche.",
   "agent.card.snoozed": "⏰ Reportée à {time}.",
   "agent.card.updated": "✏️ Mise à jour : « {title} ».",
   "agent.card.reassigned": "👤 Réassignée à @{person}.",

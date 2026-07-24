@@ -349,6 +349,7 @@
   "agent.card.done": "Done.",
   "agent.card.next_occurrence": " ↻ Next occurrence created.",
   "agent.card.deleted": "Deleted.",
+  "agent.card.no_target": "That message isn't linked to a task.",
   "agent.card.snoozed": "⏰ Snoozed to {time}.",
   "agent.card.updated": "✏️ Updated: \"{title}\".",
   "agent.card.reassigned": "👤 Reassigned to @{person}.",

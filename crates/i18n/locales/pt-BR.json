@@ -335,6 +335,7 @@
   "agent.card.done": "Feito.",
   "agent.card.next_occurrence": " ↻ Próxima ocorrência criada.",
   "agent.card.deleted": "Excluído.",
+  "agent.card.no_target": "Essa mensagem não está vinculada a nenhuma tarefa.",
   "agent.card.snoozed": "⏰ Adiada para {time}.",
   "agent.card.updated": "✏️ Atualizado: «{title}».",
   "agent.card.reassigned": "👤 Reatribuído a @{person}.",

@@ -335,6 +335,7 @@
   "agent.card.done": "Selesai.",
   "agent.card.next_occurrence": " ↻ Pengulangan berikutnya dibuat.",
   "agent.card.deleted": "Dihapus.",
+  "agent.card.no_target": "Pesan itu tidak terhubung dengan todo mana pun.",
   "agent.card.snoozed": "⏰ Ditunda ke {time}.",
   "agent.card.updated": "✏️ Diperbarui: «{title}».",
   "agent.card.reassigned": "👤 Ditugaskan ulang ke @{person}.",

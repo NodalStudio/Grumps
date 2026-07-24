@@ -59,6 +59,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             let sink = crate::agent_sink::WorkerMessagingSink {
                 env,
                 ws_slug: ws_slug.to_string(),
+                ws_db: &db,
             };
 
             let language = if ws.locale.is_empty() {

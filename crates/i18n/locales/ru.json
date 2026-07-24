@@ -335,6 +335,7 @@
   "agent.card.done": "Готово.",
   "agent.card.next_occurrence": " ↻ Создано следующее повторение.",
   "agent.card.deleted": "Удалено.",
+  "agent.card.no_target": "Это сообщение не связано с задачей.",
   "agent.card.snoozed": "⏰ Отложено до {time}.",
   "agent.card.updated": "✏️ Обновлено: «{title}».",
   "agent.card.reassigned": "👤 Переназначено @{person}.",

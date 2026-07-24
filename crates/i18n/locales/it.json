@@ -335,6 +335,7 @@
   "agent.card.done": "Fatto.",
   "agent.card.next_occurrence": " ↻ Prossima occorrenza creata.",
   "agent.card.deleted": "Eliminato.",
+  "agent.card.no_target": "Quel messaggio non è collegato a nessun todo.",
   "agent.card.snoozed": "⏰ Rimandato a {time}.",
   "agent.card.updated": "✏️ Aggiornato: «{title}».",
   "agent.card.reassigned": "👤 Riassegnato a @{person}.",

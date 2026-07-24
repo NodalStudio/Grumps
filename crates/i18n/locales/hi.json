@@ -335,6 +335,7 @@
   "agent.card.done": "पूरा।",
   "agent.card.next_occurrence": " ↻ अगली पुनरावृत्ति बनाई।",
   "agent.card.deleted": "हटाया।",
+  "agent.card.no_target": "वह संदेश किसी टूडू से जुड़ा नहीं है।",
   "agent.card.snoozed": "⏰ {time} तक टाला।",
   "agent.card.updated": "✏️ अपडेट किया: «{title}»।",
   "agent.card.reassigned": "👤 @{person} को सौंपा।",

@@ -335,6 +335,7 @@
   "agent.card.done": "完成。",
   "agent.card.next_occurrence": " ↻ 已创建下一次。",
   "agent.card.deleted": "已删除。",
+  "agent.card.no_target": "该消息未关联任何待办。",
   "agent.card.snoozed": "⏰ 推迟到 {time}。",
   "agent.card.updated": "✏️ 已更新: 「{title}」。",
   "agent.card.reassigned": "👤 已重新分配给 @{person}。",
