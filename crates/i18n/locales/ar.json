@@ -337,6 +337,7 @@
   "agent.card.deleted": "تم الحذف.",
   "agent.card.no_target": "هذه الرسالة غير مرتبطة بأي مهمة.",
   "agent.card.snoozed": "⏰ مؤجَّلة إلى {time}.",
+  "agent.card.snooze_unparsed": "تعذّر فهم التاريخ. جرّب \"snooze 2026-08-01\" أو \"snooze tomorrow\".",
   "agent.card.updated": "✏️ تم التحديث: «{title}».",
   "agent.card.reassigned": "👤 أُعيد إسنادها إلى @{person}.",
   "agent.card.priority": "{emoji} الأولوية: {label}.",

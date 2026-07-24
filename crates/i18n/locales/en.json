@@ -351,6 +351,7 @@
   "agent.card.deleted": "Deleted.",
   "agent.card.no_target": "That message isn't linked to a task.",
   "agent.card.snoozed": "⏰ Snoozed to {time}.",
+  "agent.card.snooze_unparsed": "Couldn't read that date. Try \"snooze 2026-08-01\" or \"snooze tomorrow\".",
   "agent.card.updated": "✏️ Updated: \"{title}\".",
   "agent.card.reassigned": "👤 Reassigned to @{person}.",
   "agent.card.priority": "{emoji} Priority: {label}.",

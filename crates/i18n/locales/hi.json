@@ -337,6 +337,7 @@
   "agent.card.deleted": "हटाया।",
   "agent.card.no_target": "वह संदेश किसी टूडू से जुड़ा नहीं है।",
   "agent.card.snoozed": "⏰ {time} तक टाला।",
+  "agent.card.snooze_unparsed": "वह तारीख़ समझ नहीं आई। \"snooze 2026-08-01\" या \"snooze tomorrow\" आज़माएं।",
   "agent.card.updated": "✏️ अपडेट किया: «{title}»।",
   "agent.card.reassigned": "👤 @{person} को सौंपा।",
   "agent.card.priority": "{emoji} प्राथमिकता: {label}।",

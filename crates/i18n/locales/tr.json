@@ -337,6 +337,7 @@
   "agent.card.deleted": "Silindi.",
   "agent.card.no_target": "Bu mesaj bir göreve bağlı değil.",
   "agent.card.snoozed": "⏰ {time} tarihine ertelendi.",
+  "agent.card.snooze_unparsed": "Tarihi anlayamadım. \"snooze 2026-08-01\" ya da \"snooze tomorrow\" dene.",
   "agent.card.updated": "✏️ Güncellendi: «{title}».",
   "agent.card.reassigned": "👤 @{person} kişisine atandı.",
   "agent.card.priority": "{emoji} Öncelik: {label}.",

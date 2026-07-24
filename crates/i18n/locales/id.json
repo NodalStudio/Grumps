@@ -337,6 +337,7 @@
   "agent.card.deleted": "Dihapus.",
   "agent.card.no_target": "Pesan itu tidak terhubung dengan todo mana pun.",
   "agent.card.snoozed": "⏰ Ditunda ke {time}.",
+  "agent.card.snooze_unparsed": "Tidak bisa membaca tanggal itu. Coba \"snooze 2026-08-01\" atau \"snooze tomorrow\".",
   "agent.card.updated": "✏️ Diperbarui: «{title}».",
   "agent.card.reassigned": "👤 Ditugaskan ulang ke @{person}.",
   "agent.card.priority": "{emoji} Prioritas: {label}.",

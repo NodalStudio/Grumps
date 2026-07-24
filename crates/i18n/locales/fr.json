@@ -337,6 +337,7 @@
   "agent.card.deleted": "Supprimée.",
   "agent.card.no_target": "Ce message n'est lié à aucune tâche.",
   "agent.card.snoozed": "⏰ Reportée à {time}.",
+  "agent.card.snooze_unparsed": "Date illisible. Essayez \"reporter 2026-08-01\" ou \"reporter demain\".",
   "agent.card.updated": "✏️ Mise à jour : « {title} ».",
   "agent.card.reassigned": "👤 Réassignée à @{person}.",
   "agent.card.priority": "{emoji} Priorité : {label}.",

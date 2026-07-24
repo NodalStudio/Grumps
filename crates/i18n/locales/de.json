@@ -337,6 +337,7 @@
   "agent.card.deleted": "Gelöscht.",
   "agent.card.no_target": "Diese Nachricht ist mit keiner Aufgabe verknüpft.",
   "agent.card.snoozed": "⏰ Verschoben auf {time}.",
+  "agent.card.snooze_unparsed": "Datum nicht erkannt. Versuch \"snooze 2026-08-01\" oder \"snooze tomorrow\".",
   "agent.card.updated": "✏️ Aktualisiert: „{title}\".",
   "agent.card.reassigned": "👤 Neu zugewiesen an @{person}.",
   "agent.card.priority": "{emoji} Priorität: {label}.",

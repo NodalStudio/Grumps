@@ -337,6 +337,7 @@
   "agent.card.deleted": "삭제됨.",
   "agent.card.no_target": "해당 메시지는 Todo와 연결되어 있지 않아요.",
   "agent.card.snoozed": "⏰ {time}로 미룸.",
+  "agent.card.snooze_unparsed": "날짜를 읽을 수 없습니다. \"snooze 2026-08-01\" 또는 \"snooze tomorrow\"를 시도하세요.",
   "agent.card.updated": "✏️ 업데이트됨: 「{title}」.",
   "agent.card.reassigned": "👤 @{person}에게 재할당됨.",
   "agent.card.priority": "{emoji} 우선순위: {label}.",

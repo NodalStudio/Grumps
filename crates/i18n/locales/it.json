@@ -337,6 +337,7 @@
   "agent.card.deleted": "Eliminato.",
   "agent.card.no_target": "Quel messaggio non è collegato a nessun todo.",
   "agent.card.snoozed": "⏰ Rimandato a {time}.",
+  "agent.card.snooze_unparsed": "Data non valida. Prova \"snooze 2026-08-01\" o \"snooze tomorrow\".",
   "agent.card.updated": "✏️ Aggiornato: «{title}».",
   "agent.card.reassigned": "👤 Riassegnato a @{person}.",
   "agent.card.priority": "{emoji} Priorità: {label}.",

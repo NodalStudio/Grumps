@@ -165,12 +165,17 @@ async fn handle_add_todos(
 
     let mut messages = Vec::new();
 
-    // Summary first
-    messages.push(OutboundMessage {
-        text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
-        reply_to: Some(msg_id.to_string()),
-        todo_id: None,
-    });
+    // Single todo: skip the separate summary and fold the workspace link into
+    // the one card instead — two messages for one todo is noisy. Multiple
+    // todos keep the summary-then-cards layout.
+    let single = todos.len() == 1;
+    if !single {
+        messages.push(OutboundMessage {
+            text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
+            reply_to: Some(msg_id.to_string()),
+            todo_id: None,
+        });
+    }
 
     // Individual task card per todo
     for parsed in &todos {
@@ -201,7 +206,7 @@ async fn handle_add_todos(
             .log_activity(member_id, "todo.created", "todo", &todo_id, "chat")
             .await?;
 
-        let card = formatter::task_card(
+        let mut card = formatter::task_card(
             seq,
             &parsed.title,
             parsed.assignee_mention.as_deref(),
@@ -210,12 +215,20 @@ async fn handle_add_todos(
             &parsed.tags,
             locale.code(),
         );
+        // Single todo: no separate summary message, so fold the workspace
+        // link into the card itself and anchor it to the user's message.
+        let reply_to = if single {
+            card.push_str(&format!("\n🔗 grumps.app/w/{}", slug));
+            Some(msg_id.to_string())
+        } else {
+            None
+        };
         // Carry the todo id so the webhook send loop records it against the
         // sent card message — a later reply to the card then resolves to this
         // todo (see handle_card_reply / track_bot_message).
         messages.push(OutboundMessage {
             text: card,
-            reply_to: None,
+            reply_to,
             todo_id: Some(todo_id.clone()),
         });
     }
@@ -556,7 +569,20 @@ async fn handle_card_reply(
             }
         }
         TaskCardAction::Snooze(time) => {
-            grumps_i18n::t(locale, "agent.card.snoozed", &[("time", &time)])
+            if let Some(ref tid) = todo_id {
+                match resolve_snooze_date(&time) {
+                    Some(date) => {
+                        ws_db.set_todo_deadline(tid, &date).await?;
+                        ws_db
+                            .log_activity(member_id, "todo.snoozed", "todo", tid, "chat")
+                            .await?;
+                        grumps_i18n::t(locale, "agent.card.snoozed", &[("time", &date)])
+                    }
+                    None => grumps_i18n::t(locale, "agent.card.snooze_unparsed", &[]),
+                }
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
         }
         TaskCardAction::Edit(title) => {
             grumps_i18n::t(locale, "agent.card.updated", &[("title", &title)])
@@ -578,6 +604,30 @@ async fn handle_card_reply(
     };
 
     Ok(HandlerResult::one(text, Some(msg_id.to_string())))
+}
+
+/// Resolve a "snooze"/"snooze <text>" reply into a civil date (`YYYY-MM-DD`).
+/// Empty input (bare "snooze") means "push to tomorrow". Otherwise accept an
+/// explicit `YYYY-MM-DD` date or the keywords "tomorrow"/"demain". Anything
+/// else is unparseable and returns `None` so the caller leaves the todo
+/// untouched.
+fn resolve_snooze_date(time: &str) -> Option<String> {
+    let trimmed = time.trim();
+    let tomorrow = || {
+        (chrono::Utc::now() + chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string()
+    };
+    if trimmed.is_empty() {
+        return Some(tomorrow());
+    }
+    if chrono::NaiveDate::parse_from_str(trimmed, "%Y-%m-%d").is_ok() {
+        return Some(trimmed.to_string());
+    }
+    match trimmed.to_lowercase().as_str() {
+        "tomorrow" | "demain" => Some(tomorrow()),
+        _ => None,
+    }
 }
 
 /// Last-resort routing: hand unrecognized free text to the LLM agent, which

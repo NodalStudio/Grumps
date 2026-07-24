@@ -337,6 +337,7 @@
   "agent.card.deleted": "削除しました。",
   "agent.card.no_target": "そのメッセージは Todo に紐付いていません。",
   "agent.card.snoozed": "⏰ {time} に延期しました。",
+  "agent.card.snooze_unparsed": "日付を読み取れませんでした。\"snooze 2026-08-01\" または \"snooze tomorrow\" を試してください。",
   "agent.card.updated": "✏️ 更新しました: 「{title}」。",
   "agent.card.reassigned": "👤 @{person} に再アサインしました。",
   "agent.card.priority": "{emoji} 優先度: {label}。",

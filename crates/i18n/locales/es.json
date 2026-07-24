@@ -337,6 +337,7 @@
   "agent.card.deleted": "Eliminado.",
   "agent.card.no_target": "Ese mensaje no está vinculado a ninguna tarea.",
   "agent.card.snoozed": "⏰ Pospuesto a {time}.",
+  "agent.card.snooze_unparsed": "No entendí esa fecha. Prueba \"snooze 2026-08-01\" o \"snooze tomorrow\".",
   "agent.card.updated": "✏️ Actualizado: «{title}».",
   "agent.card.reassigned": "👤 Reasignado a @{person}.",
   "agent.card.priority": "{emoji} Prioridad: {label}.",

@@ -337,6 +337,7 @@
   "agent.card.deleted": "已删除。",
   "agent.card.no_target": "该消息未关联任何待办。",
   "agent.card.snoozed": "⏰ 推迟到 {time}。",
+  "agent.card.snooze_unparsed": "无法识别该日期。试试 \"snooze 2026-08-01\" 或 \"snooze tomorrow\"。",
   "agent.card.updated": "✏️ 已更新: 「{title}」。",
   "agent.card.reassigned": "👤 已重新分配给 @{person}。",
   "agent.card.priority": "{emoji} 优先级: {label}。",
