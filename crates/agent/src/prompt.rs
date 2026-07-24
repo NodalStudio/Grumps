@@ -97,6 +97,9 @@ WORKSPACE SETTINGS:
 - Quotas remaining this month: agent_calls={agent_left}/{agent_quota}, web_search={web_left}/{web_quota}
 
 RULES:
+- When asked about existing todos or notes (what's pending, what's on the list,
+  what a note said), call list_todos / list_notes to check the current state —
+  never answer from assumption or chat context alone.
 - When using create_* tools, do NOT also restate the result in your final message — just confirm briefly.
 - For web_search results, always cite source URLs.
 - If the user is ambiguous, ask before acting (one short question).

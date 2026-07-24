@@ -266,6 +266,45 @@ impl<'a> WorkspaceDb<'a> {
             .collect())
     }
 
+    /// List todos for the agent's `list_todos` tool. Unlike `get_todos_filtered`
+    /// (which powers the SPA list endpoint and doesn't need `deadline`), this
+    /// includes it and returns pre-shaped JSON so the tool layer can pass the
+    /// result straight through. `status` is "open" (default), "done", or "all".
+    pub async fn list_todos_for_agent(&self, status: &str) -> Result<Vec<serde_json::Value>> {
+        #[derive(Deserialize)]
+        struct Row {
+            seq_num: i64,
+            title: String,
+            status: String,
+            priority: i32,
+            assignee: Option<String>,
+            deadline: Option<String>,
+            tags: String,
+        }
+        let sql = match status {
+            "done" => "SELECT seq_num, title, status, priority, assigned_name AS assignee, deadline, tags FROM todos WHERE status = 'done' ORDER BY completed_at DESC",
+            "all" => "SELECT seq_num, title, status, priority, assigned_name AS assignee, deadline, tags FROM todos WHERE status != 'deleted' ORDER BY created_at DESC",
+            _ => "SELECT seq_num, title, status, priority, assigned_name AS assignee, deadline, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC",
+        };
+        let resp = self.q(sql, vec![]).await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                let tags: Vec<String> = serde_json::from_str(&r.tags).unwrap_or_default();
+                serde_json::json!({
+                    "seq": r.seq_num,
+                    "title": r.title,
+                    "status": r.status,
+                    "priority": r.priority,
+                    "assignee": r.assignee,
+                    "deadline": r.deadline,
+                    "tags": tags,
+                })
+            })
+            .collect())
+    }
+
     /// Get todo by sequence number.
     pub async fn get_todo_by_seq(&self, seq_num: i64) -> Result<Option<TodoRow>> {
         let resp = self
@@ -412,6 +451,36 @@ impl<'a> WorkspaceDb<'a> {
         Ok(rows
             .into_iter()
             .map(|r| (r.id, r.title, r.source, r.created_at))
+            .collect())
+    }
+
+    /// List notes for the agent's `list_notes` tool. Unlike `get_notes` (which
+    /// powers the SPA list endpoint and only surfaces the title), this returns
+    /// each note's own content as `text` — a title-less note is otherwise
+    /// invisible to the agent — capped by `limit`.
+    pub async fn list_notes_for_agent(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
+        #[derive(Deserialize)]
+        struct Row {
+            id: String,
+            content: String,
+            created_at: String,
+        }
+        let resp = self
+            .q(
+                "SELECT id, content, created_at FROM notes ORDER BY created_at DESC LIMIT ?1",
+                vec![limit.into()],
+            )
+            .await?;
+        let rows: Vec<Row> = extract_rows(&resp)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.id,
+                    "text": r.content,
+                    "created_at": r.created_at,
+                })
+            })
             .collect())
     }
 

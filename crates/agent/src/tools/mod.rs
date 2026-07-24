@@ -6,6 +6,7 @@ pub mod crud;
 pub mod memory;
 pub mod rag;
 pub mod rag_pipeline;
+pub mod read;
 pub mod scheduler;
 pub mod schemas;
 pub mod web;
@@ -91,6 +92,8 @@ pub async fn dispatch(
         "create_reminder" => crud::create_reminder(ctx, args).await,
         "schedule_action" => scheduler::schedule_action(ctx, args).await,
         "list_calendar" => calendar::list_calendar(ctx, args).await,
+        "list_todos" => read::list_todos(ctx, args).await,
+        "list_notes" => read::list_notes(ctx, args).await,
         "web_search" => web::web_search(ctx, args).await,
         "send_message" => chat::send_message(ctx, args).await,
         other => Err(worker::Error::RustError(format!("unknown tool: {other}"))),

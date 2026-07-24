@@ -100,6 +100,14 @@ impl AgentDb for WorkspaceDb<'_> {
         .await
     }
 
+    async fn list_todos(&self, status: &str) -> Result<Vec<serde_json::Value>> {
+        self.list_todos_for_agent(status).await
+    }
+
+    async fn list_notes(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
+        self.list_notes_for_agent(limit).await
+    }
+
     async fn create_event(&self, e: &NewEvent) -> Result<String> {
         self.create_event(e).await
     }
