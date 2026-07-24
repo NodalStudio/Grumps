@@ -45,7 +45,7 @@ pub async fn export_todos(req: Request, ctx: RouteContext<()>) -> Result<Respons
     let (content, content_type, filename) = match format {
         "csv" => {
             let mut csv = String::from("seq_num,title,status,assignee,priority,tags\n");
-            for (_id, seq, title, status, assignee, priority, tags) in &todos {
+            for (_id, seq, title, status, assignee, priority, tags, _deadline) in &todos {
                 let a = assignee.as_deref().unwrap_or("");
                 csv.push_str(&format!(
                     "{},\"{}\",{},{},{},{}\n",
@@ -62,16 +62,19 @@ pub async fn export_todos(req: Request, ctx: RouteContext<()>) -> Result<Respons
         _ => {
             let json_todos: Vec<serde_json::Value> = todos
                 .iter()
-                .map(|(_id, seq, title, status, assignee, priority, tags)| {
-                    serde_json::json!({
-                        "seq_num": seq,
-                        "title": title,
-                        "status": status,
-                        "assignee": assignee,
-                        "priority": priority,
-                        "tags": tags
-                    })
-                })
+                .map(
+                    |(_id, seq, title, status, assignee, priority, tags, deadline)| {
+                        serde_json::json!({
+                            "seq_num": seq,
+                            "title": title,
+                            "status": status,
+                            "assignee": assignee,
+                            "priority": priority,
+                            "tags": tags,
+                            "deadline": deadline
+                        })
+                    },
+                )
                 .collect();
             (
                 serde_json::to_string_pretty(&json_todos).unwrap(),

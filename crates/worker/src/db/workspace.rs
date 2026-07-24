@@ -218,12 +218,23 @@ impl<'a> WorkspaceDb<'a> {
             .collect())
     }
 
-    /// Get todos with filter. Returns (id, seq_num, title, status, assignee_name, priority, tags).
+    /// Get todos with filter. Returns (id, seq_num, title, status, assignee_name, priority, tags, deadline).
     pub async fn get_todos_filtered(
         &self,
         filter: &str,
         member_id: Option<&str>,
-    ) -> Result<Vec<(String, i64, String, String, Option<String>, i32, String)>> {
+    ) -> Result<
+        Vec<(
+            String,
+            i64,
+            String,
+            String,
+            Option<String>,
+            i32,
+            String,
+            Option<String>,
+        )>,
+    > {
         #[derive(Deserialize)]
         struct Row {
             id: String,
@@ -233,19 +244,20 @@ impl<'a> WorkspaceDb<'a> {
             assigned_name: Option<String>,
             priority: i32,
             tags: String,
+            deadline: Option<String>,
         }
 
         let (sql, params): (&str, Vec<serde_json::Value>) = match filter {
-            "open" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC", vec![]),
-            "all" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status != 'deleted' ORDER BY created_at DESC", vec![]),
-            "done" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status = 'done' ORDER BY completed_at DESC", vec![]),
-            "mine" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE assigned_to = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![member_id.unwrap_or("").into()]),
+            "open" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC, created_at DESC", vec![]),
+            "all" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE status != 'deleted' ORDER BY created_at DESC", vec![]),
+            "done" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE status = 'done' ORDER BY completed_at DESC", vec![]),
+            "mine" => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE assigned_to = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![member_id.unwrap_or("").into()]),
             // Assignee filter is case-insensitive: the parser lowercases the
             // requested name (e.g. "@Pierre" -> "pierre") but todos store the
             // name in its original case, so compare via LOWER().
-            _ if filter.starts_with("assignee:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE LOWER(assigned_name) = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
-            _ if filter.starts_with("tag:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE tags LIKE ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![format!("%\"{}\"%" , &filter[4..]).into()]),
-            _ => ("SELECT id, seq_num, title, status, assigned_name, priority, tags FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC", vec![]),
+            _ if filter.starts_with("assignee:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE LOWER(assigned_name) = ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![filter[9..].into()]),
+            _ if filter.starts_with("tag:") => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE tags LIKE ?1 AND status IN ('open','in_progress') ORDER BY priority ASC", vec![format!("%\"{}\"%" , &filter[4..]).into()]),
+            _ => ("SELECT id, seq_num, title, status, assigned_name, priority, tags, deadline FROM todos WHERE status IN ('open','in_progress') ORDER BY priority ASC", vec![]),
         };
 
         let resp = self.q(sql, params).await?;
@@ -261,6 +273,7 @@ impl<'a> WorkspaceDb<'a> {
                     r.assigned_name,
                     r.priority,
                     r.tags,
+                    r.deadline,
                 )
             })
             .collect())

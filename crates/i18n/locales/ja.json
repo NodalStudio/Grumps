@@ -405,5 +405,20 @@
   "toast.memory_deleted": "メモリを削除しました。",
   "page.note_editor.backlinks_heading": "リンク元",
   "page.note_editor.wikilink_create": "ノート「{title}」を作成しますか？",
-  "page.note_editor.link_picker_empty": "一致するノートがありません"
+  "page.note_editor.link_picker_empty": "一致するノートがありません",
+  "date.today": "今日",
+  "date.tomorrow": "明日",
+  "date.wd.mon": "月",
+  "date.wd.tue": "火",
+  "date.wd.wed": "水",
+  "date.wd.thu": "木",
+  "date.wd.fri": "金",
+  "date.wd.sat": "土",
+  "date.wd.sun": "日",
+  "list.count.open.other": "未完了タスク {n}件",
+  "list.count.all.other": "タスク {n}件",
+  "list.count.done.other": "完了済みタスク {n}件",
+  "list.count.mine.other": "あなた宛のタスク {n}件",
+  "list.count.assignee.other": "@{handle} 宛のタスク {n}件",
+  "list.count.tag.other": "#{handle} タグ付きタスク {n}件"
 }

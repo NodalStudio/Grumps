@@ -405,5 +405,20 @@
   "toast.memory_deleted": "记忆已删除。",
   "page.note_editor.backlinks_heading": "被链接自",
   "page.note_editor.wikilink_create": "创建笔记“{title}”?",
-  "page.note_editor.link_picker_empty": "没有匹配的笔记"
+  "page.note_editor.link_picker_empty": "没有匹配的笔记",
+  "date.today": "今天",
+  "date.tomorrow": "明天",
+  "date.wd.mon": "周一",
+  "date.wd.tue": "周二",
+  "date.wd.wed": "周三",
+  "date.wd.thu": "周四",
+  "date.wd.fri": "周五",
+  "date.wd.sat": "周六",
+  "date.wd.sun": "周日",
+  "list.count.open.other": "{n} 个未完成事项",
+  "list.count.all.other": "{n} 个事项",
+  "list.count.done.other": "{n} 个已完成事项",
+  "list.count.mine.other": "{n} 个分配给你的事项",
+  "list.count.assignee.other": "{n} 个 @{handle} 的事项",
+  "list.count.tag.other": "{n} 个标记 #{handle} 的事项"
 }

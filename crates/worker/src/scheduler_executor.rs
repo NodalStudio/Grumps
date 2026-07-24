@@ -98,17 +98,36 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                         result.turns,
                         result.total_tokens
                     );
-                    for c in created_todos {
-                        let card = grumps_messaging::formatter::task_card(
-                            c.seq_num,
-                            &c.title,
-                            c.assignee.as_deref(),
-                            c.deadline.as_deref(),
-                            c.priority,
-                            &c.tags,
-                            &ctx.language,
-                        );
-                        let _ = send_to_group(env, &ws, &db, &card, Some(&c.id)).await;
+                    if !created_todos.is_empty() {
+                        let locale = grumps_i18n::Locale::from_code(&ctx.language);
+                        let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
+                        let today = grumps_core::timeutil::today_in_tz(tz);
+                        // Same batch rule as handle_add_todos/route_via_agent:
+                        // hint + link at most once, on the first card.
+                        let (show_hint, show_link) = crate::handler::card_chrome(&db, tz).await;
+                        for (idx, c) in created_todos.into_iter().enumerate() {
+                            let (deadline_display, _, _) = crate::handler::deadline_display_info(
+                                locale,
+                                c.deadline.as_deref(),
+                                today,
+                            );
+                            let card = grumps_messaging::formatter::task_card(
+                                c.seq_num,
+                                &c.title,
+                                c.assignee.as_deref(),
+                                deadline_display.as_deref(),
+                                c.priority,
+                                &c.tags,
+                                false, // create_todo (agent tool) doesn't support recurrence yet
+                                show_hint && idx == 0,
+                                if show_link && idx == 0 {
+                                    Some(ws_slug)
+                                } else {
+                                    None
+                                },
+                            );
+                            let _ = send_to_group(env, &ws, &db, &card, Some(&c.id)).await;
+                        }
                     }
                     Ok(())
                 }
