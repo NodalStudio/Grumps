@@ -420,5 +420,11 @@
   "list.count.done.other": "{n} 个已完成事项",
   "list.count.mine.other": "{n} 个分配给你的事项",
   "list.count.assignee.other": "{n} 个 @{handle} 的事项",
-  "list.count.tag.other": "{n} 个标记 #{handle} 的事项"
+  "list.count.tag.other": "{n} 个标记 #{handle} 的事项",
+  "list.count.tag.one": "{n} 个标记 #{handle} 的事项",
+  "list.count.open.one": "{n} 个未完成事项",
+  "list.count.all.one": "{n} 个事项",
+  "list.count.assignee.one": "{n} 个 @{handle} 的事项",
+  "list.count.mine.one": "{n} 个分配给你的事项",
+  "list.count.done.one": "{n} 个已完成事项"
 }

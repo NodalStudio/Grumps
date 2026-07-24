@@ -420,5 +420,11 @@
   "list.count.done.other": "완료된 할 일 {n}개",
   "list.count.mine.other": "나에게 할당된 할 일 {n}개",
   "list.count.assignee.other": "@{handle} 할 일 {n}개",
-  "list.count.tag.other": "#{handle} 태그 할 일 {n}개"
+  "list.count.tag.other": "#{handle} 태그 할 일 {n}개",
+  "list.count.tag.one": "#{handle} 태그 할 일 {n}개",
+  "list.count.open.one": "미완료 할 일 {n}개",
+  "list.count.all.one": "할 일 {n}개",
+  "list.count.assignee.one": "@{handle} 할 일 {n}개",
+  "list.count.mine.one": "나에게 할당된 할 일 {n}개",
+  "list.count.done.one": "완료된 할 일 {n}개"
 }

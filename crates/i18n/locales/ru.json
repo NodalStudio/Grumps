@@ -432,5 +432,11 @@
   "list.count.done.many": "{n} выполненных задач",
   "list.count.mine.many": "{n} задач, назначенных вам",
   "list.count.assignee.many": "{n} задач для @{handle}",
-  "list.count.tag.many": "{n} задач с тегом #{handle}"
+  "list.count.tag.many": "{n} задач с тегом #{handle}",
+  "list.count.done.other": "{n} выполненных задач",
+  "list.count.tag.other": "{n} задач с тегом #{handle}",
+  "list.count.mine.other": "{n} задач, назначенных вам",
+  "list.count.all.other": "{n} задач",
+  "list.count.open.other": "{n} открытых задач",
+  "list.count.assignee.other": "{n} задач для @{handle}"
 }

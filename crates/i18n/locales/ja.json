@@ -420,5 +420,11 @@
   "list.count.done.other": "完了済みタスク {n}件",
   "list.count.mine.other": "あなた宛のタスク {n}件",
   "list.count.assignee.other": "@{handle} 宛のタスク {n}件",
-  "list.count.tag.other": "#{handle} タグ付きタスク {n}件"
+  "list.count.tag.other": "#{handle} タグ付きタスク {n}件",
+  "list.count.tag.one": "#{handle} タグ付きタスク {n}件",
+  "list.count.open.one": "未完了タスク {n}件",
+  "list.count.all.one": "タスク {n}件",
+  "list.count.assignee.one": "@{handle} 宛のタスク {n}件",
+  "list.count.mine.one": "あなた宛のタスク {n}件",
+  "list.count.done.one": "完了済みタスク {n}件"
 }
