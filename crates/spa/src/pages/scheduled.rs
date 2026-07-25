@@ -6,7 +6,7 @@ use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
 use crate::components::ui::tabs::{TabItem, Tabs};
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_err};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -121,9 +121,15 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                 "payload": if payload.is_empty() { serde_json::Value::Null } else { serde_json::from_str::<serde_json::Value>(&payload).unwrap_or(serde_json::Value::Null) },
             });
             if let Some(item) = edit {
-                let _ = api.update_scheduled_action(&s, &item.id, &body).await;
-            } else if api.create_scheduled_action(&s, &body).await.is_ok() {
-                toasts.success(tr("toast.schedule_created"));
+                match api.update_scheduled_action(&s, &item.id, &body).await {
+                    Ok(()) => toasts.success(tr("toast.schedule_updated")),
+                    Err(code) => toasts.error(tr_err(&code)),
+                }
+            } else {
+                match api.create_scheduled_action(&s, &body).await {
+                    Ok(_) => toasts.success(tr("toast.schedule_created")),
+                    Err(code) => toasts.error(tr_err(&code)),
+                }
             }
             set_refresh.update(|n| *n += 1);
         });
@@ -137,8 +143,9 @@ pub fn ScheduledActionsPage() -> impl IntoView {
             confirm_delete.set(None);
             del_open.set(false);
             leptos::task::spawn_local(async move {
-                if api.delete_scheduled_action(&s, &id).await.is_ok() {
-                    toasts.success(tr("toast.schedule_deleted"));
+                match api.delete_scheduled_action(&s, &id).await {
+                    Ok(()) => toasts.success(tr("toast.schedule_deleted")),
+                    Err(code) => toasts.error(tr_err(&code)),
                 }
                 set_refresh.update(|n| *n += 1);
             });
@@ -227,13 +234,11 @@ pub fn ScheduledActionsPage() -> impl IntoView {
                                 each=move || items.clone()
                                 key=|i| i.id.clone()
                                 children={
-                                    let on_edit = on_edit.clone();
-                                    let on_delete = on_delete.clone();
                                     move |item| view! {
                                         <ScheduledCard
                                             item=item
-                                            on_edit=on_edit.clone()
-                                            on_delete=on_delete.clone()
+                                            on_edit=on_edit
+                                            on_delete=on_delete
                                         />
                                     }
                                 }
