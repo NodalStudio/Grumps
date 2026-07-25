@@ -4,6 +4,7 @@
 use crate::api::{
     use_api, LlmCostByModel, LlmLatencyByModel, ObservabilityData, QualitySignalCount,
 };
+use crate::i18n::{tr, tr_p};
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
@@ -30,23 +31,30 @@ fn provider_color(provider: &str) -> &'static str {
     }
 }
 
-fn signal_label(s: &str) -> (&'static str, &'static str) {
-    // (label, palette token)
-    match s {
-        "praise" => ("Praise", "var(--teal)"),
-        "thanks" => ("Thanks", "var(--teal)"),
-        "silence_request" => ("Silence", "var(--brick)"),
-        "forget_request" => ("Forget", "var(--ochre)"),
-        "correction" => ("Correction", "var(--brick)"),
-        "confusion" => ("Confusion", "var(--ochre)"),
-        _ => ("Other", "var(--ink-40)"),
-    }
+fn signal_label(s: &str) -> (String, &'static str) {
+    // (localized label, palette token)
+    let key = match s {
+        "praise" => "observability.signal.praise",
+        "thanks" => "observability.signal.thanks",
+        "silence_request" => "observability.signal.silence",
+        "forget_request" => "observability.signal.forget",
+        "correction" => "observability.signal.correction",
+        "confusion" => "observability.signal.confusion",
+        _ => "observability.signal.other",
+    };
+    let color = match s {
+        "praise" | "thanks" => "var(--teal)",
+        "silence_request" | "correction" => "var(--brick)",
+        "forget_request" | "confusion" => "var(--ochre)",
+        _ => "var(--ink-40)",
+    };
+    (tr(key), color)
 }
 
 // ── Hero stat card ────────────────────────────────────────────────────────────
 
 #[component]
-fn StatCard(label: &'static str, value: String) -> impl IntoView {
+fn StatCard(label: String, value: String) -> impl IntoView {
     view! {
         <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
              style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
@@ -61,7 +69,7 @@ fn StatCard(label: &'static str, value: String) -> impl IntoView {
 #[component]
 fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
     if rows.is_empty() || total == 0.0 {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data yet."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_data")}</div> }.into_any();
     }
 
     let segments: Vec<_> = rows
@@ -90,9 +98,9 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Cost"</th>
+                        <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.model")}</th>
+                        <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.calls")}</th>
+                        <th class="text-end font-bold py-1 ps-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.cost")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -103,13 +111,13 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
                         let cost = fmt_usd(r.cost_usd);
                         view! {
                             <tr class="border-b" style="border-color: var(--ink-15);">
-                                <td class="py-1.5 pr-4 flex items-center gap-2">
+                                <td class="py-1.5 pe-4 flex items-center gap-2">
                                     <span class="inline-block w-3 h-3 border border-ink shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>
-                                <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
-                                <td class="py-1.5 pl-2 text-right font-mono font-bold">{cost}</td>
+                                <td class="py-1.5 px-2 text-end font-mono">{calls}</td>
+                                <td class="py-1.5 ps-2 text-end font-mono font-bold">{cost}</td>
                             </tr>
                         }
                     }).collect::<Vec<_>>()}
@@ -124,7 +132,7 @@ fn CostBar(rows: Vec<LlmCostByModel>, total: f64) -> impl IntoView {
 #[component]
 fn LatencyTable(rows: Vec<LlmLatencyByModel>) -> impl IntoView {
     if rows.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No latency data yet."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_data")}</div> }.into_any();
     }
     let max_p99 = rows.iter().map(|r| r.p99_ms).max().unwrap_or(1).max(1);
 
@@ -132,11 +140,11 @@ fn LatencyTable(rows: Vec<LlmLatencyByModel>) -> impl IntoView {
         <table class="w-full text-sm border-collapse">
             <thead>
                 <tr class="border-b-2 border-ink">
-                    <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P50"</th>
-                    <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"P95"</th>
-                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"P99"</th>
-                    <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Count"</th>
+                    <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.model")}</th>
+                    <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.p50")}</th>
+                    <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.p95")}</th>
+                    <th class="text-end font-bold py-1 ps-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.p99")}</th>
+                    <th class="text-end font-bold py-1 ps-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.count")}</th>
                 </tr>
             </thead>
             <tbody>
@@ -151,16 +159,16 @@ fn LatencyTable(rows: Vec<LlmLatencyByModel>) -> impl IntoView {
                     let bar_color = provider_color(&provider).to_string();
                     view! {
                         <tr class="border-b" style="border-color: var(--ink-15);">
-                            <td class="py-1.5 pr-4">
+                            <td class="py-1.5 pe-4">
                                 <span class="font-mono text-xs block">{model}</span>
                                 <div class="mt-1 h-1.5 w-full border border-ink overflow-hidden">
                                     <div style=move || format!("width:{}%; height:100%; background:{};", bar_pct, bar_color)></div>
                                 </div>
                             </td>
-                            <td class="py-1.5 px-2 text-right font-mono">{p50}</td>
-                            <td class="py-1.5 px-2 text-right font-mono">{p95}</td>
-                            <td class="py-1.5 pl-2 text-right font-mono font-bold">{p99}</td>
-                            <td class="py-1.5 pl-2 text-right font-mono">{cnt}</td>
+                            <td class="py-1.5 px-2 text-end font-mono">{p50}</td>
+                            <td class="py-1.5 px-2 text-end font-mono">{p95}</td>
+                            <td class="py-1.5 ps-2 text-end font-mono font-bold">{p99}</td>
+                            <td class="py-1.5 ps-2 text-end font-mono">{cnt}</td>
                         </tr>
                     }
                 }).collect::<Vec<_>>()}
@@ -224,20 +232,16 @@ fn CascadeDonut(classifier: i64, sonnet: i64, saved_usd: f64) -> impl IntoView {
             <div class="flex-1">
                 <div class="flex items-center gap-2 mb-2">
                     <span class="inline-block w-4 h-4 border border-ink" style="background: #1A6B5E;"></span>
-                    <span class="text-sm font-medium">"Gemini resolved — "</span>
-                    <span class="font-mono font-bold">{classifier}</span>
-                    <span class="text-sm" style="color:var(--ink-40);">" calls ("{gemini_pct}"% of total)"</span>
+                    <span class="text-sm font-medium">{move || tr_p("observability.cascade.resolved", &[("n", &classifier.to_string()), ("pct", &gemini_pct.to_string())])}</span>
                 </div>
                 <div class="flex items-center gap-2 mb-4">
                     <span class="inline-block w-4 h-4 border border-ink" style="background: #C0392B;"></span>
-                    <span class="text-sm font-medium">"Sonnet escalated — "</span>
-                    <span class="font-mono font-bold">{sonnet}</span>
-                    <span class="text-sm" style="color:var(--ink-40);">" calls ("{sonnet_pct}"% of total)"</span>
+                    <span class="text-sm font-medium">{move || tr_p("observability.cascade.escalated", &[("n", &sonnet.to_string()), ("pct", &sonnet_pct.to_string())])}</span>
                 </div>
                 <div class="border-t-2 border-ink pt-3">
-                    <div class="text-[11px] uppercase tracking-widest font-bold mb-1" style="color:var(--ink-40);">"Estimated savings"</div>
+                    <div class="text-[11px] uppercase tracking-widest font-bold mb-1" style="color:var(--ink-40);">{move || tr("observability.cascade.estimated_savings")}</div>
                     <div class="font-display text-2xl font-extrabold">{fmt_usd(saved_usd)}</div>
-                    <div class="text-xs mt-0.5" style="color:var(--ink-40);">"vs. routing all calls through Sonnet"</div>
+                    <div class="text-xs mt-0.5" style="color:var(--ink-40);">{move || tr("observability.cascade.vs_sonnet")}</div>
                 </div>
             </div>
         </div>
@@ -249,7 +253,7 @@ fn CascadeDonut(classifier: i64, sonnet: i64, saved_usd: f64) -> impl IntoView {
 #[component]
 fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
     if signals.is_empty() {
-        return view! { <div class="text-sm italic" style="color:var(--ink-40);">"No quality signals yet."</div> }.into_any();
+        return view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_quality_signals")}</div> }.into_any();
     }
     let max_count = signals.iter().map(|s| s.count).max().unwrap_or(1).max(1);
 
@@ -265,7 +269,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
                         <div class="flex-1 h-5 border border-ink overflow-hidden" style="background: var(--cream-light);">
                             <div style=move || format!("width:{}%; height:100%; background:{};", pct, color)></div>
                         </div>
-                        <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
+                        <div class="w-8 text-end font-mono text-sm font-bold">{count}</div>
                     </div>
                 }
             }).collect::<Vec<_>>()}
@@ -276,7 +280,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
 #[component]
-fn Section(title: &'static str, children: Children) -> impl IntoView {
+fn Section(title: String, children: Children) -> impl IntoView {
     view! {
         <section class="border-2 border-ink p-5 mb-6" style="box-shadow: 3px 3px 0 #1A1A1A; background: var(--cream);">
             <h2 class="font-display text-xl font-extrabold uppercase tracking-tight mb-4 border-b-2 border-ink pb-2">{title}</h2>
@@ -317,7 +321,7 @@ pub fn ObservabilityPage() -> impl IntoView {
                             let _ = win.location().set_href("/dashboard");
                         }
                         return view! {
-                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Redirecting…"</div>
+                            <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">{move || tr("common.redirecting")}</div>
                         }.into_any();
                     }
                 }
@@ -325,12 +329,12 @@ pub fn ObservabilityPage() -> impl IntoView {
                 let maybe = data.get().map(|w| w.clone());
                 match maybe {
                     None => view! {
-                        <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">"Loading…"</div>
+                        <div class="font-display text-xl animate-pulse" style="color:var(--ink-40);">{move || tr("common.loading")}</div>
                     }.into_any(),
                     Some(None) => view! {
                         <div class="border-2 border-ink p-6" style="box-shadow:3px 3px 0 #1A1A1A; background:var(--cream);">
-                            <div class="font-display text-xl font-extrabold text-brick">"Access denied or error."</div>
-                            <p class="text-sm mt-2" style="color:var(--ink-70);">"This page is for super admins only."</p>
+                            <div class="font-display text-xl font-extrabold text-brick">{move || tr("observability.access_denied")}</div>
+                            <p class="text-sm mt-2" style="color:var(--ink-70);">{move || tr("observability.super_admin_only")}</p>
                         </div>
                     }.into_any(),
                     Some(Some(d)) => {
@@ -342,17 +346,16 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 <div class="mb-4">
                                     <A href="/admin/observability"
                                        attr:class="text-sm font-medium"
-                                       attr:style="color: var(--teal);">"← Back to global view"</A>
+                                       attr:style="color: var(--teal);">{move || tr("observability.back_to_global")}</A>
                                 </div>
                                 // Header
                                 <div class="mb-8">
                                     <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
-                                        "Observability — "
-                                        {slug_label}
+                                        {move || tr_p("observability.title_workspace", &[("slug", &slug_label)])}
                                         <span class="text-brick">"."</span>
                                     </h1>
                                     <p class="text-[11px] uppercase tracking-[2px] font-bold mt-1" style="color: var(--brick);">
-                                        "Vue super admin"
+                                        {move || tr("observability.badge.super_admin_view")}
                                     </p>
                                     <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
                                         {d.month.clone()}
@@ -361,24 +364,24 @@ pub fn ObservabilityPage() -> impl IntoView {
 
                                 // Hero stats
                                 <div class="flex flex-wrap gap-4 mb-8">
-                                    <StatCard label="Total cost (30d)" value=fmt_usd(d.total_cost_usd) />
-                                    <StatCard label="Total calls" value=d.total_calls.to_string() />
-                                    <StatCard label="Median latency" value=fmt_ms(d.median_latency_ms) />
-                                    <StatCard label="Quality score" value=format!("{:.0}%", d.quality_score * 100.0) />
+                                    <StatCard label=tr("observability.stat.total_cost_30d") value=fmt_usd(d.total_cost_usd) />
+                                    <StatCard label=tr("observability.stat.total_calls") value=d.total_calls.to_string() />
+                                    <StatCard label=tr("observability.stat.median_latency") value=fmt_ms(d.median_latency_ms) />
+                                    <StatCard label=tr("observability.stat.quality_score") value=format!("{:.0}%", d.quality_score * 100.0) />
                                 </div>
 
                                 // Cost by model
-                                <Section title="Cost per model (30d)">
+                                <Section title=tr("observability.section.cost_by_model")>
                                     <CostBar rows=d.cost_by_model.clone() total=d.total_cost_usd />
                                 </Section>
 
                                 // Latency by model
-                                <Section title="Latency per model (7d)">
+                                <Section title=tr("observability.section.latency_by_model")>
                                     <LatencyTable rows=d.latency_by_model.clone() />
                                 </Section>
 
                                 // Cascade efficiency
-                                <Section title="Cascade efficiency Gemini → Sonnet">
+                                <Section title=tr("observability.section.cascade_efficiency")>
                                     <CascadeDonut
                                         classifier=d.cascade_efficiency.classifier_resolved
                                         sonnet=d.cascade_efficiency.sonnet_escalated
@@ -387,9 +390,9 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 </Section>
 
                                 // Invocation types
-                                <Section title="Invocation types (30d)">
+                                <Section title=tr("observability.section.invocation_types")>
                                     {if d.invocation_types.is_empty() {
-                                        view! { <div class="text-sm italic" style="color:var(--ink-40);">"No data."</div> }.into_any()
+                                        view! { <div class="text-sm italic" style="color:var(--ink-40);">{move || tr("observability.no_data")}</div> }.into_any()
                                     } else {
                                         let max_count = d.invocation_types.iter().map(|i| i.count).max().unwrap_or(1).max(1);
                                         view! {
@@ -404,7 +407,7 @@ pub fn ObservabilityPage() -> impl IntoView {
                                                             <div class="flex-1 h-5 border border-ink overflow-hidden" style="background:var(--cream-light);">
                                                                 <div style=move || format!("width:{}%; height:100%; background:#C0392B;", pct)></div>
                                                             </div>
-                                                            <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
+                                                            <div class="w-8 text-end font-mono text-sm font-bold">{count}</div>
                                                         </div>
                                                     }
                                                 }).collect::<Vec<_>>()}
@@ -414,25 +417,25 @@ pub fn ObservabilityPage() -> impl IntoView {
                                 </Section>
 
                                 // Quality signals
-                                <Section title="Quality signals (30d)">
+                                <Section title=tr("observability.section.quality_signals")>
                                     <QualitySignals signals=d.quality_signals.clone() />
                                 </Section>
 
                                 // Recent errors
-                                <Section title="Recent errors">
+                                <Section title=tr("observability.section.recent_errors")>
                                     {if d.recent_errors.is_empty() {
-                                        view! { <div class="text-sm font-medium" style="color:#1A6B5E;">"No errors. Perfect."</div> }.into_any()
+                                        view! { <div class="text-sm font-medium" style="color:#1A6B5E;">{move || tr("observability.no_errors")}</div> }.into_any()
                                     } else {
                                         view! {
                                             <div class="overflow-x-auto">
                                                 <table class="w-full text-xs border-collapse">
                                                     <thead>
                                                         <tr class="border-b-2 border-ink">
-                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Timestamp"</th>
-                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
-                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Model"</th>
-                                                            <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Type"</th>
-                                                            <th class="text-left font-bold py-1 uppercase tracking-wider">"Error"</th>
+                                                            <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.timestamp")}</th>
+                                                            <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.provider")}</th>
+                                                            <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.model")}</th>
+                                                            <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.type")}</th>
+                                                            <th class="text-start font-bold py-1 uppercase tracking-wider">{move || tr("observability.col.error")}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -444,10 +447,10 @@ pub fn ObservabilityPage() -> impl IntoView {
                                                             let err = e.error.clone();
                                                             view! {
                                                                 <tr class="border-b" style="border-color:var(--ink-15);">
-                                                                    <td class="py-1.5 pr-3 font-mono whitespace-nowrap">{ts}</td>
-                                                                    <td class="py-1.5 pr-3">{prov}</td>
-                                                                    <td class="py-1.5 pr-3 font-mono">{model}</td>
-                                                                    <td class="py-1.5 pr-3 italic">{inv}</td>
+                                                                    <td class="py-1.5 pe-3 font-mono whitespace-nowrap">{ts}</td>
+                                                                    <td class="py-1.5 pe-3">{prov}</td>
+                                                                    <td class="py-1.5 pe-3 font-mono">{model}</td>
+                                                                    <td class="py-1.5 pe-3 italic">{inv}</td>
                                                                     <td class="py-1.5 text-brick truncate max-w-[300px]">{err}</td>
                                                                 </tr>
                                                             }

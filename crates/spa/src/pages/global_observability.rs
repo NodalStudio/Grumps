@@ -23,22 +23,31 @@ fn provider_color(provider: &str) -> &'static str {
     }
 }
 
-fn signal_label(s: &str) -> (&'static str, &'static str) {
-    match s {
-        "praise" => ("Praise", "var(--teal)"),
-        "thanks" => ("Thanks", "var(--teal)"),
-        "silence_request" => ("Silence", "var(--brick)"),
-        "forget_request" => ("Forget", "var(--ochre)"),
-        "correction" => ("Correction", "var(--brick)"),
-        "confusion" => ("Confusion", "var(--ochre)"),
-        _ => ("Other", "var(--ink-40)"),
-    }
+fn signal_label(s: &str) -> (String, &'static str) {
+    // (localized label, palette token) — same mapping as the workspace-level
+    // observability page (`pages/observability.rs`), kept in sync by hand.
+    let key = match s {
+        "praise" => "observability.signal.praise",
+        "thanks" => "observability.signal.thanks",
+        "silence_request" => "observability.signal.silence",
+        "forget_request" => "observability.signal.forget",
+        "correction" => "observability.signal.correction",
+        "confusion" => "observability.signal.confusion",
+        _ => "observability.signal.other",
+    };
+    let color = match s {
+        "praise" | "thanks" => "var(--teal)",
+        "silence_request" | "correction" => "var(--brick)",
+        "forget_request" | "confusion" => "var(--ochre)",
+        _ => "var(--ink-40)",
+    };
+    (tr(key), color)
 }
 
 // ── Hero stat card ────────────────────────────────────────────────────────────
 
 #[component]
-fn StatCard(label: &'static str, value: String) -> impl IntoView {
+fn StatCard(label: String, value: String) -> impl IntoView {
     view! {
         <div class="flex-1 min-w-[160px] border-2 border-ink p-4"
              style="background: var(--cream); box-shadow: 3px 3px 0 #1A1A1A;">
@@ -51,7 +60,7 @@ fn StatCard(label: &'static str, value: String) -> impl IntoView {
 // ── Section wrapper ───────────────────────────────────────────────────────────
 
 #[component]
-fn Section(title: &'static str, children: Children) -> impl IntoView {
+fn Section(title: String, children: Children) -> impl IntoView {
     view! {
         <section class="border-2 border-ink p-5 mb-6" style="box-shadow: 3px 3px 0 #1A1A1A; background: var(--cream);">
             <h2 class="font-display text-xl font-extrabold uppercase tracking-tight mb-4 border-b-2 border-ink pb-2">{title}</h2>
@@ -92,9 +101,9 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Model"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Cost"</th>
+                        <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.model")}</th>
+                        <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.calls")}</th>
+                        <th class="text-end font-bold py-1 ps-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.cost")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -105,13 +114,13 @@ fn ModelCostBar(rows: Vec<GlobalModelCostAgg>, total: f64) -> impl IntoView {
                         let cost = fmt_usd(r.cost_usd);
                         view! {
                             <tr class="border-b" style="border-color: var(--ink-15);">
-                                <td class="py-1.5 pr-4 flex items-center gap-2">
+                                <td class="py-1.5 pe-4 flex items-center gap-2">
                                     <span class="inline-block w-3 h-3 border border-ink shrink-0"
                                           style=move || format!("background: {};", dot_color)></span>
                                     <span class="font-mono text-xs">{model}</span>
                                 </td>
-                                <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
-                                <td class="py-1.5 pl-2 text-right font-mono font-bold">{cost}</td>
+                                <td class="py-1.5 px-2 text-end font-mono">{calls}</td>
+                                <td class="py-1.5 ps-2 text-end font-mono font-bold">{cost}</td>
                             </tr>
                         }
                     }).collect::<Vec<_>>()}
@@ -133,13 +142,13 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
             <table class="w-full text-sm border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Slug"</th>
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Name"</th>
-                        <th class="text-left font-bold py-1 pr-4 text-[11px] uppercase tracking-wider">"Plan"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Calls"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Cost (30d)"</th>
-                        <th class="text-right font-bold py-1 px-2 text-[11px] uppercase tracking-wider">"Quality"</th>
-                        <th class="text-right font-bold py-1 pl-2 text-[11px] uppercase tracking-wider">"Detail"</th>
+                        <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.slug")}</th>
+                        <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.name")}</th>
+                        <th class="text-start font-bold py-1 pe-4 text-[11px] uppercase tracking-wider">{move || tr("observability.col.plan")}</th>
+                        <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.calls")}</th>
+                        <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.cost_30d")}</th>
+                        <th class="text-end font-bold py-1 px-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.quality")}</th>
+                        <th class="text-end font-bold py-1 ps-2 text-[11px] uppercase tracking-wider">{move || tr("observability.col.detail")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -162,16 +171,16 @@ fn WorkspacesTable(rows: Vec<GlobalWorkspaceStats>) -> impl IntoView {
                                         }
                                     }
                                 }>
-                                <td class="py-1.5 pr-4 font-mono text-xs font-bold">{slug}</td>
-                                <td class="py-1.5 pr-4 text-sm">{name}</td>
-                                <td class="py-1.5 pr-4">
+                                <td class="py-1.5 pe-4 font-mono text-xs font-bold">{slug}</td>
+                                <td class="py-1.5 pe-4 text-sm">{name}</td>
+                                <td class="py-1.5 pe-4">
                                     <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 border border-ink"
                                           style="background: var(--cream-light);">{plan}</span>
                                 </td>
-                                <td class="py-1.5 px-2 text-right font-mono">{calls}</td>
-                                <td class="py-1.5 px-2 text-right font-mono font-bold">{cost}</td>
-                                <td class="py-1.5 px-2 text-right font-mono">{quality}</td>
-                                <td class="py-1.5 pl-2 text-right">
+                                <td class="py-1.5 px-2 text-end font-mono">{calls}</td>
+                                <td class="py-1.5 px-2 text-end font-mono font-bold">{cost}</td>
+                                <td class="py-1.5 px-2 text-end font-mono">{quality}</td>
+                                <td class="py-1.5 ps-2 text-end">
                                     <A href=detail_href.clone()
                                        attr:class="text-xs font-bold"
                                        attr:style="color: var(--teal);">"→"</A>
@@ -206,7 +215,7 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
                         <div class="flex-1 h-5 border border-ink overflow-hidden" style="background: var(--cream-light);">
                             <div style=move || format!("width:{}%; height:100%; background:{};", pct, color)></div>
                         </div>
-                        <div class="w-8 text-right font-mono text-sm font-bold">{count}</div>
+                        <div class="w-8 text-end font-mono text-sm font-bold">{count}</div>
                     </div>
                 }
             }).collect::<Vec<_>>()}
@@ -219,18 +228,18 @@ fn QualitySignals(signals: Vec<QualitySignalCount>) -> impl IntoView {
 #[component]
 fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
     if errors.is_empty() {
-        return view! { <div class="text-sm font-medium" style="color: var(--teal);">"No errors. Clean."</div> }.into_any();
+        return view! { <div class="text-sm font-medium" style="color: var(--teal);">{move || tr("observability.no_errors")}</div> }.into_any();
     }
     view! {
         <div class="overflow-x-auto">
             <table class="w-full text-xs border-collapse">
                 <thead>
                     <tr class="border-b-2 border-ink">
-                        <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Workspace"</th>
-                        <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Timestamp"</th>
-                        <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Provider"</th>
-                        <th class="text-left font-bold py-1 pr-3 uppercase tracking-wider">"Model"</th>
-                        <th class="text-left font-bold py-1 uppercase tracking-wider">"Error"</th>
+                        <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.workspace")}</th>
+                        <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.timestamp")}</th>
+                        <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.provider")}</th>
+                        <th class="text-start font-bold py-1 pe-3 uppercase tracking-wider">{move || tr("observability.col.model")}</th>
+                        <th class="text-start font-bold py-1 uppercase tracking-wider">{move || tr("observability.col.error")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -242,10 +251,10 @@ fn RecentErrors(errors: Vec<GlobalError>) -> impl IntoView {
                         let err = e.error.clone();
                         view! {
                             <tr class="border-b" style="border-color:var(--ink-15);">
-                                <td class="py-1.5 pr-3 font-mono font-bold">{ws}</td>
-                                <td class="py-1.5 pr-3 font-mono whitespace-nowrap">{ts}</td>
-                                <td class="py-1.5 pr-3">{prov}</td>
-                                <td class="py-1.5 pr-3 font-mono">{model}</td>
+                                <td class="py-1.5 pe-3 font-mono font-bold">{ws}</td>
+                                <td class="py-1.5 pe-3 font-mono whitespace-nowrap">{ts}</td>
+                                <td class="py-1.5 pe-3">{prov}</td>
+                                <td class="py-1.5 pe-3 font-mono">{model}</td>
                                 <td class="py-1.5 text-brick truncate max-w-[300px]">{err}</td>
                             </tr>
                         }
@@ -275,22 +284,22 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                         "GRUMPS"<span class="text-brick">"."</span>
                     </h1>
                     <p class="text-[10px] uppercase tracking-wider mt-0.5 font-medium" style="color: var(--ink-40);">
-                        "Super Admin"
+                        {move || tr("sidebar.section.super_admin")}
                     </p>
                 </div>
                 <nav class="py-3 flex-1">
-                    <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">"Admin"</div>
+                    <div class="px-5 pt-4 pb-1.5 text-[10px] font-bold uppercase tracking-[1.5px]" style="color: var(--ink-40);">{move || tr("observability.nav.admin_group")}</div>
                     <A href="/admin/observability"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-brick"
                        attr:style="color: var(--ink);">
                         <span class="w-[18px] text-center text-[15px]">{"\u{2295}"}</span>
-                        "Observabilité globale"
+                        {move || tr("sidebar.global_observability")}
                     </A>
                     <A href="/dashboard"
                        attr:class="flex items-center gap-2.5 px-5 py-2 text-sm font-medium border-l-[3px] border-transparent hover-tint"
                        attr:style="color: var(--ink-70);">
                         <span class="w-[18px] text-center text-[15px]">"⊞"</span>
-                        "My Workspaces"
+                        {move || tr("sidebar.my_workspaces")}
                     </A>
                 </nav>
             </aside>
@@ -321,7 +330,7 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
                                     // Header
                                     <div class="mb-8">
                                         <h1 class="font-display text-[2.8rem] font-extrabold uppercase tracking-tight leading-none">
-                                            "Global observability"
+                                            {move || tr("observability.title_global")}
                                             <span class="text-brick">"."</span>
                                         </h1>
                                         <p class="text-sm font-medium uppercase tracking-widest mt-1" style="color:var(--ink-40);">
@@ -331,29 +340,29 @@ pub fn GlobalObservabilityPage() -> impl IntoView {
 
                                     // Hero stats
                                     <div class="flex flex-wrap gap-4 mb-8">
-                                        <StatCard label="Workspaces" value=d.workspaces_count.to_string() />
-                                        <StatCard label="Total cost (30d)" value=fmt_usd(d.total_cost_usd) />
-                                        <StatCard label="Total calls" value=d.total_calls.to_string() />
-                                        <StatCard label="Avg quality score" value=format!("{:.0}%", avg_quality * 100.0) />
+                                        <StatCard label=tr("observability.stat.workspaces") value=d.workspaces_count.to_string() />
+                                        <StatCard label=tr("observability.stat.total_cost_30d") value=fmt_usd(d.total_cost_usd) />
+                                        <StatCard label=tr("observability.stat.total_calls") value=d.total_calls.to_string() />
+                                        <StatCard label=tr("observability.stat.avg_quality_score") value=format!("{:.0}%", avg_quality * 100.0) />
                                     </div>
 
                                     // Cost by model
-                                    <Section title="Cost by model (30d)">
+                                    <Section title=tr("observability.section.cost_by_model")>
                                         <ModelCostBar rows=d.cost_by_model.clone() total=d.total_cost_usd />
                                     </Section>
 
                                     // Top workspaces by cost
-                                    <Section title="Top workspaces by cost">
+                                    <Section title=tr("observability.section.top_workspaces")>
                                         <WorkspacesTable rows=d.by_workspace.clone() />
                                     </Section>
 
                                     // Quality signals
-                                    <Section title="Quality signals (30d)">
+                                    <Section title=tr("observability.section.quality_signals")>
                                         <QualitySignals signals=d.quality_signals.clone() />
                                     </Section>
 
                                     // Recent errors
-                                    <Section title="Recent errors (all workspaces)">
+                                    <Section title=tr("observability.section.recent_errors_all")>
                                         <RecentErrors errors=d.recent_errors.clone() />
                                     </Section>
                                 </div>
