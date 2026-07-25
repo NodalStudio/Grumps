@@ -341,6 +341,49 @@ pub async fn invalidate_session_cache(env: &Env, sid: &str) -> std::result::Resu
     Ok(())
 }
 
+/// Random URL-safe base64 token, `len_bytes` bytes of entropy (no padding).
+/// There is no `rand` crate wired up for the `wasm32-unknown-unknown`
+/// target here, so entropy is derived from `Uuid::new_v4` — backed by
+/// `getrandom`'s `js` feature on wasm, i.e. the browser/V8
+/// `crypto.getRandomValues` CSPRNG — the same source already used for
+/// session ids and the widget-login CSRF token below. `magic_link` reuses
+/// this helper for the `@grumps link` token so every unguessable secret in
+/// the worker traces back to one entropy source.
+pub fn random_b64_token(len_bytes: usize) -> String {
+    let mut buf = Vec::with_capacity(len_bytes);
+    while buf.len() < len_bytes {
+        buf.extend_from_slice(uuid::Uuid::new_v4().as_bytes());
+    }
+    buf.truncate(len_bytes);
+    base64_url_encode(&buf)
+}
+
+fn base64_url_encode(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut out = String::new();
+    let mut i = 0;
+    while i + 3 <= bytes.len() {
+        let (a, b, c) = (bytes[i], bytes[i + 1], bytes[i + 2]);
+        out.push(ALPHABET[(a >> 2) as usize] as char);
+        out.push(ALPHABET[(((a & 0b11) << 4) | (b >> 4)) as usize] as char);
+        out.push(ALPHABET[(((b & 0b1111) << 2) | (c >> 6)) as usize] as char);
+        out.push(ALPHABET[(c & 0b111111) as usize] as char);
+        i += 3;
+    }
+    let rem = bytes.len() - i;
+    if rem == 1 {
+        let a = bytes[i];
+        out.push(ALPHABET[(a >> 2) as usize] as char);
+        out.push(ALPHABET[((a & 0b11) << 4) as usize] as char);
+    } else if rem == 2 {
+        let (a, b) = (bytes[i], bytes[i + 1]);
+        out.push(ALPHABET[(a >> 2) as usize] as char);
+        out.push(ALPHABET[(((a & 0b11) << 4) | (b >> 4)) as usize] as char);
+        out.push(ALPHABET[((b & 0b1111) << 2) as usize] as char);
+    }
+    out
+}
+
 #[derive(Debug)]
 pub enum AuthError {
     Unauthenticated,
@@ -478,5 +521,39 @@ mod tests {
         let token =
             create_jwt_with_csrf("u", vec![], "s", "c", None, "right-secret").expect("sign");
         assert!(decode_jwt_internal(&token, "wrong-secret").is_err());
+    }
+
+    // random_b64_token backs both the widget-login CSRF token and the
+    // magic-link token (crate::magic_link). Pinning length/charset/entropy
+    // here means both callers are covered by one test, and a regression
+    // (e.g. someone "simplifying" the loop and truncating too early) fails
+    // fast without needing a live KV/Env.
+    #[test]
+    fn random_b64_token_has_expected_length() {
+        // 16 bytes (128 bits) base64url-encoded, no padding: ceil(16*4/3) = 22 chars.
+        assert_eq!(random_b64_token(16).len(), 22);
+        // 32 bytes (the CSRF token size) -> ceil(32*4/3) = 43 chars.
+        assert_eq!(random_b64_token(32).len(), 43);
+    }
+
+    #[test]
+    fn random_b64_token_uses_url_safe_charset_only() {
+        let token = random_b64_token(16);
+        assert!(token
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+        // Never padded, never contains characters that need URL-escaping in
+        // a `?token=` query string (`+`, `/`, `=`).
+        assert!(!token.contains('+') && !token.contains('/') && !token.contains('='));
+    }
+
+    #[test]
+    fn random_b64_token_is_not_deterministic() {
+        // Not a rigorous entropy test, but catches the obvious regression of
+        // a hardcoded/zeroed buffer — 100 draws colliding would be a CSPRNG
+        // failure worth knowing about immediately.
+        let a = random_b64_token(16);
+        let b = random_b64_token(16);
+        assert_ne!(a, b);
     }
 }

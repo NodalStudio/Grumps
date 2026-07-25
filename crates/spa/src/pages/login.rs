@@ -1,4 +1,3 @@
-use crate::components::ui::button::{Button, ButtonVariant};
 use crate::i18n::tr;
 use gloo_net::http::Request;
 use leptos::prelude::*;
@@ -14,6 +13,18 @@ pub fn LoginPage() -> impl IntoView {
             .read()
             .get("redirect")
             .unwrap_or_else(|| "/dashboard".to_string())
+    });
+    // Set by `/auth/link`'s uniform-failure redirect (invalid, expired, or
+    // already-redeemed magic-link token) — see routes/auth.rs::handle_link_redeem.
+    // Any non-empty `error` value is treated the same way; the worker only
+    // ever sends `link_invalid`, but an unrecognized value still shows the
+    // generic line rather than nothing.
+    let link_error = Signal::derive(move || {
+        query
+            .read()
+            .get("error")
+            .filter(|e| !e.is_empty())
+            .is_some()
     });
 
     Effect::new(move |_| {
@@ -34,27 +45,25 @@ pub fn LoginPage() -> impl IntoView {
                 </div>
 
                 <div class="px-8 py-7 space-y-3">
+                    <Show when=move || link_error.get()>
+                        <p
+                            class="text-xs text-center p-2 border-2 border-brick"
+                            style="color: var(--brick); line-height: 1.5;"
+                        >
+                            {move || tr("auth.error.link_invalid")}
+                        </p>
+                    </Show>
+
                     <div id="tg-widget-container" class="flex justify-center"></div>
 
-                    <Button
-                        variant=ButtonVariant::Secondary
-                        class="w-full p-3 uppercase tracking-wider justify-between bg-ink text-cream border-2 border-ink"
-                        disabled=true
-                        on_click=move |_| {}
-                    >
-                        <span>{move || tr("login.wa_button")}</span>
-                        <span class="text-[10px] tracking-widest">{move || tr("login.coming_soon")}</span>
-                    </Button>
-
-                    <Button
-                        variant=ButtonVariant::Secondary
-                        class="w-full p-3 uppercase tracking-wider justify-between bg-ink text-cream border-2 border-ink"
-                        disabled=true
-                        on_click=move |_| {}
-                    >
-                        <span>{move || tr("login.dc_button")}</span>
-                        <span class="text-[10px] tracking-widest">{move || tr("login.coming_soon")}</span>
-                    </Button>
+                    <div class="p-3 border-2 border-ink" style="background: var(--cream);">
+                        <p class="text-xs uppercase tracking-widest font-bold">
+                            {move || tr("login.wa_hint_title")}
+                        </p>
+                        <p class="text-xs mt-1" style="color: var(--ink-40); line-height: 1.5;">
+                            {move || tr("login.wa_hint_body")}
+                        </p>
+                    </div>
 
                     <p class="text-center text-xs mt-6 pt-6 border-t-2 border-ink" style="color: var(--ink-40); line-height: 1.5;">
                         {move || tr("login.footer")}
