@@ -193,6 +193,9 @@ impl Api for DemoApi {
             url: "/demo/calendar.ics".into(),
         })
     }
+    async fn revoke_ical_token(&self, _slug: &str) -> Result<(), String> {
+        Ok(())
+    }
 
     async fn get_observability(&self, _slug: &str) -> Result<ObservabilityData, String> {
         Ok(ObservabilityData::default())

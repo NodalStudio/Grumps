@@ -227,6 +227,19 @@ pub fn t(locale: Locale, key: &str, params: &[(&str, &str)]) -> String {
     out
 }
 
+/// `true` if `key` has a real translation (in English, the source of truth
+/// per the locale-parity CI check — every other locale is required to carry
+/// every English key). Lets callers distinguish "this code has a proper
+/// message" from "`t()` fell back to echoing the literal key" — e.g. the SPA
+/// uses this to decide whether an API error code is safe to show directly
+/// or should fall back to a generic toast.
+pub fn has_key(key: &str) -> bool {
+    BUNDLES
+        .get(&Locale::En)
+        .map(|m| m.contains_key(key))
+        .unwrap_or(false)
+}
+
 /// CLDR cardinal plural categories. Returns the suffix that should be
 /// appended to a base translation key (`schedule.fired` → `schedule.fired.one`,
 /// `.few`, `.many`, `.other`, etc.) so the bundle picks the correct form

@@ -109,6 +109,8 @@ pub trait Api: Send + Sync {
     /// adopts it only if not already explicitly configured).
     async fn update_timezone(&self, slug: &str, tz: &str) -> Result<(), String>;
     async fn regenerate_ical_token(&self, slug: &str) -> Result<ICalTokenResponse, String>;
+    /// Revoke the workspace's public iCal feed token (admin-only server-side).
+    async fn revoke_ical_token(&self, slug: &str) -> Result<(), String>;
 
     // Observability + Admin
     async fn get_observability(&self, slug: &str) -> Result<ObservabilityData, String>;
