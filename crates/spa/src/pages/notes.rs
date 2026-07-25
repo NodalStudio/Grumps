@@ -1,13 +1,16 @@
-use crate::api::use_api;
+use crate::api::{use_api, CreateNoteRequest};
 use crate::components::header::PageHeader;
-use crate::i18n::tr;
+use crate::components::ui::button::{Button, ButtonVariant};
+use crate::i18n::{tr, tr_err};
 use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_navigate, use_params_map};
 
 #[component]
 pub fn NotesPage() -> impl IntoView {
     let params = use_params_map();
     let slug = move || params.read().get("slug").unwrap_or_default();
+
+    let toasts = crate::components::ui::toast::use_toasts();
 
     let notes = LocalResource::new(move || {
         let api = use_api();
@@ -15,9 +18,35 @@ pub fn NotesPage() -> impl IntoView {
         async move { api.get_notes(&s).await.unwrap_or_default() }
     });
 
+    // "+ New" has no route to land on until a note actually exists (the
+    // worker treats any non-existent id as a 404, so linking straight to
+    // `/notes/new` 404s) — create it first, then navigate to its real id.
+    let api_new = use_api();
+    let navigate = use_navigate();
+    let create_note = move |_| {
+        let api = api_new.clone();
+        let s = slug();
+        let nav = navigate.clone();
+        leptos::task::spawn_local(async move {
+            let req = CreateNoteRequest {
+                title: None,
+                content: format!("# {}\n", tr("note.untitled")),
+            };
+            match api.create_note(&s, req).await {
+                Ok(note) => {
+                    let path = format!("{}/w/{}/notes/{}", crate::demo::router_base(), s, note.id);
+                    nav(&path, Default::default());
+                }
+                Err(code) => toasts.error(tr_err(&code)),
+            }
+        });
+    };
+
     view! {
         <PageHeader title=move || tr("page.notes.title") subtitle=Signal::derive(move || tr("page.notes.subtitle"))>
-            <a href=format!("{}/w/{}/notes/new", crate::demo::router_base(), slug()) class="px-4 py-2 text-sm font-semibold border-2 border-ink rounded-xs cursor-pointer" style="background: var(--ink); color: var(--cream);">"+ "{move || tr("note.action.new")}</a>
+            <Button variant=ButtonVariant::Primary on_click=create_note>
+                "+ "{move || tr("note.action.new")}
+            </Button>
         </PageHeader>
         <div class="flex-1 overflow-y-auto p-8">
             <Suspense fallback=|| view! { <div style="color: var(--ink-40);">{move || tr("common.loading")}</div> }>
