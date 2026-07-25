@@ -13,7 +13,14 @@ pub fn all_tools() -> Vec<Value> {
         create_note(),
         create_event(),
         create_reminder(),
+        complete_todo(),
+        update_todo(),
+        delete_todo(),
+        update_note(),
+        delete_note(),
         schedule_action(),
+        cancel_scheduled(),
+        update_scheduled(),
         list_calendar(),
         list_todos(),
         list_notes(),
@@ -131,9 +138,13 @@ pub fn create_note() -> Value {
 }
 
 pub fn create_event() -> Value {
+    // No `attendees`/`recurrence` fields — the implementation ignores both
+    // (grumps_calendar::NewEvent is built with `attendees: vec![]` and
+    // `recurrence: None` regardless of input). Advertising fields the tool
+    // silently drops would make the model promise something it can't keep.
     json!({
         "name": "create_event",
-        "description": "Create a calendar event (meeting, appointment, birthday, etc).",
+        "description": "Create a calendar event (meeting, appointment, birthday, etc). Does not support attendees or recurrence.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -141,9 +152,7 @@ pub fn create_event() -> Value {
                 "starts_at": { "type": "string", "format": "date-time", "description": "Local wall-clock time in the group's timezone (see CURRENT DATETIME in your context), ISO-8601 with NO timezone suffix, e.g. 2026-05-31T20:00:00. Do not convert to UTC." },
                 "ends_at": { "type": "string", "format": "date-time", "description": "Optional end time, same local-wall-clock format as starts_at." },
                 "all_day": { "type": "boolean", "default": false },
-                "location": { "type": "string" },
-                "attendees": { "type": "array", "items": { "type": "string" }, "description": "member_ids" },
-                "recurrence": { "type": "string", "description": "RRULE format, e.g. 'FREQ=WEEKLY;BYDAY=MO'" }
+                "location": { "type": "string" }
             },
             "required": ["title", "starts_at"]
         }
@@ -166,6 +175,84 @@ pub fn create_reminder() -> Value {
     })
 }
 
+pub fn complete_todo() -> Value {
+    json!({
+        "name": "complete_todo",
+        "description": "Mark an existing todo done, by its seq number (the # shown on its card, e.g. #3). If the todo recurs, its next occurrence is created automatically. Only call this for a todo the user clearly identified — if you're not sure which one they mean, call list_todos first and ask.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "seq": { "type": "integer", "description": "The todo's seq number, e.g. 3 for '#3'" }
+            },
+            "required": ["seq"]
+        }
+    })
+}
+
+pub fn update_todo() -> Value {
+    json!({
+        "name": "update_todo",
+        "description": "Change one or more fields of an existing todo, by its seq number. Only set the fields that changed. `tags` are appended to the existing tags (not replaced). To mark it done, use complete_todo instead (it also spawns the next occurrence for a recurring todo).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "seq": { "type": "integer", "description": "The todo's seq number, e.g. 3 for '#3'" },
+                "title": { "type": "string" },
+                "deadline": { "type": "string", "format": "date-time", "description": "New deadline. Pass an empty string to clear it." },
+                "priority": { "type": "integer", "minimum": 1, "maximum": 3, "description": "1=high, 2=normal, 3=low" },
+                "assignee": { "type": "string", "description": "member_id or display_name" },
+                "tags": { "type": "array", "items": { "type": "string" }, "description": "Tags to add" },
+                "status": { "type": "string", "description": "Free-form status label (e.g. 'in_progress', 'blocked') — not for marking done, see complete_todo." }
+            },
+            "required": ["seq"]
+        }
+    })
+}
+
+pub fn delete_todo() -> Value {
+    json!({
+        "name": "delete_todo",
+        "description": "Permanently remove a todo, by its seq number. Destructive — only call this when the user explicitly asks to delete/remove that specific todo, never proactively. If you're not sure which one they mean, call list_todos first and ask.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "seq": { "type": "integer", "description": "The todo's seq number, e.g. 3 for '#3'" }
+            },
+            "required": ["seq"]
+        }
+    })
+}
+
+pub fn update_note() -> Value {
+    json!({
+        "name": "update_note",
+        "description": "Change an existing note's title and/or content, identified by its id (from list_notes) or its exact title. Only set the fields that changed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "id_or_title": { "type": "string", "description": "The note's id, or its exact title" },
+                "title": { "type": "string" },
+                "content": { "type": "string", "description": "Markdown body" }
+            },
+            "required": ["id_or_title"]
+        }
+    })
+}
+
+pub fn delete_note() -> Value {
+    json!({
+        "name": "delete_note",
+        "description": "Permanently remove a note, identified by its id (from list_notes) or its exact title. Destructive — only call this when the user explicitly asks to delete/remove that specific note, never proactively.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "id_or_title": { "type": "string", "description": "The note's id, or its exact title" }
+            },
+            "required": ["id_or_title"]
+        }
+    })
+}
+
 pub fn schedule_action() -> Value {
     json!({
         "name": "schedule_action",
@@ -184,6 +271,37 @@ pub fn schedule_action() -> Value {
                 "payload": { "type": "object", "description": "Action payload (instruction string for agent_task, etc.)" }
             },
             "required": ["action_type", "title", "trigger_at", "payload"]
+        }
+    })
+}
+
+pub fn cancel_scheduled() -> Value {
+    json!({
+        "name": "cancel_scheduled",
+        "description": "Cancel a scheduled action (reminder or agentic task) created by schedule_action or create_reminder, by its id. Destructive — only call this when the user explicitly asks to cancel/stop it, never proactively.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "string", "description": "The scheduled action's id" }
+            },
+            "required": ["id"]
+        }
+    })
+}
+
+pub fn update_scheduled() -> Value {
+    json!({
+        "name": "update_scheduled",
+        "description": "Change one or more fields of an existing scheduled action (reminder or agentic task), by its id. Only set the fields that changed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "string", "description": "The scheduled action's id" },
+                "title": { "type": "string" },
+                "trigger_at": { "type": "string", "format": "date-time", "description": "New local wall-clock time in the group's timezone, ISO-8601 with NO timezone suffix. Do not convert to UTC." },
+                "recurrence": { "type": "string", "description": "New RRULE. Pass an empty string to clear it." }
+            },
+            "required": ["id"]
         }
     })
 }
@@ -282,8 +400,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_tools_count_is_14() {
-        assert_eq!(all_tools().len(), 14);
+    fn all_tools_count_is_21() {
+        assert_eq!(all_tools().len(), 21);
     }
 
     #[test]
@@ -311,5 +429,83 @@ mod tests {
             .collect();
         let unique: std::collections::HashSet<_> = names.iter().collect();
         assert_eq!(names.len(), unique.len(), "duplicate tool names");
+    }
+
+    /// The set of top-level `input_schema.properties` keys a tool advertises.
+    fn schema_keys(tool: &Value) -> std::collections::HashSet<String> {
+        tool["input_schema"]["properties"]
+            .as_object()
+            .expect("properties object")
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    fn set(keys: &[&str]) -> std::collections::HashSet<String> {
+        keys.iter().map(|s| s.to_string()).collect()
+    }
+
+    // ── schema-vs-impl field-name parity for every new mutation tool ──────
+    // Each asserted set must exactly match the `args.get("...")` calls in
+    // the corresponding `tools::crud`/`tools::scheduler` implementation —
+    // catches a schema field the impl never reads (or vice versa).
+
+    #[test]
+    fn complete_todo_schema_matches_impl_fields() {
+        assert_eq!(schema_keys(&complete_todo()), set(&["seq"]));
+    }
+
+    #[test]
+    fn update_todo_schema_matches_impl_fields() {
+        assert_eq!(
+            schema_keys(&update_todo()),
+            set(&["seq", "title", "deadline", "priority", "assignee", "tags", "status"])
+        );
+    }
+
+    #[test]
+    fn delete_todo_schema_matches_impl_fields() {
+        assert_eq!(schema_keys(&delete_todo()), set(&["seq"]));
+    }
+
+    #[test]
+    fn update_note_schema_matches_impl_fields() {
+        assert_eq!(
+            schema_keys(&update_note()),
+            set(&["id_or_title", "title", "content"])
+        );
+    }
+
+    #[test]
+    fn delete_note_schema_matches_impl_fields() {
+        assert_eq!(schema_keys(&delete_note()), set(&["id_or_title"]));
+    }
+
+    #[test]
+    fn cancel_scheduled_schema_matches_impl_fields() {
+        assert_eq!(schema_keys(&cancel_scheduled()), set(&["id"]));
+    }
+
+    #[test]
+    fn update_scheduled_schema_matches_impl_fields() {
+        assert_eq!(
+            schema_keys(&update_scheduled()),
+            set(&["id", "title", "trigger_at", "recurrence"])
+        );
+    }
+
+    #[test]
+    fn create_event_schema_does_not_advertise_ignored_fields() {
+        // Honesty fix: the implementation never reads `attendees`/`recurrence`
+        // (grumps_calendar::NewEvent is built with attendees: vec![],
+        // recurrence: None regardless of input) — the schema must not
+        // promise fields the tool silently drops.
+        let keys = schema_keys(&create_event());
+        assert!(!keys.contains("attendees"));
+        assert!(!keys.contains("recurrence"));
+        assert_eq!(
+            keys,
+            set(&["title", "starts_at", "ends_at", "all_day", "location"])
+        );
     }
 }

@@ -29,6 +29,37 @@ pub struct CreatedTodoCard {
     pub deadline: Option<String>,
     pub priority: grumps_core::todo::Priority,
     pub tags: Vec<String>,
+    /// True when this card is the freshly-spawned next occurrence of a
+    /// recurring todo (pushed by `complete_todo`, not `create_todo` — the
+    /// tool schema doesn't expose recurrence, so `create_todo` never sets
+    /// this) — lets the renderer show the same `↻` marker
+    /// `handler::next_occurrence_card` shows on the command path.
+    pub recurring: bool,
+}
+
+/// A todo mutated (completed/updated/deleted) via an agent tool during the
+/// current run — same idea as `CreatedTodoCard`: the model's own reply must
+/// not restate this, the caller renders the real localized acknowledgement.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TodoAckCard {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+}
+
+/// A note mutated (updated/deleted) via an agent tool during the current run.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct NoteAckCard {
+    pub id: String,
+    pub title: Option<String>,
+}
+
+/// A scheduled action mutated (cancelled/updated) via an agent tool during
+/// the current run.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ScheduledAckCard {
+    pub id: String,
+    pub title: String,
 }
 
 /// Context passed to each tool handler.
@@ -46,14 +77,50 @@ pub struct ToolContext<'a> {
     /// Todos created via `create_todo` during this run (one `ToolContext` is
     /// built once per agent run and shared across every tool call in it — see
     /// `router::route_message` / `scheduler_executor::execute_action`).
-    /// Drained by the caller after the run to emit real task cards.
+    /// Drained by the caller after the run to emit real task cards. Also
+    /// receives the spawned next-occurrence card from `complete_todo`.
     pub created_todos: RefCell<Vec<CreatedTodoCard>>,
+    /// Todos completed via `complete_todo` during this run.
+    pub completed_todos: RefCell<Vec<TodoAckCard>>,
+    /// Todos mutated via `update_todo` during this run.
+    pub updated_todos: RefCell<Vec<TodoAckCard>>,
+    /// Todos removed via `delete_todo` during this run.
+    pub deleted_todos: RefCell<Vec<TodoAckCard>>,
+    /// Notes mutated via `update_note` during this run.
+    pub updated_notes: RefCell<Vec<NoteAckCard>>,
+    /// Notes removed via `delete_note` during this run.
+    pub deleted_notes: RefCell<Vec<NoteAckCard>>,
+    /// Scheduled actions removed via `cancel_scheduled` during this run.
+    pub cancelled_scheduled: RefCell<Vec<ScheduledAckCard>>,
+    /// Scheduled actions mutated via `update_scheduled` during this run.
+    pub updated_scheduled: RefCell<Vec<ScheduledAckCard>>,
 }
 
 impl ToolContext<'_> {
     /// Take every card recorded so far, leaving the accumulator empty.
     pub fn drain_created_todos(&self) -> Vec<CreatedTodoCard> {
         self.created_todos.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_completed_todos(&self) -> Vec<TodoAckCard> {
+        self.completed_todos.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_updated_todos(&self) -> Vec<TodoAckCard> {
+        self.updated_todos.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_deleted_todos(&self) -> Vec<TodoAckCard> {
+        self.deleted_todos.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_updated_notes(&self) -> Vec<NoteAckCard> {
+        self.updated_notes.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_deleted_notes(&self) -> Vec<NoteAckCard> {
+        self.deleted_notes.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_cancelled_scheduled(&self) -> Vec<ScheduledAckCard> {
+        self.cancelled_scheduled.borrow_mut().drain(..).collect()
+    }
+    pub fn drain_updated_scheduled(&self) -> Vec<ScheduledAckCard> {
+        self.updated_scheduled.borrow_mut().drain(..).collect()
     }
 }
 
@@ -118,7 +185,14 @@ pub async fn dispatch(
         "create_note" => crud::create_note(ctx, args).await,
         "create_event" => crud::create_event(ctx, args).await,
         "create_reminder" => crud::create_reminder(ctx, args).await,
+        "complete_todo" => crud::complete_todo(ctx, args).await,
+        "update_todo" => crud::update_todo(ctx, args).await,
+        "delete_todo" => crud::delete_todo(ctx, args).await,
+        "update_note" => crud::update_note(ctx, args).await,
+        "delete_note" => crud::delete_note(ctx, args).await,
         "schedule_action" => scheduler::schedule_action(ctx, args).await,
+        "cancel_scheduled" => scheduler::cancel_scheduled(ctx, args).await,
+        "update_scheduled" => scheduler::update_scheduled(ctx, args).await,
         "list_calendar" => calendar::list_calendar(ctx, args).await,
         "list_todos" => read::list_todos(ctx, args).await,
         "list_notes" => read::list_notes(ctx, args).await,

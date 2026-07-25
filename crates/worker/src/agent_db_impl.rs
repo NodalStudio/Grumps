@@ -3,7 +3,7 @@
 
 use grumps_agent::db::{
     AgentDb, ChatMessage, LlmCostByModel, LlmErrorEntry, LlmInvocationCount, LlmLatencyByModel,
-    MemberShort, QualitySignalCount,
+    MemberShort, NextOccurrenceBrief, NoteBrief, QualitySignalCount, TodoBrief,
 };
 use grumps_calendar::{Event, NewEvent};
 use grumps_memory::{MemoryEntry, NewMemoryEntry};
@@ -105,6 +105,115 @@ impl AgentDb for WorkspaceDb<'_> {
         self.list_notes_for_agent(limit).await
     }
 
+    async fn get_todo_by_seq(&self, seq_num: i64) -> Result<Option<TodoBrief>> {
+        // Disambiguate from the trait method of the same name.
+        let row = WorkspaceDb::get_todo_by_seq(self, seq_num).await?;
+        Ok(row.map(|r| TodoBrief {
+            id: r.id,
+            seq_num: r.seq_num,
+            title: r.title,
+            status: r.status,
+            recurrence: r.recurrence,
+        }))
+    }
+
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> Result<()> {
+        WorkspaceDb::complete_todo(self, todo_id, completed_by).await
+    }
+
+    async fn delete_todo(&self, todo_id: &str) -> Result<()> {
+        WorkspaceDb::delete_todo(self, todo_id).await
+    }
+
+    async fn update_todo(
+        &self,
+        todo_id: &str,
+        title: Option<&str>,
+        status: Option<&str>,
+        priority: Option<i32>,
+        assigned_to: Option<&str>,
+        assigned_name: Option<&str>,
+    ) -> Result<()> {
+        WorkspaceDb::update_todo(
+            self,
+            todo_id,
+            title,
+            status,
+            priority,
+            assigned_to,
+            assigned_name,
+        )
+        .await
+    }
+
+    async fn set_todo_deadline(&self, todo_id: &str, deadline: &str) -> Result<()> {
+        self.set_todo_deadline(todo_id, deadline).await
+    }
+
+    async fn add_todo_tag(&self, todo_id: &str, tag: &str) -> Result<()> {
+        self.add_todo_tag(todo_id, tag).await
+    }
+
+    async fn create_next_recurrence(
+        &self,
+        todo: &TodoBrief,
+        recurrence: &str,
+        tz: chrono_tz::Tz,
+    ) -> Result<NextOccurrenceBrief> {
+        // WorkspaceDb::create_next_recurrence only reads `todo.id` (it
+        // re-fetches title/priority/tags/assignee itself) — a minimal
+        // TodoRow built from the brief is enough.
+        let row = crate::db::TodoRow {
+            id: todo.id.clone(),
+            seq_num: todo.seq_num,
+            title: todo.title.clone(),
+            status: todo.status.clone(),
+            recurrence: todo.recurrence.clone(),
+        };
+        let next = self.create_next_recurrence(&row, recurrence, tz).await?;
+        Ok(NextOccurrenceBrief {
+            id: next.id,
+            seq_num: next.seq_num,
+            title: next.title,
+            priority: next.priority,
+            tags: next.tags,
+            assigned_name: next.assigned_name,
+            deadline: next.deadline,
+        })
+    }
+
+    async fn get_note_by_id(&self, note_id: &str) -> Result<Option<NoteBrief>> {
+        let row = WorkspaceDb::get_note_by_id(self, note_id).await?;
+        Ok(row.map(|r| NoteBrief {
+            id: r.id,
+            title: r.title,
+            content: r.content,
+        }))
+    }
+
+    async fn get_note_by_title(&self, title: &str) -> Result<Option<NoteBrief>> {
+        let row = self.get_note_by_title(title).await?;
+        Ok(row.map(|r| NoteBrief {
+            id: r.id,
+            title: r.title,
+            content: r.content,
+        }))
+    }
+
+    async fn update_note(
+        &self,
+        note_id: &str,
+        title: &str,
+        content: &str,
+        editor_id: &str,
+    ) -> Result<()> {
+        WorkspaceDb::update_note(self, note_id, title, content, editor_id).await
+    }
+
+    async fn delete_note(&self, note_id: &str) -> Result<()> {
+        WorkspaceDb::delete_note(self, note_id).await
+    }
+
     async fn create_event(&self, e: &NewEvent) -> Result<String> {
         self.create_event(e).await
     }
@@ -149,6 +258,26 @@ impl AgentDb for WorkspaceDb<'_> {
             }
         }
         Ok(results)
+    }
+
+    async fn get_scheduled_action(&self, id: &str) -> Result<Option<ScheduledAction>> {
+        WorkspaceDb::get_scheduled_action(self, id).await
+    }
+
+    async fn update_scheduled_action(
+        &self,
+        id: &str,
+        title: &str,
+        trigger_at_iso: &str,
+        recurrence: Option<&str>,
+        payload: &serde_json::Value,
+    ) -> Result<bool> {
+        WorkspaceDb::update_scheduled_action(self, id, title, trigger_at_iso, recurrence, payload)
+            .await
+    }
+
+    async fn delete_scheduled_action(&self, id: &str) -> Result<bool> {
+        WorkspaceDb::delete_scheduled_action(self, id).await
     }
 
     async fn list_todos_with_deadline(

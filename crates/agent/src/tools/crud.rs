@@ -1,6 +1,8 @@
-//! Tool implementations: create_todo, create_note, create_event, create_reminder.
+//! Tool implementations: create_todo, create_note, create_event, create_reminder,
+//! complete_todo, update_todo, delete_todo, update_note, delete_note.
 
-use super::{CreatedTodoCard, ToolContext};
+use super::{CreatedTodoCard, NoteAckCard, TodoAckCard, ToolContext};
+use crate::db::NoteBrief;
 use grumps_calendar::{EventSource, NewEvent};
 use grumps_core::todo::Priority;
 use serde_json::Value;
@@ -64,6 +66,7 @@ pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<V
         deadline: deadline.clone(),
         priority: Priority::from_int(priority),
         tags,
+        recurring: false, // create_todo (agent tool) doesn't support recurrence
     });
 
     Ok(serde_json::json!({ "id": id, "seq_num": seq_num, "created": true, "title": title }))
@@ -193,9 +196,200 @@ pub async fn create_reminder(ctx: &ToolContext<'_>, args: Value) -> worker::Resu
     Ok(serde_json::json!({ "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
 }
 
+/// Pure extraction of the `seq` argument — split out from `resolve_todo` so
+/// the "did the model send something we can even look up" step is unit
+/// testable without a mock `AgentDb`.
+fn seq_arg(args: &Value) -> Option<i64> {
+    args.get("seq").and_then(|v| v.as_i64())
+}
+
+/// Pure extraction of the `id_or_title` argument — same rationale as `seq_arg`.
+fn id_or_title_arg(args: &Value) -> Option<&str> {
+    args.get("id_or_title").and_then(|v| v.as_str())
+}
+
+/// Resolve a model-emitted `seq` (integer, human-facing) to the row mutation
+/// tools operate on. `Err` becomes a tool_result error the model sees (see
+/// `loop_::run_loop`) — it can then call `list_todos` and retry with the
+/// right seq, or tell the user the todo wasn't found.
+async fn resolve_todo(
+    ctx: &ToolContext<'_>,
+    args: &Value,
+    tool: &str,
+) -> worker::Result<crate::db::TodoBrief> {
+    let seq =
+        seq_arg(args).ok_or_else(|| worker::Error::RustError(format!("{tool}: missing 'seq'")))?;
+    ctx.db
+        .get_todo_by_seq(seq)
+        .await?
+        .ok_or_else(|| worker::Error::RustError(format!("{tool}: no todo with seq #{seq}")))
+}
+
+/// Resolve `update_note`/`delete_note`'s `id_or_title` argument: an exact id
+/// match first, then a normalized-title match (same `title_norm` lookup the
+/// wikilink resolver uses) — lets the model reference a note it only knows
+/// by title, not just ones it just fetched via `list_notes`.
+async fn resolve_note(
+    ctx: &ToolContext<'_>,
+    args: &Value,
+    tool: &str,
+) -> worker::Result<NoteBrief> {
+    let key = id_or_title_arg(args)
+        .ok_or_else(|| worker::Error::RustError(format!("{tool}: missing 'id_or_title'")))?;
+    if let Some(n) = ctx.db.get_note_by_id(key).await? {
+        return Ok(n);
+    }
+    ctx.db
+        .get_note_by_title(key)
+        .await?
+        .ok_or_else(|| worker::Error::RustError(format!("{tool}: no note found for '{key}'")))
+}
+
+pub async fn complete_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    let todo = resolve_todo(ctx, &args, "complete_todo").await?;
+    if todo.status == "done" {
+        return Err(worker::Error::RustError(format!(
+            "complete_todo: todo #{} is already done",
+            todo.seq_num
+        )));
+    }
+
+    ctx.db.complete_todo(&todo.id, ctx.member_id).await?;
+    ctx.completed_todos.borrow_mut().push(TodoAckCard {
+        id: todo.id.clone(),
+        seq_num: todo.seq_num,
+        title: todo.title.clone(),
+    });
+
+    // Same recurrence-spawn semantics as the card-reply Done arm: a
+    // completed recurring todo immediately spawns its next occurrence,
+    // rendered as a real task card via the same created_todos mechanism
+    // create_todo uses (see CreatedTodoCard::recurring).
+    let mut next_occurrence_created = false;
+    if let Some(rec) = todo.recurrence.as_deref().filter(|r| !r.is_empty()) {
+        let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+        if let Ok(next) = ctx.db.create_next_recurrence(&todo, rec, tz).await {
+            next_occurrence_created = true;
+            ctx.created_todos.borrow_mut().push(CreatedTodoCard {
+                id: next.id,
+                seq_num: next.seq_num,
+                title: next.title,
+                assignee: next.assigned_name,
+                deadline: next.deadline,
+                priority: Priority::from_int(next.priority),
+                tags: next.tags,
+                recurring: true,
+            });
+        }
+    }
+
+    Ok(serde_json::json!({
+        "id": todo.id,
+        "seq_num": todo.seq_num,
+        "completed": true,
+        "next_occurrence_created": next_occurrence_created,
+    }))
+}
+
+pub async fn update_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    let todo = resolve_todo(ctx, &args, "update_todo").await?;
+
+    let title = args.get("title").and_then(|v| v.as_str());
+    // Not "done" — that has its own recurrence-spawning tool (complete_todo).
+    let status = args.get("status").and_then(|v| v.as_str());
+    let priority = args
+        .get("priority")
+        .and_then(|v| v.as_i64())
+        .map(|p| p as i32);
+    let assignee = args.get("assignee").and_then(|v| v.as_str());
+    if title.is_some() || status.is_some() || priority.is_some() || assignee.is_some() {
+        // Same call the card-reply Edit/Reassign/ChangePriority/ChangeStatus
+        // arms use — assigned_to and assigned_name both get the mention text,
+        // mirroring the Reassign arm (chat replies only carry a display name).
+        ctx.db
+            .update_todo(&todo.id, title, status, priority, assignee, assignee)
+            .await?;
+    }
+
+    if let Some(d) = args.get("deadline").and_then(|v| v.as_str()) {
+        if d.is_empty() {
+            ctx.db.set_todo_deadline(&todo.id, "").await?;
+        } else {
+            let tz: chrono_tz::Tz = ctx.timezone.parse().unwrap_or(chrono_tz::UTC);
+            let parsed = super::parse_user_date(d, &tz).ok_or_else(|| {
+                worker::Error::RustError("update_todo: invalid 'deadline'".into())
+            })?;
+            ctx.db.set_todo_deadline(&todo.id, &parsed).await?;
+        }
+    }
+
+    if let Some(tags) = args.get("tags").and_then(|v| v.as_array()) {
+        for tag in tags.iter().filter_map(|t| t.as_str()) {
+            ctx.db.add_todo_tag(&todo.id, tag).await?;
+        }
+    }
+
+    let new_title = title.unwrap_or(&todo.title).to_string();
+    ctx.updated_todos.borrow_mut().push(TodoAckCard {
+        id: todo.id.clone(),
+        seq_num: todo.seq_num,
+        title: new_title.clone(),
+    });
+
+    Ok(
+        serde_json::json!({ "id": todo.id, "seq_num": todo.seq_num, "updated": true, "title": new_title }),
+    )
+}
+
+pub async fn delete_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    let todo = resolve_todo(ctx, &args, "delete_todo").await?;
+    ctx.db.delete_todo(&todo.id).await?;
+    ctx.deleted_todos.borrow_mut().push(TodoAckCard {
+        id: todo.id.clone(),
+        seq_num: todo.seq_num,
+        title: todo.title.clone(),
+    });
+    Ok(serde_json::json!({ "id": todo.id, "seq_num": todo.seq_num, "deleted": true }))
+}
+
+pub async fn update_note(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    let note = resolve_note(ctx, &args, "update_note").await?;
+    let title = args
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| note.title.as_deref().unwrap_or(""));
+    let content = args
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or(&note.content);
+
+    ctx.db
+        .update_note(&note.id, title, content, ctx.member_id)
+        .await?;
+    ctx.updated_notes.borrow_mut().push(NoteAckCard {
+        id: note.id.clone(),
+        title: if title.is_empty() {
+            None
+        } else {
+            Some(title.to_string())
+        },
+    });
+    Ok(serde_json::json!({ "id": note.id, "updated": true }))
+}
+
+pub async fn delete_note(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
+    let note = resolve_note(ctx, &args, "delete_note").await?;
+    ctx.db.delete_note(&note.id).await?;
+    ctx.deleted_notes.borrow_mut().push(NoteAckCard {
+        id: note.id.clone(),
+        title: note.title.clone(),
+    });
+    Ok(serde_json::json!({ "id": note.id, "deleted": true }))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::default_priority;
+    use super::{default_priority, id_or_title_arg, seq_arg};
 
     #[test]
     fn default_priority_is_normal_when_absent() {
@@ -208,5 +402,55 @@ mod tests {
     fn default_priority_respects_explicit_value() {
         assert_eq!(default_priority(&serde_json::json!({ "priority": 1 })), 1);
         assert_eq!(default_priority(&serde_json::json!({ "priority": 3 })), 3);
+    }
+
+    // ── seq_arg (complete_todo/update_todo/delete_todo resolution) ────────
+
+    #[test]
+    fn seq_arg_reads_integer() {
+        assert_eq!(seq_arg(&serde_json::json!({ "seq": 3 })), Some(3));
+    }
+
+    #[test]
+    fn seq_arg_missing_is_none() {
+        assert_eq!(seq_arg(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn seq_arg_wrong_type_is_none() {
+        // A stringly-typed "3" is not silently coerced — the model must send
+        // a real JSON integer, matching the tool schema's `"type": "integer"`.
+        assert_eq!(seq_arg(&serde_json::json!({ "seq": "3" })), None);
+    }
+
+    #[test]
+    fn seq_arg_negative_and_zero_pass_through() {
+        // Range/existence validation happens at the DB lookup (no todo has a
+        // seq <= 0), not here — this is pure JSON extraction only.
+        assert_eq!(seq_arg(&serde_json::json!({ "seq": 0 })), Some(0));
+        assert_eq!(seq_arg(&serde_json::json!({ "seq": -1 })), Some(-1));
+    }
+
+    // ── id_or_title_arg (update_note/delete_note resolution) ──────────────
+
+    #[test]
+    fn id_or_title_arg_reads_string() {
+        assert_eq!(
+            id_or_title_arg(&serde_json::json!({ "id_or_title": "Wifi" })),
+            Some("Wifi")
+        );
+    }
+
+    #[test]
+    fn id_or_title_arg_missing_is_none() {
+        assert_eq!(id_or_title_arg(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn id_or_title_arg_wrong_type_is_none() {
+        assert_eq!(
+            id_or_title_arg(&serde_json::json!({ "id_or_title": 42 })),
+            None
+        );
     }
 }
