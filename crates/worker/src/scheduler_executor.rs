@@ -163,7 +163,40 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             }
         }
         Err(e) => {
-            db.mark_action_failed(&action.id, &e.to_string()).await?;
+            let err_msg = e.to_string();
+            console_error!(
+                "scheduled action send failed: workspace={} action_id={} action_type={:?} recurring={} error={}",
+                ws_slug,
+                action.id,
+                action.action_type,
+                action.recurrence.is_some(),
+                err_msg
+            );
+            // Recurring actions must survive a transient failure: record the
+            // error but advance to the next occurrence and keep firing
+            // (status stays 'pending'). One-shot actions — or a recurrence
+            // that has genuinely run out of future occurrences — still end
+            // up 'failed', now with the loud log above instead of silence.
+            let tz = grumps_core::timeutil::tz_or_utc(
+                &db.get_setting("timezone")
+                    .await
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default(),
+            );
+            match recurrence::next_occurrence_after_failure(
+                action.recurrence.as_deref(),
+                action.trigger_at,
+                tz,
+            ) {
+                Some(next) => {
+                    db.reschedule_action_after_failure(&action.id, &next.to_rfc3339(), &err_msg)
+                        .await?;
+                }
+                None => {
+                    db.mark_action_failed(&action.id, &err_msg).await?;
+                }
+            }
         }
     }
     Ok(())

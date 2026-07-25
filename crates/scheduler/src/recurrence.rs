@@ -225,6 +225,23 @@ pub fn next_occurrence(rule: &Rrule, from: DateTime<Utc>, tz: Tz) -> Option<Date
     None
 }
 
+/// Decide what should happen to a scheduled action after its send failed:
+/// a recurring action should skip the failed occurrence and keep firing
+/// (`Some(next_trigger_at)`), while a one-shot action (or one whose
+/// recurrence string is missing, malformed, or has no further occurrences)
+/// should just be marked failed (`None`). Pure — no I/O, easy to unit test —
+/// so `scheduler_executor.rs` doesn't have to reimplement the RRULE walk
+/// just to decide whether to reschedule.
+pub fn next_occurrence_after_failure(
+    recurrence: Option<&str>,
+    trigger_at: DateTime<Utc>,
+    tz: Tz,
+) -> Option<DateTime<Utc>> {
+    let rrule = recurrence?;
+    let rule = parse(rrule).ok()?;
+    next_occurrence(&rule, trigger_at, tz)
+}
+
 /// Does `date` (a local calendar day) satisfy the rule, relative to the local
 /// `base` day? Time-of-day is handled by the caller's `candidate > from` guard.
 fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
@@ -498,6 +515,52 @@ mod tests {
         assert_eq!(
             n_utc.date_naive(),
             NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
+    }
+
+    // -- next_occurrence_after_failure: the recurrence-advance-on-failure --
+    // decision used by scheduler_executor when a send fails.
+
+    #[test]
+    fn failure_advance_recurring_action_gets_next_occurrence() {
+        let next = next_occurrence_after_failure(Some("FREQ=DAILY"), dt(2026, 4, 19, 10, 0), UTC);
+        assert_eq!(
+            next.unwrap().date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 20).unwrap()
+        );
+    }
+
+    #[test]
+    fn failure_advance_one_shot_action_has_no_next_occurrence() {
+        assert_eq!(
+            next_occurrence_after_failure(None, dt(2026, 4, 19, 10, 0), UTC),
+            None
+        );
+    }
+
+    #[test]
+    fn failure_advance_malformed_recurrence_has_no_next_occurrence() {
+        // A garbled RRULE string must not panic or crash the failure path —
+        // it degrades to "treat as one-shot, mark failed".
+        assert_eq!(
+            next_occurrence_after_failure(Some("not-an-rrule"), dt(2026, 4, 19, 10, 0), UTC),
+            None
+        );
+    }
+
+    #[test]
+    fn failure_advance_respects_workspace_timezone() {
+        // Same case as `weekday_uses_local_day_not_utc`, routed through the
+        // failure-path wrapper: the local (Paris) weekday decides the next
+        // occurrence, not the UTC one.
+        let next = next_occurrence_after_failure(
+            Some("FREQ=WEEKLY;BYDAY=MO;BYHOUR=9"),
+            dt(2026, 4, 19, 23, 0),
+            Paris,
+        );
+        assert_eq!(
+            next.unwrap().date_naive(),
+            NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
         );
     }
 }

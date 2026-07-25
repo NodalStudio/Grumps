@@ -1881,6 +1881,24 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    /// Like [`Self::reschedule_action`], but for a recurring action whose
+    /// send just failed: record the error and still advance past the missed
+    /// occurrence instead of dying — status stays `'pending'` so the alarm
+    /// keeps firing. See `scheduler_executor::execute_action`'s failure
+    /// branch: a transient 5xx on a weekly reminder must not kill it forever.
+    pub async fn reschedule_action_after_failure(
+        &self,
+        id: &str,
+        next_trigger_at: &str,
+        error: &str,
+    ) -> Result<()> {
+        self.q(
+            "UPDATE scheduled_actions SET status='pending', trigger_at=?1, last_error=?2, last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?3",
+            vec![next_trigger_at.into(), error.into(), id.into()],
+        ).await?;
+        Ok(())
+    }
+
     pub async fn mark_action_failed(&self, id: &str, error: &str) -> Result<()> {
         self.q(
             "UPDATE scheduled_actions SET status='failed', last_error=?1, last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?2",
