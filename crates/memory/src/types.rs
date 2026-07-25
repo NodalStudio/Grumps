@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryKind {
     Fact,
@@ -9,14 +9,16 @@ pub enum MemoryKind {
     Decision,
     Preference,
     Place,
+    #[default]
     Other,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum MemorySource {
     ChatExplicit,
     ChatAuto,
+    #[default]
     Web,
     Agent,
 }
@@ -50,18 +52,6 @@ pub struct NewMemoryEntry {
     pub pinned: Option<bool>,
     pub expires_at: Option<DateTime<Utc>>,
     pub created_by: Option<String>,
-}
-
-impl Default for MemoryKind {
-    fn default() -> Self {
-        MemoryKind::Other
-    }
-}
-
-impl Default for MemorySource {
-    fn default() -> Self {
-        MemorySource::Web
-    }
 }
 
 #[cfg(test)]

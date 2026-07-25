@@ -7,7 +7,7 @@ use crate::components::ui::dialog::Dialog;
 use crate::components::ui::field::Field;
 use crate::components::ui::select::Select;
 use crate::components::ui::tabs::{TabItem, Tabs};
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_err};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -88,15 +88,20 @@ pub fn MemoryPage() -> impl IntoView {
     });
 
     let api3 = use_api();
-    let on_toggle_pin = Callback::new(move |id: String| {
+    let on_toggle_pin = Callback::new(move |item: MemoryItem| {
         let api = api3.clone();
         let s = slug();
+        // Send the *negated* current state — the API replaces `pinned`
+        // rather than toggling it in place.
+        let next_pinned = !item.pinned;
         leptos::task::spawn_local(async move {
-            // We need to find the current pinned state — for simplicity, toggle via PATCH
-            let _ = api
-                .update_memory(&s, &id, &serde_json::json!({"pinned": true}))
-                .await;
-            set_refresh.update(|n| *n += 1);
+            match api
+                .update_memory(&s, &item.id, &serde_json::json!({"pinned": next_pinned}))
+                .await
+            {
+                Ok(()) => set_refresh.update(|n| *n += 1),
+                Err(code) => toasts.error(tr_err(&code)),
+            }
         });
     });
 
@@ -113,18 +118,32 @@ pub fn MemoryPage() -> impl IntoView {
         let edit = edit_item.get();
         show_modal.set(false);
         leptos::task::spawn_local(async move {
-            let body = serde_json::json!({
-                "key": if key.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(key) },
-                "value": value,
-                "kind": kind,
-                "related_member": if related.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(related) },
-                "expires_at": if expires.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(expires) },
-                "pinned": pinned,
-            });
             if let Some(item) = edit {
-                let _ = api.update_memory(&s, &item.id, &body).await;
-            } else if api.create_memory(&s, &body).await.is_ok() {
-                toasts.success(tr("toast.memory_created"));
+                // The worker's update route only persists value/pinned/expires_at
+                // (see `routes::memory::UpdateBody`) — key/kind/related_member
+                // are create-only, so the edit modal doesn't offer them.
+                let body = serde_json::json!({
+                    "value": value,
+                    "pinned": pinned,
+                    "expires_at": if expires.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(expires) },
+                });
+                match api.update_memory(&s, &item.id, &body).await {
+                    Ok(()) => toasts.success(tr("toast.memory_updated")),
+                    Err(code) => toasts.error(tr_err(&code)),
+                }
+            } else {
+                let body = serde_json::json!({
+                    "key": if key.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(key) },
+                    "value": value,
+                    "kind": kind,
+                    "related_member": if related.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(related) },
+                    "expires_at": if expires.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(expires) },
+                    "pinned": pinned,
+                });
+                match api.create_memory(&s, &body).await {
+                    Ok(_) => toasts.success(tr("toast.memory_created")),
+                    Err(code) => toasts.error(tr_err(&code)),
+                }
             }
             set_refresh.update(|n| *n += 1);
         });
@@ -138,8 +157,9 @@ pub fn MemoryPage() -> impl IntoView {
             confirm_delete.set(None);
             del_open.set(false);
             leptos::task::spawn_local(async move {
-                if api.delete_memory(&s, &id).await.is_ok() {
-                    toasts.success(tr("toast.memory_deleted"));
+                match api.delete_memory(&s, &id).await {
+                    Ok(()) => toasts.success(tr("toast.memory_deleted")),
+                    Err(code) => toasts.error(tr_err(&code)),
                 }
                 set_refresh.update(|n| *n += 1);
             });
@@ -195,15 +215,12 @@ pub fn MemoryPage() -> impl IntoView {
                                 each=move || items.clone()
                                 key=|i| i.id.clone()
                                 children={
-                                    let on_edit = on_edit.clone();
-                                    let on_delete = on_delete.clone();
-                                    let on_toggle_pin = on_toggle_pin.clone();
                                     move |item| view! {
                                         <MemoryCard
                                             item=item
-                                            on_edit=on_edit.clone()
-                                            on_delete=on_delete.clone()
-                                            on_toggle_pin=on_toggle_pin.clone()
+                                            on_edit=on_edit
+                                            on_delete=on_delete
+                                            on_toggle_pin=on_toggle_pin
                                         />
                                     }
                                 }
@@ -223,15 +240,20 @@ pub fn MemoryPage() -> impl IntoView {
         >
                         <h2 id="mem-modal-title" class="font-display text-xl font-bold">{move || tr(if edit_item.get().is_some() { "memory.modal.edit" } else { "memory.modal.add" })}</h2>
 
-                        <Field label=tr("memory.field.key") id="mem-key">
-                            <input
-                                id="mem-key"
-                                type="text" placeholder=tr("memory.field.key.placeholder")
-                                class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                on:input=move |ev| set_form_key.set(event_target_value(&ev))
-                                prop:value=form_key
-                            />
-                        </Field>
+                        // key/kind/related_member are create-only — the worker's PUT
+                        // (`routes::memory::UpdateBody`) doesn't persist them, so
+                        // editing them here would silently do nothing.
+                        {move || (edit_item.get().is_none()).then(|| view! {
+                            <Field label=tr("memory.field.key") id="mem-key">
+                                <input
+                                    id="mem-key"
+                                    type="text" placeholder=tr("memory.field.key.placeholder")
+                                    class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
+                                    on:input=move |ev| set_form_key.set(event_target_value(&ev))
+                                    prop:value=form_key
+                                />
+                            </Field>
+                        })}
 
                         <Field label=tr("memory.field.value") id="mem-value">
                             <textarea
@@ -244,33 +266,35 @@ pub fn MemoryPage() -> impl IntoView {
                             ></textarea>
                         </Field>
 
-                        <div class="flex gap-3">
-                            <div class="flex flex-col gap-1 flex-1">
-                                <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.kind")}</label>
-                                <Select
-                                    value=form_kind
-                                    aria_label=tr("memory.field.kind")
-                                    on_change=move |v: String| set_form_kind.set(v)
-                                >
-                                    <option value="fact">{move || tr("memory.kind.fact")}</option>
-                                    <option value="preference">{move || tr("memory.kind.preference")}</option>
-                                    <option value="skill">{move || tr("memory.kind.skill")}</option>
-                                    <option value="event">{move || tr("memory.kind.event")}</option>
-                                    <option value="reminder">{move || tr("memory.kind.reminder")}</option>
-                                </Select>
+                        {move || (edit_item.get().is_none()).then(|| view! {
+                            <div class="flex gap-3">
+                                <div class="flex flex-col gap-1 flex-1">
+                                    <label class="text-[11px] font-bold uppercase tracking-wider" style="color: var(--ink-40);">{move || tr("memory.field.kind")}</label>
+                                    <Select
+                                        value=form_kind
+                                        aria_label=tr("memory.field.kind")
+                                        on_change=move |v: String| set_form_kind.set(v)
+                                    >
+                                        <option value="fact">{move || tr("memory.kind.fact")}</option>
+                                        <option value="preference">{move || tr("memory.kind.preference")}</option>
+                                        <option value="skill">{move || tr("memory.kind.skill")}</option>
+                                        <option value="event">{move || tr("memory.kind.event")}</option>
+                                        <option value="reminder">{move || tr("memory.kind.reminder")}</option>
+                                    </Select>
+                                </div>
+                                <div class="flex-1">
+                                    <Field label=tr("memory.field.related") id="mem-related">
+                                        <input
+                                            id="mem-related"
+                                            type="text" placeholder=tr("memory.field.member.placeholder")
+                                            class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
+                                            on:input=move |ev| set_form_related.set(event_target_value(&ev))
+                                            prop:value=form_related
+                                        />
+                                    </Field>
+                                </div>
                             </div>
-                            <div class="flex-1">
-                                <Field label=tr("memory.field.related") id="mem-related">
-                                    <input
-                                        id="mem-related"
-                                        type="text" placeholder=tr("memory.field.member.placeholder")
-                                        class="border-2 border-ink rounded-xs px-3 py-2 text-sm bg-transparent outline-hidden"
-                                        on:input=move |ev| set_form_related.set(event_target_value(&ev))
-                                        prop:value=form_related
-                                    />
-                                </Field>
-                            </div>
-                        </div>
+                        })}
 
                         <div class="flex gap-3 items-center">
                             <div class="flex-1">

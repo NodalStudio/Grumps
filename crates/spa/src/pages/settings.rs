@@ -3,7 +3,7 @@ use crate::components::header::PageHeader;
 use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
 use crate::components::ui::select::Select;
 use crate::components::ui::switch::Switch;
-use crate::i18n::tr;
+use crate::i18n::{tr, tr_err};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -66,20 +66,37 @@ pub fn SettingsPage() -> impl IntoView {
                 .await
             {
                 Ok(_) => toasts.success(tr("toast.settings_saved")),
-                Err(_) => toasts.error(tr("toast.save_failed")),
+                Err(code) => toasts.error(tr_err(&code)),
             }
         });
     };
 
     let api_locale = use_api();
     let api_regen = use_api();
+    let api_revoke = use_api();
     let regen_ical = move |_| {
         let api = api_regen.clone();
         let s = slug();
         leptos::task::spawn_local(async move {
-            if let Ok(resp) = api.regenerate_ical_token(&s).await {
-                set_ical_url.set(resp.url);
-                toasts.success(tr("toast.ical_regenerated"));
+            match api.regenerate_ical_token(&s).await {
+                Ok(resp) => {
+                    set_ical_url.set(resp.url);
+                    toasts.success(tr("toast.ical_regenerated"));
+                }
+                Err(code) => toasts.error(tr_err(&code)),
+            }
+        });
+    };
+    let revoke_ical = move |_| {
+        let api = api_revoke.clone();
+        let s = slug();
+        leptos::task::spawn_local(async move {
+            match api.revoke_ical_token(&s).await {
+                Ok(()) => {
+                    set_ical_url.set(String::new());
+                    toasts.success(tr("toast.ical_revoked"));
+                }
+                Err(code) => toasts.error(tr_err(&code)),
             }
         });
     };
@@ -114,8 +131,9 @@ pub fn SettingsPage() -> impl IntoView {
                                 let slug_str = slug();
                                 let api = api_locale.clone();
                                 leptos::task::spawn_local(async move {
-                                    if api.update_workspace_locale(&slug_str, &new_locale).await.is_ok() {
-                                        set_workspace_locale.set(new_locale);
+                                    match api.update_workspace_locale(&slug_str, &new_locale).await {
+                                        Ok(()) => set_workspace_locale.set(new_locale),
+                                        Err(code) => toasts.error(tr_err(&code)),
                                     }
                                 });
                             }
@@ -206,10 +224,7 @@ pub fn SettingsPage() -> impl IntoView {
                             <Button
                                 variant=ButtonVariant::Danger
                                 size=ButtonSize::Sm
-                                on_click=move |_| {
-                                    set_ical_url.set(String::new());
-                                    toasts.success(tr("toast.ical_revoked"));
-                                }
+                                on_click=revoke_ical
                             >{move || tr("settings.ical.revoke")}</Button>
                         </div>
                     </div>

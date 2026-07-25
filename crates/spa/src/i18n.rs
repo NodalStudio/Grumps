@@ -37,6 +37,18 @@ pub fn tr_n(key_base: &str, n: i64, params: &[(&str, &str)]) -> String {
     grumps_i18n::t_plural(use_locale(), key_base, n, params)
 }
 
+/// Translate an API error code (the `Err` string returned by `api::Api`
+/// methods — see `api::live::LiveApi`), falling back to a generic "save
+/// failed" toast when the code isn't a real i18n key (e.g. a network
+/// failure or an unparseable error body, which surface as `http_{status}`).
+pub fn tr_err(code: &str) -> String {
+    if grumps_i18n::has_key(code) {
+        tr(code)
+    } else {
+        tr("toast.save_failed")
+    }
+}
+
 /// Initial detection — runs once at boot.
 fn detect_initial_locale() -> Locale {
     use gloo_storage::{LocalStorage, Storage};

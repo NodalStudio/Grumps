@@ -16,6 +16,24 @@ impl LiveApi {
             .header("X-CSRF-Token", &crate::auth::read_csrf_cookie())
     }
 
+    /// The worker's error contract is `{"error": <i18n code>, "detail": ...}`
+    /// (see `crate::middleware::error_with_cors` on the worker side). Extract
+    /// the `error` code so callers get a code `tr()` can render, instead of a
+    /// raw `"HTTP {status}"` string. Falls back to `http_{status}` (which
+    /// deliberately has no i18n key, so `tr_err()` degrades to a generic
+    /// toast) when the body isn't the expected JSON shape.
+    async fn parse_error(resp: gloo_net::http::Response) -> String {
+        let status = resp.status();
+        match resp.json::<serde_json::Value>().await {
+            Ok(v) => v
+                .get("error")
+                .and_then(|e| e.as_str())
+                .map(str::to_string)
+                .unwrap_or_else(|| format!("http_{status}")),
+            Err(_) => format!("http_{status}"),
+        }
+    }
+
     async fn get<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Result<T, String> {
         let url = format!("{}{}", api_base(), path);
         let resp = Self::build_get(&url)
@@ -23,7 +41,7 @@ impl LiveApi {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("HTTP {}: {}", resp.status(), resp.status_text()));
+            return Err(Self::parse_error(resp).await);
         }
         resp.json().await.map_err(|e| e.to_string())
     }
@@ -43,7 +61,7 @@ impl LiveApi {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("HTTP {}", resp.status()));
+            return Err(Self::parse_error(resp).await);
         }
         resp.json().await.map_err(|e| e.to_string())
     }
@@ -59,7 +77,7 @@ impl LiveApi {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("HTTP {}", resp.status()));
+            return Err(Self::parse_error(resp).await);
         }
         Ok(())
     }
@@ -75,7 +93,7 @@ impl LiveApi {
             .await
             .map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("HTTP {}", resp.status()));
+            return Err(Self::parse_error(resp).await);
         }
         Ok(())
     }
@@ -85,7 +103,7 @@ impl LiveApi {
         let req = Self::build_with_csrf(Request::delete(&url));
         let resp = req.send().await.map_err(|e| e.to_string())?;
         if !resp.ok() {
-            return Err(format!("HTTP {}", resp.status()));
+            return Err(Self::parse_error(resp).await);
         }
         Ok(())
     }
@@ -212,16 +230,14 @@ impl Api for LiveApi {
     }
 
     async fn list_scheduled_actions(&self, slug: &str) -> Result<Vec<ScheduledActionItem>, String> {
-        self.get(&format!("/api/w/{}/scheduled-actions", slug))
-            .await
+        self.get(&format!("/api/w/{}/scheduled", slug)).await
     }
     async fn create_scheduled_action(
         &self,
         slug: &str,
         body: &serde_json::Value,
     ) -> Result<ScheduledActionItem, String> {
-        self.post(&format!("/api/w/{}/scheduled-actions", slug), body)
-            .await
+        self.post(&format!("/api/w/{}/scheduled", slug), body).await
     }
     async fn update_scheduled_action(
         &self,
@@ -229,11 +245,11 @@ impl Api for LiveApi {
         id: &str,
         body: &serde_json::Value,
     ) -> Result<(), String> {
-        self.patch(&format!("/api/w/{}/scheduled-actions/{}", slug, id), body)
+        self.put(&format!("/api/w/{}/scheduled/{}", slug, id), body)
             .await
     }
     async fn delete_scheduled_action(&self, slug: &str, id: &str) -> Result<(), String> {
-        self.delete(&format!("/api/w/{}/scheduled-actions/{}", slug, id))
+        self.delete(&format!("/api/w/{}/scheduled/{}", slug, id))
             .await
     }
 
@@ -272,6 +288,10 @@ impl Api for LiveApi {
             &serde_json::json!({}),
         )
         .await
+    }
+    async fn revoke_ical_token(&self, slug: &str) -> Result<(), String> {
+        self.delete(&format!("/api/w/{}/calendar/ical-token", slug))
+            .await
     }
 
     async fn get_observability(&self, slug: &str) -> Result<ObservabilityData, String> {

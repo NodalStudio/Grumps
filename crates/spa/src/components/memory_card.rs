@@ -19,11 +19,14 @@ pub fn MemoryCard(
     item: MemoryItem,
     on_edit: Callback<MemoryItem>,
     on_delete: Callback<String>,
-    on_toggle_pin: Callback<String>,
+    // Takes the whole item (not just the id) so the caller can send the
+    // *negated* current `pinned` state — the worker's PUT replaces the
+    // field rather than toggling it.
+    on_toggle_pin: Callback<MemoryItem>,
 ) -> impl IntoView {
     let item_clone_edit = item.clone();
+    let item_clone_pin = item.clone();
     let item_id_delete = item.id.clone();
-    let item_id_pin = item.id.clone();
     let kind = item.kind.clone();
     let kind2 = item.kind.clone();
     let source = item.source.clone();
@@ -91,7 +94,7 @@ pub fn MemoryCard(
                     } else {
                         "text-[11px] font-semibold px-2 py-0.5 border"
                     }
-                    on_click=move |_| on_toggle_pin.run(item_id_pin.clone())
+                    on_click=move |_| on_toggle_pin.run(item_clone_pin.clone())
                 >
                     {move || if pinned { tr("memory.pinned") } else { tr("memory.action.pin") }}
                 </Button>

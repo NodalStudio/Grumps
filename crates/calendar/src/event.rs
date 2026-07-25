@@ -1,18 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum EventSource {
     Chat,
+    #[default]
     Web,
     Agent,
-}
-
-impl Default for EventSource {
-    fn default() -> Self {
-        EventSource::Web
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

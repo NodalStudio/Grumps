@@ -128,6 +128,14 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/api/w/:slug/settings/name",
             extract::route_json(routes::workspace_api::update_workspace_name),
         )
+        .get_async(
+            "/api/w/:slug/settings",
+            extract::route(routes::workspace_api::get_settings),
+        )
+        .put_async(
+            "/api/w/:slug/settings",
+            extract::route_json(routes::workspace_api::update_settings),
+        )
         // Todos
         .get_async(
             "/api/w/:slug/todos",
@@ -218,6 +226,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         .get_async(
             "/api/w/:slug/scheduled/:id",
             extract::route(routes::scheduled::get),
+        )
+        .put_async(
+            "/api/w/:slug/scheduled/:id",
+            extract::route_json(routes::scheduled::update),
         )
         .delete_async(
             "/api/w/:slug/scheduled/:id",

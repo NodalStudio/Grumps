@@ -126,6 +126,64 @@ pub async fn get(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Respo
     }
 }
 
+// ── PUT /api/w/:slug/scheduled/:id ────────────────────────────────────────────
+
+#[derive(Deserialize, Validate)]
+pub struct UpdateBody {
+    #[serde(deserialize_with = "grumps_core::dto::de_trim")]
+    #[validate(length(min = 1, code = "schedule.title_required"))]
+    title: String,
+    trigger_at: chrono::DateTime<chrono::Utc>,
+    recurrence: Option<String>,
+    payload: serde_json::Value,
+}
+
+pub async fn update(
+    req: Request,
+    ctx: RouteContext<()>,
+    m: Member,
+    body: UpdateBody,
+) -> Result<Response> {
+    let slug = m.ws.slug.clone();
+    let id = ctx
+        .param("id")
+        .ok_or_else(|| Error::RustError("missing id".into()))?
+        .to_string();
+
+    // Same 60s grace window as create — a moved-into-the-past trigger would
+    // otherwise never fire (or fire every tick, if recurring).
+    let now = chrono::Utc::now();
+    if body.trigger_at < now - chrono::Duration::seconds(60) {
+        return ApiError::bad_request("schedule.trigger_in_past").into_response(&req);
+    }
+
+    let trigger_at_iso = body.trigger_at.to_rfc3339();
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id);
+
+    let updated = ws_db
+        .update_scheduled_action(
+            &id,
+            &body.title,
+            &trigger_at_iso,
+            body.recurrence.as_deref(),
+            &body.payload,
+        )
+        .await?;
+    if !updated {
+        return ApiError::not_found("schedule.not_found").into_response(&req);
+    }
+
+    // Best-effort: the new trigger_at may move this action earlier or later
+    // than the DO's current alarm either way — let it recompute from D1
+    // rather than assuming this is now the earliest pending action.
+    let _ = reschedule_do(&ctx.env, &slug).await;
+
+    let action = ws_db.get_scheduled_action(&id).await?;
+    middleware::with_cors(&req, Response::from_json(&action)?)
+}
+
 // ── DELETE /api/w/:slug/scheduled/:id ────────────────────────────────────────
 
 pub async fn delete(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {

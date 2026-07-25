@@ -220,6 +220,99 @@ pub async fn update_timezone(
     )
 }
 
+// ── GET /api/w/:slug/settings ─────────────────────────────────────────────────
+//
+// Everything the SPA settings page reads in one call: the editable agent
+// preferences (persona/proactive/auto_memory/quiet_mode/auto_recap), plus
+// read-only fields it displays (language, timezone, iCal token). Backed by
+// the per-workspace key/value `settings` table, except `language` which
+// lives on `workspaces_meta` (see `update_locale` above).
+
+pub async fn get_settings(req: Request, ctx: RouteContext<()>, m: Member) -> Result<Response> {
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, m.ws.d1_database_id.clone());
+    let settings = ws_db.get_all_settings().await?;
+    let as_bool = |k: &str| settings.get(k).map(|v| v == "true");
+
+    middleware::with_cors(
+        &req,
+        Response::from_json(&serde_json::json!({
+            "language": m.ws.locale,
+            "timezone": settings.get("timezone"),
+            "quiet_mode": as_bool("quiet_mode"),
+            "auto_recap": as_bool("auto_recap"),
+            "persona": settings.get("persona"),
+            "proactive_mode": as_bool("proactive_mode"),
+            "auto_memory": as_bool("auto_memory"),
+            "ical_token": settings.get("ical_token"),
+            "agent_calls_used": null,
+            "agent_calls_limit": null,
+            "web_search_used": null,
+            "web_search_limit": null,
+            "storage_used_mb": null,
+            "storage_limit_mb": null,
+        }))?,
+    )
+}
+
+// ── PUT /api/w/:slug/settings ─────────────────────────────────────────────────
+
+#[derive(Deserialize, Validate)]
+pub struct UpdateSettingsBody {
+    persona: Option<String>,
+    proactive_mode: Option<bool>,
+    auto_memory: Option<bool>,
+    quiet_mode: Option<bool>,
+    auto_recap: Option<bool>,
+}
+
+pub async fn update_settings(
+    req: Request,
+    ctx: RouteContext<()>,
+    a: Admin,
+    body: UpdateSettingsBody,
+) -> Result<Response> {
+    // `persona` is a closed domain enum, not a shape constraint — checked
+    // here rather than in the DTO (same pattern as `todo.status_invalid`).
+    if let Some(p) = &body.persona {
+        if !matches!(p.as_str(), "grumps" | "assistant" | "coach") {
+            return ApiError::bad_request("settings.persona_invalid").into_response(&req);
+        }
+    }
+
+    let client = d1_rest::D1RestClient::from_env(&ctx.env)?;
+    let ws_db = db::WorkspaceDb::new(&client, a.ws.d1_database_id);
+
+    if let Some(p) = &body.persona {
+        ws_db.set_setting("persona", p).await?;
+    }
+    if let Some(v) = body.proactive_mode {
+        ws_db
+            .set_setting("proactive_mode", if v { "true" } else { "false" })
+            .await?;
+    }
+    if let Some(v) = body.auto_memory {
+        ws_db
+            .set_setting("auto_memory", if v { "true" } else { "false" })
+            .await?;
+    }
+    if let Some(v) = body.quiet_mode {
+        ws_db
+            .set_setting("quiet_mode", if v { "true" } else { "false" })
+            .await?;
+    }
+    if let Some(v) = body.auto_recap {
+        ws_db
+            .set_setting("auto_recap", if v { "true" } else { "false" })
+            .await?;
+    }
+
+    middleware::with_cors(
+        &req,
+        Response::from_json(&serde_json::json!({ "ok": true }))?,
+    )
+}
+
 fn build_tg_adapter(ctx: &RouteContext<()>) -> Result<TelegramAdapter> {
     Ok(TelegramAdapter::new(
         ctx.env.secret("TG_BOT_TOKEN")?.to_string(),

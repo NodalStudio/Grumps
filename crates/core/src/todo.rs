@@ -21,6 +21,9 @@ impl TodoStatus {
         }
     }
 
+    // Not the `FromStr` trait: returns `Option`, not `Result` (no error
+    // type worth inventing for a closed 5-value domain enum).
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "open" => Some(Self::Open),
