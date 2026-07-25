@@ -42,17 +42,20 @@ pub async fn list_todos(req: Request, ctx: RouteContext<()>, m: Member) -> Resul
         .await?;
     let data: Vec<serde_json::Value> = todos
         .iter()
-        .map(|(id, seq, title, status, assignee, priority, tags)| {
-            serde_json::json!({
-                "id": id,
-                "seq_num": seq,
-                "title": title,
-                "status": status,
-                "assigned_name": assignee,
-                "priority": priority,
-                "tags": tags,
-            })
-        })
+        .map(
+            |(id, seq, title, status, assignee, priority, tags, deadline)| {
+                serde_json::json!({
+                    "id": id,
+                    "seq_num": seq,
+                    "title": title,
+                    "status": status,
+                    "assigned_name": assignee,
+                    "priority": priority,
+                    "tags": tags,
+                    "deadline": deadline,
+                })
+            },
+        )
         .collect();
 
     middleware::with_cors(&req, Response::from_json(&data)?)

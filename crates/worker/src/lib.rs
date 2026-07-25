@@ -69,6 +69,9 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         )
         // Discord webhook
         .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
+        // WAHA webhook (self-hosted WhatsApp gateway; no GET verify — WAHA has
+        // no challenge handshake, unlike the Meta Cloud API route above)
+        .post_async("/webhook/waha", routes::webhook_waha::handle_incoming)
         // Auth — legacy WA OTP (Bearer JWT)
         .post_async("/auth/otp", routes::auth::handle_send_otp)
         .post_async("/auth/verify", routes::auth::handle_verify_otp)

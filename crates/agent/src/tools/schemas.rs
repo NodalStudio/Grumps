@@ -15,6 +15,8 @@ pub fn all_tools() -> Vec<Value> {
         create_reminder(),
         schedule_action(),
         list_calendar(),
+        list_todos(),
+        list_notes(),
         web_search(),
         send_message(),
     ]
@@ -205,6 +207,42 @@ pub fn list_calendar() -> Value {
     })
 }
 
+pub fn list_todos() -> Value {
+    json!({
+        "name": "list_todos",
+        "description": "Read the group's existing todos. Call this whenever the user asks what's on the todo list, what's pending/done, or anything about existing todos — never guess or claim the list is empty without calling this first.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["open", "done", "all"],
+                    "default": "open",
+                    "description": "Which todos to return. Defaults to open (not done)."
+                }
+            }
+        }
+    })
+}
+
+pub fn list_notes() -> Value {
+    json!({
+        "name": "list_notes",
+        "description": "Read the group's existing notes. Call this whenever the user asks what notes exist or to recall a note's content — never guess or claim there are no notes without calling this first.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "default": 20,
+                    "maximum": 50,
+                    "description": "Max notes to return, most recent first."
+                }
+            }
+        }
+    })
+}
+
 pub fn web_search() -> Value {
     json!({
         "name": "web_search",
@@ -244,8 +282,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_tools_count_is_12() {
-        assert_eq!(all_tools().len(), 12);
+    fn all_tools_count_is_14() {
+        assert_eq!(all_tools().len(), 14);
     }
 
     #[test]

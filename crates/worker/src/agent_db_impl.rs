@@ -66,23 +66,20 @@ impl AgentDb for WorkspaceDb<'_> {
         priority: i32,
         tags: Vec<String>,
         created_by: Option<&str>,
-    ) -> Result<String> {
+    ) -> Result<(String, i64)> {
         let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".into());
-        let (id, _seq) = self
-            .insert_todo(
-                title,
-                priority,
-                &tags_json,
-                "", // assigned_to (member id — we only have name here, leave blank)
-                assignee_name.unwrap_or(""),
-                created_by.unwrap_or(""),
-                "agent",
-                "",
-                deadline, // already a civil "YYYY-MM-DD" (normalized in the tool layer)
-            )
-            .await?;
-
-        Ok(id)
+        self.insert_todo(
+            title,
+            priority,
+            &tags_json,
+            "", // assigned_to (member id — we only have name here, leave blank)
+            assignee_name.unwrap_or(""),
+            created_by.unwrap_or(""),
+            "agent",
+            "",
+            deadline, // already a civil "YYYY-MM-DD" (normalized in the tool layer)
+        )
+        .await
     }
 
     async fn create_note_simple(
@@ -98,6 +95,14 @@ impl AgentDb for WorkspaceDb<'_> {
             created_by.unwrap_or(""),
         )
         .await
+    }
+
+    async fn list_todos(&self, status: &str) -> Result<Vec<serde_json::Value>> {
+        self.list_todos_for_agent(status).await
+    }
+
+    async fn list_notes(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
+        self.list_notes_for_agent(limit).await
     }
 
     async fn create_event(&self, e: &NewEvent) -> Result<String> {

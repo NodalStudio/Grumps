@@ -71,6 +71,14 @@ new_sqlite_classes = ["WorkspaceScheduler"]
 # Retain logs in Cloudflare (queryable in the dashboard, ~3 days) instead of
 # only the ephemeral `wrangler tail` stream. head_sampling_rate = 1.0 keeps
 # 100% of requests — drop it if volume ever gets expensive.
+# The explicit [observability.logs] block matters: the newer Workers Logs
+# model keys off `logs.enabled`, and without it the dashboard reports
+# observability disabled and persists nothing despite the legacy flag above.
 [observability]
 enabled = true
 head_sampling_rate = 1.0
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1.0
+invocation_logs = true

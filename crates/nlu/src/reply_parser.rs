@@ -11,9 +11,12 @@ pub fn parse_reply(text: &str) -> Option<ParseResult> {
     let action = match lower.as_str() {
         "done" | "finished" | "complete" | "ok" | "fait" | "fini" => TaskCardAction::Done,
         "cancel" | "delete" | "remove" | "supprimer" => TaskCardAction::Delete,
+        "snooze" | "reporter" => TaskCardAction::Snooze(String::new()),
         "!high" | "!!!" => TaskCardAction::ChangePriority(Priority::High),
         "!low" => TaskCardAction::ChangePriority(Priority::Low),
         _ if lower.starts_with("edit ") => TaskCardAction::Edit(original[5..].trim().into()),
+        _ if lower.starts_with("snooze ") => TaskCardAction::Snooze(original[7..].trim().into()),
+        _ if lower.starts_with("reporter ") => TaskCardAction::Snooze(original[9..].trim().into()),
         // A reply that mentions the bot is an explicit command, not a
         // reassignment — let normal mention parsing handle it.
         _ if lower.starts_with("@grumps") => return None,
@@ -64,6 +67,37 @@ mod tests {
         for kw in &["cancel", "delete", "remove", "supprimer"] {
             assert_eq!(action(kw), TaskCardAction::Delete, "failed for '{kw}'");
         }
+    }
+
+    #[test]
+    fn snooze_bare() {
+        assert_eq!(action("snooze"), TaskCardAction::Snooze(String::new()));
+        assert_eq!(action("reporter"), TaskCardAction::Snooze(String::new()));
+    }
+
+    #[test]
+    fn snooze_with_arg() {
+        assert_eq!(
+            action("snooze tomorrow"),
+            TaskCardAction::Snooze("tomorrow".into())
+        );
+        assert_eq!(
+            action("snooze 2026-08-01"),
+            TaskCardAction::Snooze("2026-08-01".into())
+        );
+        assert_eq!(
+            action("reporter demain"),
+            TaskCardAction::Snooze("demain".into())
+        );
+    }
+
+    #[test]
+    fn snooze_case_insensitive() {
+        assert_eq!(action("SNOOZE"), TaskCardAction::Snooze(String::new()));
+        assert_eq!(
+            action("Snooze Tomorrow"),
+            TaskCardAction::Snooze("Tomorrow".into())
+        );
     }
 
     #[test]

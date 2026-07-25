@@ -459,6 +459,7 @@ mod tests {
             text: "Reply text".into(),
             reply_to: Some("origmsg99".into()),
             todo_id: None,
+            markdown: false,
         };
         let (_, body) = a.build_send_request("15551234567", &msg).unwrap();
         assert!(body.contains("origmsg99"));

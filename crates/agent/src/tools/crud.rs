@@ -1,8 +1,17 @@
 //! Tool implementations: create_todo, create_note, create_event, create_reminder.
 
-use super::ToolContext;
+use super::{CreatedTodoCard, ToolContext};
 use grumps_calendar::{EventSource, NewEvent};
+use grumps_core::todo::Priority;
 use serde_json::Value;
+
+/// Priority defaults to Normal (2) — matching the deterministic `TODO: x`
+/// parser path (see `grumps_core::todo::Priority::from_int`). Previously
+/// defaulted to 3 (Low), which silently downgraded agent-created todos
+/// relative to the same intent typed as a slash command.
+fn default_priority(args: &Value) -> i32 {
+    args.get("priority").and_then(|v| v.as_i64()).unwrap_or(2) as i32
+}
 
 /// A civil date "YYYY-MM-DD" anchored at UTC midnight — the storage sentinel
 /// for all-day events (the DB layer writes back the bare date).
@@ -27,25 +36,37 @@ pub async fn create_todo(ctx: &ToolContext<'_>, args: Value) -> worker::Result<V
         .get("deadline")
         .and_then(|v| v.as_str())
         .and_then(|d| super::parse_user_date(d, &tz));
-    let priority = args.get("priority").and_then(|v| v.as_i64()).unwrap_or(3) as i32;
+    let priority = default_priority(&args);
     let tags: Vec<String> = args
         .get("tags")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
-    let id = ctx
+    let (id, seq_num) = ctx
         .db
         .create_todo_simple(
             title,
             assignee,
             deadline.as_deref(),
             priority,
-            tags,
+            tags.clone(),
             Some(ctx.member_id),
         )
         .await?;
 
-    Ok(serde_json::json!({ "id": id, "created": true, "title": title }))
+    // Recorded so the caller (route_message / execute_action) can render the
+    // real task card after the run — see ToolContext::created_todos.
+    ctx.created_todos.borrow_mut().push(CreatedTodoCard {
+        id: id.clone(),
+        seq_num,
+        title: title.to_string(),
+        assignee: assignee.map(String::from),
+        deadline: deadline.clone(),
+        priority: Priority::from_int(priority),
+        tags,
+    });
+
+    Ok(serde_json::json!({ "id": id, "seq_num": seq_num, "created": true, "title": title }))
 }
 
 pub async fn create_note(ctx: &ToolContext<'_>, args: Value) -> worker::Result<Value> {
@@ -170,4 +191,22 @@ pub async fn create_reminder(ctx: &ToolContext<'_>, args: Value) -> worker::Resu
     };
     let id = ctx.db.create_scheduled_action(&action).await?;
     Ok(serde_json::json!({ "id": id, "created": true, "text": text, "trigger_at": remind_at_str }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::default_priority;
+
+    #[test]
+    fn default_priority_is_normal_when_absent() {
+        // Matches Priority::from_int's own default (Normal=2) — the
+        // deterministic `TODO: x` parser path never defaults to Low.
+        assert_eq!(default_priority(&serde_json::json!({})), 2);
+    }
+
+    #[test]
+    fn default_priority_respects_explicit_value() {
+        assert_eq!(default_priority(&serde_json::json!({ "priority": 1 })), 1);
+        assert_eq!(default_priority(&serde_json::json!({ "priority": 3 })), 3);
+    }
 }

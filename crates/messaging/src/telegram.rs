@@ -128,8 +128,10 @@ impl MessagingPlatform for TelegramAdapter {
         let mut body = serde_json::json!({
             "chat_id": chat_id,
             "text": message.text,
-            "parse_mode": "Markdown"
         });
+        if message.markdown {
+            body["parse_mode"] = serde_json::json!("Markdown");
+        }
         if let Some(ref reply_to) = message.reply_to {
             if let Ok(id) = reply_to.parse::<i64>() {
                 body["reply_to_message_id"] = serde_json::json!(id);
@@ -312,6 +314,18 @@ mod tests {
         assert!(url.contains("123:ABC"));
         assert!(body.contains("-100123"));
         assert!(body.contains("Hello"));
+        // Plain text by default: no parse_mode, so raw user content (a lone
+        // `_` or `*` in a title/tag) can't break rendering or get the whole
+        // message rejected.
+        assert!(!body.contains("parse_mode"));
+    }
+
+    #[test]
+    fn build_send_request_with_markdown() {
+        let mut msg = OutboundMessage::text("*Grumps* help\n_commands_".into());
+        msg.markdown = true;
+        let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
+        assert!(body.contains("\"parse_mode\":\"Markdown\""));
     }
 
     #[test]
@@ -357,6 +371,7 @@ mod tests {
             text: "Done.".into(),
             reply_to: Some("42".into()),
             todo_id: None,
+            markdown: false,
         };
         let (_, body) = adapter().build_send_request("-100123", &msg).unwrap();
         assert!(body.contains("reply_to_message_id"));

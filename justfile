@@ -55,6 +55,17 @@ demo:
 replay platform text="" dm="": _check-devvars
     ./replay-webhook.sh {{platform}} "{{text}}" {{dm}}
 
+# ./replay-waha.sh "TODO: buy bread" | ./replay-waha.sh "list" --dm
+# ./replay-waha.sh "@grumps aide" --mention | ./replay-waha.sh health
+#
+# Named params (not a *args catch-all) — same reasoning as `replay` above:
+# `text` must survive as ONE shell word. dm/mention/reply_to default to ""
+# so `just replay-waha health` also works untouched. Pass reply_to as the
+# full "--reply-to <id>" string (two words) — just substitutes it unquoted
+# here, so the shell re-splits it into the two args the script expects.
+replay-waha text="" dm="" mention="" reply_to="": _check-devvars
+    ./replay-waha.sh "{{text}}" {{dm}} {{mention}} {{reply_to}}
+
 # Fixed-sequence WhatsApp smoke test (TODO block, note, list, dedup, help...).
 test-webhook: _check-devvars
     ./test-webhook.sh

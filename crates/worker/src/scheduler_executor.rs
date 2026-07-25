@@ -59,6 +59,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
             let sink = crate::agent_sink::WorkerMessagingSink {
                 env,
                 ws_slug: ws_slug.to_string(),
+                ws_db: &db,
             };
 
             let language = if ws.locale.is_empty() {
@@ -81,15 +82,53 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 db: &db,
                 language,
                 timezone,
+                created_todos: std::cell::RefCell::new(Vec::new()),
             };
 
-            match grumps_agent::loop_::run_oneshot(&ctx, &instruction).await {
+            let run_result = grumps_agent::loop_::run_oneshot(&ctx, &instruction).await;
+            // Same seam as the chat path (handler::route_via_agent): the model's
+            // own reply is deliberately terse about anything create_todo made
+            // (see prompt.rs RULES), so render the real task card here from
+            // what the tool call recorded on ctx.
+            let created_todos = ctx.drain_created_todos();
+            match run_result {
                 Ok(result) => {
                     console_log!(
                         "agent_task/follow_up executed: {} turns, {} tokens",
                         result.turns,
                         result.total_tokens
                     );
+                    if !created_todos.is_empty() {
+                        let locale = grumps_i18n::Locale::from_code(&ctx.language);
+                        let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
+                        let today = grumps_core::timeutil::today_in_tz(tz);
+                        // Same batch rule as handle_add_todos/route_via_agent:
+                        // hint + link at most once, on the first card.
+                        let (show_hint, show_link) = crate::handler::card_chrome(&db, tz).await;
+                        for (idx, c) in created_todos.into_iter().enumerate() {
+                            let (deadline_display, _, _) = crate::handler::deadline_display_info(
+                                locale,
+                                c.deadline.as_deref(),
+                                today,
+                            );
+                            let card = grumps_messaging::formatter::task_card(
+                                c.seq_num,
+                                &c.title,
+                                c.assignee.as_deref(),
+                                deadline_display.as_deref(),
+                                c.priority,
+                                &c.tags,
+                                false, // create_todo (agent tool) doesn't support recurrence yet
+                                show_hint && idx == 0,
+                                if show_link && idx == 0 {
+                                    Some(ws_slug)
+                                } else {
+                                    None
+                                },
+                            );
+                            let _ = send_to_group(env, &ws, &db, &card, Some(&c.id)).await;
+                        }
+                    }
                     Ok(())
                 }
                 Err(e) => {

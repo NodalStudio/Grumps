@@ -184,6 +184,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                 let sink = crate::agent_sink::WorkerMessagingSink {
                     env: &ctx.env,
                     ws_slug: workspace.slug.clone(),
+                    ws_db: &ws_db,
                 };
                 let _ = grumps_agent::ambient::apply_analysis(
                     &ctx.env,

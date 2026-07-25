@@ -1,21 +1,11 @@
 use crate::{d1_rest::D1RestClient, db, handler, provisioning};
 use grumps_messaging::adapter::MessagingPlatform;
-use grumps_messaging::whatsapp::WhatsAppAdapter;
+use grumps_messaging::waha::WahaAdapter;
 use grumps_nlu::parser;
 use worker::*;
 
-pub async fn handle_verify(req: Request, ctx: RouteContext<()>) -> Result<Response> {
-    let wa = build_adapter(&ctx)?;
-    let params: std::collections::HashMap<String, String> = req
-        .url()?
-        .query_pairs()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect();
-    match wa.handle_verification_challenge(&params) {
-        Ok(c) => Response::ok(c),
-        Err(e) => Response::error(format!("{}", e), 403),
-    }
-}
+// No `handle_verify` here: WAHA has no webhook-verification handshake (unlike
+// the Meta Cloud API's GET challenge) — only the POST path exists.
 
 pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let wa = build_adapter(&ctx)?;
@@ -25,8 +15,8 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     // would otherwise skip verification and inject arbitrary webhook payloads.
     let sig = req
         .headers()
-        .get("X-Hub-Signature-256")?
-        .ok_or_else(|| Error::RustError("missing X-Hub-Signature-256 header".into()))?;
+        .get("X-Webhook-Hmac")?
+        .ok_or_else(|| Error::RustError("missing X-Webhook-Hmac header".into()))?;
     if wa.verify_signature(&body, &sig).is_err() {
         return Response::error("Bad signature", 403);
     }
@@ -53,7 +43,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         inbound.is_direct_message,
     );
 
-    // 3. Dedup via KV
+    // 3. Dedup via KV. Platform string stays "whatsapp" (WAHA is transport
+    // only — DB rows, dedup keys and downstream logic are unchanged); the
+    // serialized WAHA message id is unique per event so it's a safe key.
     let kv = ctx.kv("KV")?;
     let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
     if kv.get(&dedup_key).text().await?.is_some() {
@@ -125,7 +117,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     {
         Ok(id) => id,
         Err(e) => {
-            worker::console_log!("message log error (whatsapp): {e}");
+            worker::console_log!("message log error (whatsapp/waha): {e}");
             String::new()
         }
     };
@@ -142,7 +134,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             anchor_id: anchor_id.clone(),
         };
         if let Err(e) = grumps_agent::tools::rag_pipeline::ingest_message(&ctx.env, &meta).await {
-            worker::console_log!("RAG ingest error (whatsapp): {e}");
+            worker::console_log!("RAG ingest error (whatsapp/waha): {e}");
         }
     }
 
@@ -252,14 +244,16 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     )
     .await?;
 
-    // 8. Send each message + track bot message IDs
+    // 8. Send each message + track bot message IDs. Unlike the Meta route,
+    // replies target the chat JID (`channel_id`), not the sender — sending to
+    // `sender_id` in a group would DM the sender instead of replying in-group.
     for msg in &result.messages {
         let (url, body) = wa
-            .build_send_request(&inbound.sender_id, msg)
+            .build_send_request(&inbound.channel_id, msg)
             .map_err(|e| worker::Error::RustError(format!("{:?}", e)))?;
 
         let headers = Headers::new();
-        headers.set("Authorization", &format!("Bearer {}", wa.access_token))?;
+        headers.set("X-Api-Key", &wa.api_key)?;
         headers.set("Content-Type", "application/json")?;
 
         let mut init = RequestInit::new();
@@ -267,12 +261,15 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             .with_headers(headers)
             .with_body(Some(body.into()));
 
-        let meta_req = Request::new_with_init(&url, &init)?;
-        let mut meta_resp = Fetch::Request(meta_req).send().await?;
+        let send_req = Request::new_with_init(&url, &init)?;
+        let mut send_resp = Fetch::Request(send_req).send().await?;
 
-        // Track bot's sent message_id for reply detection
-        if let Ok(json) = meta_resp.json::<serde_json::Value>().await {
-            if let Some(sent_id) = json.pointer("/messages/0/id").and_then(|v| v.as_str()) {
+        // Track bot's sent message_id for reply detection. WAHA's `sendText`
+        // returns the *raw* id at `key.id` — unlike the serialized
+        // `{fromMe}_{chatJid}_{rawId}` form inbound webhooks carry — and the
+        // adapter normalizes inbound quote ids to raw form so the two meet.
+        if let Ok(json) = send_resp.json::<serde_json::Value>().await {
+            if let Some(sent_id) = json.pointer("/key/id").and_then(|v| v.as_str()) {
                 let _ = ws_db
                     .track_bot_message(sent_id, msg.todo_id.as_deref())
                     .await;
@@ -283,21 +280,14 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     Response::ok("ok")
 }
 
-fn build_adapter(ctx: &RouteContext<()>) -> Result<WhatsAppAdapter> {
-    Ok(WhatsAppAdapter::new(
-        ctx.env.var("WA_PHONE_NUMBER_ID")?.to_string(),
-        ctx.env.var("WA_VERIFY_TOKEN")?.to_string(),
-        ctx.env.secret("WA_APP_SECRET")?.to_string(),
-        ctx.env.secret("WA_ACCESS_TOKEN")?.to_string(),
-    ))
-}
-
-/// Public version for use by other routes (auth).
-pub fn build_adapter_from_env(env: &Env) -> Result<grumps_messaging::whatsapp::WhatsAppAdapter> {
-    Ok(grumps_messaging::whatsapp::WhatsAppAdapter::new(
-        env.var("WA_PHONE_NUMBER_ID")?.to_string(),
-        env.var("WA_VERIFY_TOKEN")?.to_string(),
-        env.secret("WA_APP_SECRET")?.to_string(),
-        env.secret("WA_ACCESS_TOKEN")?.to_string(),
+fn build_adapter(ctx: &RouteContext<()>) -> Result<WahaAdapter> {
+    Ok(WahaAdapter::new(
+        ctx.env.secret("WAHA_URL")?.to_string(),
+        ctx.env
+            .var("WAHA_SESSION")
+            .map(|v| v.to_string())
+            .unwrap_or_else(|_| "default".into()),
+        ctx.env.secret("WAHA_API_KEY")?.to_string(),
+        ctx.env.secret("WAHA_WEBHOOK_HMAC")?.to_string(),
     ))
 }
