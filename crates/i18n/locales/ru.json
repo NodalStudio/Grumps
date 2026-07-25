@@ -314,7 +314,6 @@
   "billing.quota.todos": "Достигнут лимит задач ({current}/{max}). Обновите план: grumps.app/billing",
   "billing.quota.notes": "Достигнут лимит заметок ({current}/{max}). Обновите план: grumps.app/billing",
   "billing.quota.llm": "Достигнут лимит сообщений ИИ ({current}/{max}). Обновите план: grumps.app/billing",
-  "agent.files.web_only": "📁 Список файлов в веб-рабочей области.",
   "agent.notes.search_empty": "🔍 Нет заметок по запросу «{query}».",
   "page.note_editor.untitled": "(без названия)",
   "page.note_editor.created": "Создано {date}",

@@ -10,7 +10,6 @@ pub enum ParseResult {
     DeleteTodo(i64),
     ListNotes,
     SearchNotes(String),
-    ListFiles,
     Help,
     WorkspaceLink,
     Status,

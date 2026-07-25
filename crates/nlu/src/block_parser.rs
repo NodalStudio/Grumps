@@ -1,6 +1,20 @@
 use crate::entity;
 use crate::parser::{ParseResult, ParsedNote};
 
+/// True if `text` (leading whitespace trimmed) opens with a
+/// `TODO:`/`DONE:`/`NOTE:`/`NOTE [...]:` block prefix. Shared with
+/// `entity::strip_fast_command_mention` so a bullet line embedded in one of
+/// these blocks (e.g. "TODO:\n- @grumps quiet meeting") is never misread as
+/// a fast command (silence/unsilence/remember) — it must be parsed as a
+/// todo instead.
+pub fn is_block_prefix(text: &str) -> bool {
+    let upper = text.trim_start().to_uppercase();
+    upper.starts_with("TODO:")
+        || upper.starts_with("DONE:")
+        || upper.starts_with("NOTE:")
+        || upper.starts_with("NOTE [")
+}
+
 pub fn try_parse_block(text: &str) -> Option<ParseResult> {
     let upper = text.to_uppercase();
     if upper.starts_with("TODO:") {

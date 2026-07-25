@@ -32,7 +32,6 @@ pub fn parse_mention(text: &str) -> ParseResult {
             }
             ParseResult::SearchNotes(trimmed[words[0].len()..].trim().to_string())
         }
-        "files" | "file" => ParseResult::ListFiles,
         "help" | "?" => ParseResult::Help,
         "link" | "workspace" | "web" => ParseResult::WorkspaceLink,
         "status" | "summary" | "recap" => ParseResult::Status,
@@ -228,11 +227,6 @@ mod tests {
             parse_mention("@grumps note wifi"),
             ParseResult::SearchNotes("wifi".to_string())
         );
-    }
-
-    #[test]
-    fn test_files() {
-        assert_eq!(parse_mention("@grumps files"), ParseResult::ListFiles);
     }
 
     #[test]

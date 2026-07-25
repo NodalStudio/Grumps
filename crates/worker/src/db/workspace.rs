@@ -736,6 +736,40 @@ impl<'a> WorkspaceDb<'a> {
         Ok(())
     }
 
+    /// Append `tag` to a todo's tag list. Tags are a JSON array in a TEXT
+    /// column (no dedicated tags table) — read-modify-write, normalizing
+    /// like a fresh insert would (trim + lowercase) so a `#tag` card reply
+    /// doesn't create a case-variant duplicate of an existing tag, and
+    /// deduping against the current list. A blank/whitespace-only tag is a
+    /// no-op.
+    pub async fn add_todo_tag(&self, todo_id: &str, tag: &str) -> Result<()> {
+        let normalized = tag.trim().to_lowercase();
+        if normalized.is_empty() {
+            return Ok(());
+        }
+        #[derive(Deserialize)]
+        struct TagsRow {
+            tags: String,
+        }
+        let resp = self
+            .q("SELECT tags FROM todos WHERE id = ?1", vec![todo_id.into()])
+            .await?;
+        let current: Option<TagsRow> = extract_first(&resp)?;
+        let mut tags: Vec<String> = current
+            .map(|r| serde_json::from_str(&r.tags).unwrap_or_default())
+            .unwrap_or_default();
+        if !tags.iter().any(|t| t.eq_ignore_ascii_case(&normalized)) {
+            tags.push(normalized);
+        }
+        let tags_json = serde_json::to_string(&tags).unwrap_or_else(|_| "[]".into());
+        self.q(
+            "UPDATE todos SET tags = ?2, updated_at = datetime('now') WHERE id = ?1",
+            vec![todo_id.into(), tags_json.into()],
+        )
+        .await?;
+        Ok(())
+    }
+
     // --- Activity log (extended) ---
 
     pub async fn get_activity_log(&self, limit: i64) -> Result<Vec<ActivityRow>> {

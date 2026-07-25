@@ -66,7 +66,7 @@ pub async fn handle_message(
         let lower = raw_text.to_lowercase();
         if lower.contains("@grumps") || lower.contains("@heygrumpsbot") {
             if let Some(result) =
-                try_fast_commands(env, ws_db, workspace_slug, member_id, &lower, raw_text).await?
+                try_fast_commands(env, ws_db, workspace_slug, member_id, raw_text).await?
             {
                 return Ok(result);
             }
@@ -135,10 +135,6 @@ pub async fn handle_message(
         ParseResult::ListTodos(filter) => handle_list_todos(filter, ws_db, member_id, locale).await,
         ParseResult::ListNotes => handle_list_notes(ws_db, locale).await,
         ParseResult::SearchNotes(query) => handle_search_notes(&query, ws_db, locale).await,
-        ParseResult::ListFiles => Ok(HandlerResult::one(
-            grumps_i18n::t(locale, "agent.files.web_only", &[]),
-            None,
-        )),
         ParseResult::Help => Ok(HandlerResult::one_markdown(
             formatter::help_text(locale.code()),
             None,
@@ -788,16 +784,46 @@ async fn handle_card_reply(
                 grumps_i18n::t(locale, "agent.card.no_target", &[])
             }
         }
-        TaskCardAction::ChangePriority(p) => grumps_i18n::t(
-            locale,
-            "agent.card.priority",
-            &[("emoji", p.emoji()), ("label", p.label())],
-        ),
+        TaskCardAction::ChangePriority(p) => {
+            if let Some(ref tid) = todo_id {
+                ws_db
+                    .update_todo(tid, None, None, Some(p.as_int()), None, None)
+                    .await?;
+                ws_db
+                    .log_activity(member_id, "todo.priority_changed", "todo", tid, "chat")
+                    .await?;
+                grumps_i18n::t(
+                    locale,
+                    "agent.card.priority",
+                    &[("emoji", p.emoji()), ("label", p.label())],
+                )
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
+        }
         TaskCardAction::AddTag(tag) => {
-            grumps_i18n::t(locale, "agent.card.tag_added", &[("tag", &tag)])
+            if let Some(ref tid) = todo_id {
+                ws_db.add_todo_tag(tid, &tag).await?;
+                ws_db
+                    .log_activity(member_id, "todo.tag_added", "todo", tid, "chat")
+                    .await?;
+                grumps_i18n::t(locale, "agent.card.tag_added", &[("tag", &tag)])
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
         }
         TaskCardAction::ChangeStatus(s) => {
-            grumps_i18n::t(locale, "agent.card.status", &[("status", &s)])
+            if let Some(ref tid) = todo_id {
+                ws_db
+                    .update_todo(tid, None, Some(&s), None, None, None)
+                    .await?;
+                ws_db
+                    .log_activity(member_id, "todo.status_changed", "todo", tid, "chat")
+                    .await?;
+                grumps_i18n::t(locale, "agent.card.status", &[("status", &s)])
+            } else {
+                grumps_i18n::t(locale, "agent.card.no_target", &[])
+            }
         }
     };
 
@@ -1061,16 +1087,25 @@ async fn route_via_agent(
     }
 }
 
-/// Fast-path for silence/unsilence/explicit-memory commands addressed to @grumps.
-/// `lower` is the lowercased version of the full text; `text` is the original.
+/// Fast-path for silence/unsilence/explicit-memory commands addressed to
+/// @grumps. Only fires when the message, once the leading mention token is
+/// stripped, matches a known phrase exactly (or — for "remember that ..." —
+/// starts with it): `entity::strip_fast_command_mention` requires the
+/// mention to open the message and bails on `TODO:`/`DONE:`/`NOTE:` blocks,
+/// so a bullet line that happens to *contain* "@grumps quiet" is parsed as
+/// a todo instead of silencing the bot.
 async fn try_fast_commands(
     env: &Env,
     ws_db: &WorkspaceDb<'_>,
     ws_slug: &str,
     member_id: &str,
-    lower: &str,
     text: &str,
 ) -> worker::Result<Option<HandlerResult>> {
+    let Some(rest) = entity::strip_fast_command_mention(text) else {
+        return Ok(None);
+    };
+    let rest_lower = rest.to_lowercase();
+
     let kv = match env.kv("KV") {
         Ok(k) => k,
         Err(_) => return Ok(None),
@@ -1091,26 +1126,26 @@ async fn try_fast_commands(
     };
 
     // Silence: matched in every supported language plus a few common synonyms.
-    let silence_triggers = [
-        "@grumps tais-toi",
-        "@grumps quiet",
-        "@grumps silence",
-        "@grumps shh",
-        "@grumps cállate",
-        "@grumps cala-te",
-        "@grumps cale-se",
-        "@grumps ruhe",
-        "@grumps zitto",
-        "@grumps тише",
-        "@grumps sus",
-        "@grumps اسكت",
-        "@grumps चुप",
-        "@grumps 安静",
-        "@grumps 静かに",
-        "@grumps 조용히",
-        "@grumps diam",
+    let silence_phrases = [
+        "tais-toi",
+        "quiet",
+        "silence",
+        "shh",
+        "cállate",
+        "cala-te",
+        "cale-se",
+        "ruhe",
+        "zitto",
+        "тише",
+        "sus",
+        "اسكت",
+        "चुप",
+        "安静",
+        "静かに",
+        "조용히",
+        "diam",
     ];
-    if silence_triggers.iter().any(|t| lower.contains(t)) {
+    if silence_phrases.iter().any(|p| rest_lower == *p) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
         // Await the write — a dropped `execute()` future never runs, so the
         // silence window would never actually be recorded.
@@ -1123,24 +1158,24 @@ async fn try_fast_commands(
         )));
     }
 
-    let unsilence_triggers = [
-        "@grumps reviens",
-        "@grumps unquiet",
-        "@grumps come back",
-        "@grumps vuelve",
-        "@grumps volta",
-        "@grumps zurück",
-        "@grumps torna",
-        "@grumps вернись",
-        "@grumps geri dön",
-        "@grumps عُد",
-        "@grumps वापस आओ",
-        "@grumps 回来",
-        "@grumps 戻って",
-        "@grumps 돌아와",
-        "@grumps kembali",
+    let unsilence_phrases = [
+        "reviens",
+        "unquiet",
+        "come back",
+        "vuelve",
+        "volta",
+        "zurück",
+        "torna",
+        "вернись",
+        "geri dön",
+        "عُد",
+        "वापस आओ",
+        "回来",
+        "戻って",
+        "돌아와",
+        "kembali",
     ];
-    if unsilence_triggers.iter().any(|t| lower.contains(t)) {
+    if unsilence_phrases.iter().any(|p| rest_lower == *p) {
         let silence_key = format!("proactive:{ws_slug}:silence_until");
         let _ = kv.delete(&silence_key).await;
         return Ok(Some(HandlerResult::one(
@@ -1152,19 +1187,20 @@ async fn try_fast_commands(
     // Explicit memory: works in fr ("souviens-toi que/de") and en
     // ("remember that"). Picks whichever phrase the user happened to use.
     let memory_phrases: &[&str] = &[
-        "@grumps souviens-toi que ",
-        "@grumps souviens-toi de ",
-        "@grumps remember that ",
-        "@grumps remember to ",
-        "@grumps note that ",
+        "souviens-toi que ",
+        "souviens-toi de ",
+        "remember that ",
+        "remember to ",
+        "note that ",
     ];
     let memory_trigger = memory_phrases
         .iter()
-        .find_map(|phrase| lower.find(phrase).map(|i| i + phrase.len()));
+        .find(|phrase| rest_lower.starts_with(**phrase));
 
-    if let Some(start) = memory_trigger {
-        // Extract the content from the original text (preserving case), same start offset
-        let content = text[start..].trim().to_string();
+    if let Some(phrase) = memory_trigger {
+        // Extract the content from `rest` (preserving case) — `rest_lower`
+        // and `rest` share the same byte offsets since `phrase` is ASCII.
+        let content = rest[phrase.len()..].trim().to_string();
         if !content.is_empty() {
             let entry = grumps_memory::NewMemoryEntry {
                 key: None,

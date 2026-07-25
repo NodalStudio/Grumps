@@ -314,7 +314,6 @@
   "billing.quota.todos": "할 일 한도 도달 ({current}/{max}). 업그레이드: grumps.app/billing",
   "billing.quota.notes": "노트 한도 도달 ({current}/{max}). 업그레이드: grumps.app/billing",
   "billing.quota.llm": "AI 메시지 한도 도달 ({current}/{max}). 업그레이드: grumps.app/billing",
-  "agent.files.web_only": "📁 파일 목록은 웹 워크스페이스에 있어요.",
   "agent.notes.search_empty": "🔍 \"{query}\"와 일치하는 노트가 없어요.",
   "page.note_editor.untitled": "(제목 없음)",
   "page.note_editor.created": "생성일 {date}",

@@ -159,6 +159,56 @@ fn migration_0006_normalizes_free_text_recurrence() {
     assert_eq!(rec("d"), "FREQ=DAILY");
 }
 
+/// `WorkspaceDb::add_todo_tag` (issue #21: the `#tag` card reply now
+/// actually persists) is a read-modify-write over the `tags` JSON-array TEXT
+/// column: SELECT the current array, merge in the normalized tag in Rust,
+/// UPDATE the column back. This exercises the exact two query shapes
+/// against the real schema and proves round-tripping through
+/// `serde_json` preserves the array shape SQLite stores as TEXT.
+#[test]
+fn todo_tags_read_modify_write_dedupes_and_lowercases() {
+    let c = conn();
+    c.execute(
+        "INSERT INTO todos (id, seq_num, title, tags) VALUES ('t1', 1, 'ship it', '[\"backend\"]')",
+        [],
+    )
+    .unwrap();
+
+    // Mirrors `add_todo_tag`: SELECT the current tags...
+    let select_tags = |c: &Connection| -> String {
+        c.query_row("SELECT tags FROM todos WHERE id = ?1", ["t1"], |r| r.get(0))
+            .unwrap()
+    };
+    let merge_and_store = |c: &Connection, new_tag: &str| {
+        let current = select_tags(c);
+        let normalized = new_tag.trim().to_lowercase();
+        let mut tags: Vec<String> = serde_json::from_str(&current).unwrap_or_default();
+        if !normalized.is_empty() && !tags.iter().any(|t| t.eq_ignore_ascii_case(&normalized)) {
+            tags.push(normalized);
+        }
+        let tags_json = serde_json::to_string(&tags).unwrap();
+        c.execute(
+            "UPDATE todos SET tags = ?2, updated_at = datetime('now') WHERE id = ?1",
+            rusqlite::params!["t1", tags_json],
+        )
+        .unwrap();
+    };
+
+    // A fresh, differently-cased tag is appended and lowercased.
+    merge_and_store(&c, "Urgent");
+    let tags: Vec<String> = serde_json::from_str(&select_tags(&c)).unwrap();
+    assert_eq!(tags, vec!["backend".to_string(), "urgent".to_string()]);
+
+    // Re-adding the same tag with different case is a no-op — no duplicate.
+    merge_and_store(&c, "URGENT");
+    let tags: Vec<String> = serde_json::from_str(&select_tags(&c)).unwrap();
+    assert_eq!(
+        tags,
+        vec!["backend".to_string(), "urgent".to_string()],
+        "case-insensitive dedupe: no duplicate 'urgent' entry"
+    );
+}
+
 #[test]
 fn timezone_seed_default_is_utc() {
     let c = conn();

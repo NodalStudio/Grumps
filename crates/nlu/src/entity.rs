@@ -9,12 +9,10 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
     let mut title_parts: Vec<String> = Vec::new();
     let words: Vec<&str> = line.split_whitespace().collect();
     let mut i = 0;
-    let mut in_deadline = false;
-    let mut deadline_parts: Vec<&str> = Vec::new();
 
     while i < words.len() {
         let w = words[i];
-        if !in_deadline
+        if deadline_text.is_none()
             && (w.eq_ignore_ascii_case("before")
                 || w.eq_ignore_ascii_case("by")
                 || w.eq_ignore_ascii_case("for")
@@ -22,52 +20,17 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
                 || w.eq_ignore_ascii_case("pour")
                 || w.eq_ignore_ascii_case("d'ici"))
         {
-            if i + 1 < words.len() {
-                let next = words[i + 1].to_lowercase();
-                let is_date = matches!(
-                    next.as_str(),
-                    "monday"
-                        | "tuesday"
-                        | "wednesday"
-                        | "thursday"
-                        | "friday"
-                        | "saturday"
-                        | "sunday"
-                        | "lundi"
-                        | "mardi"
-                        | "mercredi"
-                        | "jeudi"
-                        | "vendredi"
-                        | "samedi"
-                        | "dimanche"
-                        | "tomorrow"
-                        | "today"
-                        | "tonight"
-                        | "demain"
-                        | "aujourd'hui"
-                        | "aujourdhui"
-                        | "next"
-                        | "end"
-                ) || next
-                    .chars()
-                    .next()
-                    .map(|c| c.is_ascii_digit())
-                    .unwrap_or(false);
-                if is_date {
-                    in_deadline = true;
-                    i += 1;
-                    continue;
-                }
-            }
-            title_parts.push(w.to_string());
-        } else if in_deadline {
-            if w.starts_with('@') || w.starts_with('#') || w.starts_with('!') {
-                in_deadline = false;
-                deadline_text = Some(deadline_parts.join(" "));
-                deadline_parts.clear();
+            if let Some((expr, next_i)) = try_capture_date_expr(&words, i + 1) {
+                deadline_text = Some(expr);
+                i = next_i;
                 continue;
             }
-            deadline_parts.push(w);
+            // Either the next word isn't a date word, or the date phrase is
+            // trailed by ordinary prose ("sunday roast", "vendredi soir") —
+            // abstain and leave the trigger word (and whatever follows,
+            // handled by the default branch on later iterations) in the
+            // title instead of guessing at a phantom deadline.
+            title_parts.push(w.to_string());
         } else if w.starts_with('@') && w.len() > 1 {
             if assignee.is_none() {
                 assignee = Some(w[1..].to_string());
@@ -82,9 +45,6 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
             title_parts.push(w.to_string());
         }
         i += 1;
-    }
-    if !deadline_parts.is_empty() {
-        deadline_text = Some(deadline_parts.join(" "));
     }
 
     // No trigger word ("before"/"avant"/...) fired, but the line still ends
@@ -115,6 +75,94 @@ pub fn extract_todo_from_line(line: &str) -> ParsedTodo {
         priority,
         tags,
     }
+}
+
+/// True if `w` (case-insensitive) can open (or continue) a date expression
+/// after a trigger word ("before", "avant", ...): a weekday, a relative day
+/// word, "next"/"end" (multi-word continuations like "next friday"), or
+/// anything starting with a digit (`2026-08-01`).
+fn is_date_word(w: &str) -> bool {
+    let lower = w.to_lowercase();
+    matches!(
+        lower.as_str(),
+        "monday"
+            | "tuesday"
+            | "wednesday"
+            | "thursday"
+            | "friday"
+            | "saturday"
+            | "sunday"
+            | "lundi"
+            | "mardi"
+            | "mercredi"
+            | "jeudi"
+            | "vendredi"
+            | "samedi"
+            | "dimanche"
+            | "tomorrow"
+            | "today"
+            | "tonight"
+            | "demain"
+            | "aujourd'hui"
+            | "aujourdhui"
+            | "next"
+            | "end"
+    ) || lower
+        .chars()
+        .next()
+        .map(|c| c.is_ascii_digit())
+        .unwrap_or(false)
+}
+
+/// Attempts to capture a contiguous run of date words in `words` starting at
+/// `start`. Returns `(joined expression, index right after the expression)`
+/// only when the expression is either terminal (end of message) or
+/// immediately followed by a meta token (`@`/`#`/`!`) — anything else means
+/// the apparent date phrase is actually trailed by ordinary prose ("sunday
+/// roast", "vendredi soir"), so the caller should abstain and treat it as
+/// plain title text instead of guessing at a deadline.
+fn try_capture_date_expr(words: &[&str], start: usize) -> Option<(String, usize)> {
+    if start >= words.len() || !is_date_word(words[start]) {
+        return None;
+    }
+    let mut end = start + 1;
+    while end < words.len() && is_date_word(words[end]) {
+        end += 1;
+    }
+    let terminal_or_meta = end >= words.len()
+        || words[end].starts_with('@')
+        || words[end].starts_with('#')
+        || words[end].starts_with('!');
+    if !terminal_or_meta {
+        return None;
+    }
+    Some((words[start..end].join(" "), end))
+}
+
+/// If `text` is eligible to be treated as an explicit `@grumps <phrase>` /
+/// `@heygrumpsbot <phrase>` fast command (silence, unsilence, "remember
+/// that ..."), returns the message with the leading mention token stripped
+/// and outer whitespace trimmed — original casing preserved, so the caller
+/// can match/slice it directly. Returns `None` when the message doesn't
+/// literally *start* with the mention (an embedded "please @grumps quiet"
+/// no longer counts — the caller then requires the remainder to match a
+/// known phrase exactly, so stray text anywhere disqualifies it either
+/// way) or when it's a `TODO:`/`DONE:`/`NOTE:` block — a bullet line inside
+/// one that happens to contain "@grumps quiet" must be parsed as a todo,
+/// never as a silence toggle.
+pub fn strip_fast_command_mention(text: &str) -> Option<&str> {
+    let trimmed = text.trim_start();
+    if crate::block_parser::is_block_prefix(trimmed) {
+        return None;
+    }
+    for mention in ["@heygrumpsbot", "@grumps"] {
+        if let Some(head) = trimmed.get(..mention.len()) {
+            if head.eq_ignore_ascii_case(mention) {
+                return Some(trimmed[mention.len()..].trim());
+            }
+        }
+    }
+    None
 }
 
 /// True if `w` (case-insensitive) is a bare date word that can stand as a
@@ -348,6 +396,81 @@ mod tests {
         let t = extract_todo_from_line("call bob friday");
         assert_eq!(t.title, "call bob");
         assert_eq!(t.deadline_text, Some("friday".into()));
+    }
+
+    // --- deadline capture abstains on trailing prose (issue #21) ---
+
+    #[test]
+    fn deadline_trigger_followed_by_prose_abstains() {
+        // "sunday" looks like a date word, but "roast" trails it — the whole
+        // thing must stay in the title, not become title "call bob" +
+        // phantom deadline "sunday roast".
+        let t = extract_todo_from_line("call bob for sunday roast");
+        assert_eq!(t.title, "call bob for sunday roast");
+        assert!(t.deadline_text.is_none());
+    }
+
+    #[test]
+    fn deadline_trigger_fr_followed_by_prose_abstains() {
+        let t = extract_todo_from_line("réserver pour vendredi soir");
+        assert_eq!(t.title, "réserver pour vendredi soir");
+        assert!(t.deadline_text.is_none());
+    }
+
+    #[test]
+    fn deadline_trigger_terminal_still_extracts() {
+        let t = extract_todo_from_line("pay rent before friday");
+        assert_eq!(t.title, "pay rent");
+        assert_eq!(t.deadline_text, Some("friday".into()));
+    }
+
+    #[test]
+    fn deadline_trigger_followed_by_assignee_still_extracts() {
+        let t = extract_todo_from_line("buy milk for tomorrow @bob");
+        assert_eq!(t.title, "buy milk");
+        assert_eq!(t.deadline_text, Some("tomorrow".into()));
+        assert_eq!(t.assignee_mention, Some("bob".into()));
+    }
+
+    // --- strip_fast_command_mention (issue #21) ---
+
+    #[test]
+    fn fast_command_mention_leading() {
+        assert_eq!(strip_fast_command_mention("@grumps quiet"), Some("quiet"));
+        assert_eq!(
+            strip_fast_command_mention("@heygrumpsbot quiet"),
+            Some("quiet")
+        );
+    }
+
+    #[test]
+    fn fast_command_mention_case_insensitive() {
+        assert_eq!(strip_fast_command_mention("@Grumps QUIET"), Some("QUIET"));
+    }
+
+    #[test]
+    fn fast_command_mention_not_leading_returns_none() {
+        assert_eq!(strip_fast_command_mention("please @grumps quiet"), None);
+    }
+
+    #[test]
+    fn fast_command_mention_no_mention_returns_none() {
+        assert_eq!(strip_fast_command_mention("quiet please"), None);
+    }
+
+    #[test]
+    fn fast_command_mention_todo_block_returns_none() {
+        assert_eq!(
+            strip_fast_command_mention("TODO:\n- @grumps quiet meeting"),
+            None
+        );
+        assert_eq!(strip_fast_command_mention("todo: @grumps quiet"), None);
+        assert_eq!(strip_fast_command_mention("DONE: @grumps quiet"), None);
+        assert_eq!(strip_fast_command_mention("NOTE: @grumps quiet"), None);
+        assert_eq!(
+            strip_fast_command_mention("NOTE [wifi]: @grumps quiet"),
+            None
+        );
     }
 
     #[test]

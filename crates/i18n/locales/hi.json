@@ -314,7 +314,6 @@
   "billing.quota.todos": "टूडू सीमा पूरी ({current}/{max}). अपग्रेड: grumps.app/billing",
   "billing.quota.notes": "नोट्स सीमा पूरी ({current}/{max}). अपग्रेड: grumps.app/billing",
   "billing.quota.llm": "एआई संदेश सीमा पूरी ({current}/{max}). अपग्रेड: grumps.app/billing",
-  "agent.files.web_only": "📁 फाइल सूची वेब कार्यक्षेत्र में है।",
   "agent.notes.search_empty": "🔍 «{query}» से मेल खाते कोई नोट नहीं।",
   "page.note_editor.untitled": "(शीर्षकहीन)",
   "page.note_editor.created": "{date} को बनाया",

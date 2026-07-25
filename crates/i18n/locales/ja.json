@@ -314,7 +314,6 @@
   "billing.quota.todos": "Todo の上限に達しました ({current}/{max})。アップグレード: grumps.app/billing",
   "billing.quota.notes": "ノートの上限に達しました ({current}/{max})。アップグレード: grumps.app/billing",
   "billing.quota.llm": "AI メッセージの上限に達しました ({current}/{max})。アップグレード: grumps.app/billing",
-  "agent.files.web_only": "📁 ファイル一覧はウェブのワークスペースにあります。",
   "agent.notes.search_empty": "🔍 「{query}」に一致するノートはありません。",
   "page.note_editor.untitled": "(無題)",
   "page.note_editor.created": "作成日 {date}",

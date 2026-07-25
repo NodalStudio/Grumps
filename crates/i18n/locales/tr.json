@@ -314,7 +314,6 @@
   "billing.quota.todos": "Görev limiti aşıldı ({current}/{max}). Yükselt: grumps.app/billing",
   "billing.quota.notes": "Not limiti aşıldı ({current}/{max}). Yükselt: grumps.app/billing",
   "billing.quota.llm": "AI mesaj limiti aşıldı ({current}/{max}). Yükselt: grumps.app/billing",
-  "agent.files.web_only": "📁 Dosya listesi web çalışma alanında.",
   "agent.notes.search_empty": "🔍 «{query}» ile eşleşen not yok.",
   "page.note_editor.untitled": "(başlıksız)",
   "page.note_editor.created": "Oluşturuldu {date}",
