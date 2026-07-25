@@ -1,5 +1,6 @@
 pub mod activity;
 pub mod billing;
+pub mod demo_gate;
 pub mod dto;
 pub mod member;
 pub mod note;

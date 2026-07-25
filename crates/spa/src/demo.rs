@@ -9,26 +9,18 @@ use crate::api::{
     StatusCounts, TodoItem, WorkspaceInfo, WorkspaceSettings,
 };
 
-/// `true` when the current page is running in demo mode. Checks for
-/// `/demo` anywhere in the pathname (so it works whether the SPA is
-/// mounted at `/demo/` on a custom domain or at `/Grumps/demo/` on GH
-/// Pages) and for `?demo=1` in the query.
+/// `true` when the current page is running in demo mode. Delegates to
+/// [`grumps_core::demo_gate::classify_demo`] — exact path-segment / query-param
+/// matching, not substring matching, so a workspace slugged e.g.
+/// `demolition-crew` can never be mistaken for demo mode.
 pub fn is_demo() -> bool {
     let Some(win) = web_sys::window() else {
         return false;
     };
     let loc = win.location();
-    if let Ok(pathname) = loc.pathname() {
-        if pathname.contains("/demo") {
-            return true;
-        }
-    }
-    if let Ok(search) = loc.search() {
-        if search.contains("demo=1") || search.contains("demo=true") {
-            return true;
-        }
-    }
-    false
+    let pathname = loc.pathname().unwrap_or_default();
+    let search = loc.search().unwrap_or_default();
+    grumps_core::demo_gate::classify_demo(&pathname, &search)
 }
 
 /// Returns the URL prefix to prepend to all SPA routes when running in
@@ -44,11 +36,7 @@ pub fn router_base() -> String {
         return String::new();
     };
     let pathname = win.location().pathname().unwrap_or_default();
-    // Find `/demo` and keep everything up to and including it.
-    if let Some(idx) = pathname.find("/demo") {
-        return pathname[..idx + "/demo".len()].to_string();
-    }
-    "/demo".to_string()
+    grumps_core::demo_gate::demo_router_base(&pathname).unwrap_or_else(|| "/demo".to_string())
 }
 
 pub const DEMO_SLUG: &str = "roommates";
