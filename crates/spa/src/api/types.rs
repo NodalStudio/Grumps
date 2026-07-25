@@ -34,6 +34,9 @@ pub struct TodoItem {
     pub assigned_name: Option<String>,
     pub priority: i32,
     pub tags: String,
+    /// Civil date "YYYY-MM-DD", never a UTC instant.
+    #[serde(default)]
+    pub deadline: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

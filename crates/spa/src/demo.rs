@@ -86,10 +86,28 @@ fn member(id: &str, phone: &str, name: &str, role: &str) -> MemberItem {
 
 pub fn todos() -> Vec<TodoItem> {
     vec![
-        todo(23, "seed.todo.buy_toilet_paper", 1, "Bob", "open"),
+        // A couple of entries carry a deadline + tags so the row-parity UI
+        // (deadline chip, tag chips) has something to render in the demo.
+        todo_full(
+            23,
+            "seed.todo.buy_toilet_paper",
+            1,
+            "Bob",
+            "open",
+            Some("2026-07-20"), // overdue relative to the fixed demo "today"
+            &["groceries"],
+        ),
         todo(24, "seed.todo.pay_electricity", 2, "Alice", "open"),
         todo(25, "seed.todo.call_plumber", 2, "Alice", "in_progress"),
-        todo(26, "seed.todo.gift_for_eve", 1, "Alice", "open"),
+        todo_full(
+            26,
+            "seed.todo.gift_for_eve",
+            1,
+            "Alice",
+            "open",
+            Some("2026-08-01"),
+            &["birthday", "shopping"],
+        ),
         todo(27, "seed.todo.clean_kitchen", 0, "Marie", "open"),
         todo(28, "seed.todo.water_plants", 1, "Marie", "open"),
         todo(29, "seed.todo.landlord_email", 2, "Bob", "open"),
@@ -97,6 +115,19 @@ pub fn todos() -> Vec<TodoItem> {
     ]
 }
 fn todo(seq: i64, key: &str, priority: i32, assignee: &str, status: &str) -> TodoItem {
+    todo_full(seq, key, priority, assignee, status, None, &[])
+}
+fn todo_full(
+    seq: i64,
+    key: &str,
+    priority: i32,
+    assignee: &str,
+    status: &str,
+    deadline: Option<&str>,
+    tags: &[&str],
+) -> TodoItem {
+    let tags_json = serde_json::to_string(&tags.iter().map(|t| t.to_string()).collect::<Vec<_>>())
+        .unwrap_or_else(|_| "[]".into());
     TodoItem {
         id: format!("seed-todo-{}", seq),
         seq_num: seq,
@@ -104,7 +135,8 @@ fn todo(seq: i64, key: &str, priority: i32, assignee: &str, status: &str) -> Tod
         status: status.into(),
         assigned_name: Some(assignee.into()),
         priority,
-        tags: String::new(),
+        tags: tags_json,
+        deadline: deadline.map(str::to_string),
     }
 }
 
@@ -496,6 +528,7 @@ pub fn new_todo(title: &str, priority: i32) -> TodoItem {
         assigned_name: None,
         priority,
         tags: String::new(),
+        deadline: None,
     }
 }
 pub fn new_note(title: &str, content: &str) -> NoteItem {

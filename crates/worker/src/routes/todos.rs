@@ -95,11 +95,22 @@ pub async fn create_todo(
         )
         .await?;
 
+    // Mirror the `TodoItem` shape the SPA deserializes elsewhere (GET
+    // /todos), built from the already-known request fields rather than a
+    // second read — the SPA now awaits this response instead of discarding
+    // it, so a shape mismatch would surface as a spurious error toast on
+    // every successful create.
     middleware::with_cors(
         &req,
         Response::from_json(&serde_json::json!({
             "id": todo_id,
             "seq_num": seq_num,
+            "title": body.title,
+            "status": "open",
+            "assigned_name": if assigned_name.is_empty() { None } else { Some(assigned_name) },
+            "priority": body.priority.unwrap_or(2),
+            "tags": tags_json,
+            "deadline": deadline,
         }))?,
     )
 }
@@ -139,6 +150,19 @@ pub async fn update_todo(
             body.assigned_name.as_deref(),
         )
         .await?;
+
+    // Deadline is a civil date "YYYY-MM-DD". An *absent* field decodes to
+    // `None` and leaves it untouched (so a title-only PATCH doesn't wipe the
+    // deadline); an explicit empty string clears it; anything else that
+    // doesn't parse as a date is silently ignored, mirroring `create_todo`'s
+    // parsing so the SPA's `<input type="date">` value round-trips exactly.
+    // `set_todo_deadline` is the same helper the chat "snooze"/deadline-edit
+    // reply path already uses (see `handler.rs`).
+    if let Some(d) = body.deadline.as_deref() {
+        if d.is_empty() || chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").is_ok() {
+            ws_db.set_todo_deadline(&todo_id, d).await?;
+        }
+    }
 
     let _ = body.tags; // tag updates can be added via a separate migration
 
