@@ -1771,6 +1771,42 @@ impl<'a> WorkspaceDb<'a> {
         Ok(id)
     }
 
+    /// Update title/trigger_at/recurrence/payload of an existing action.
+    /// `action_type` and `status` are intentionally not editable here — the
+    /// type is fixed at creation, and status is runtime-managed by the
+    /// scheduler DO. Returns `false` if no row matched `id`.
+    pub async fn update_scheduled_action(
+        &self,
+        id: &str,
+        title: &str,
+        trigger_at_iso: &str,
+        recurrence: Option<&str>,
+        payload: &serde_json::Value,
+    ) -> Result<bool> {
+        let payload_str = serde_json::to_string(payload).unwrap_or_else(|_| "{}".into());
+        let resp = self
+            .q(
+                "UPDATE scheduled_actions SET title = ?1, trigger_at = ?2, recurrence = ?3, payload = ?4 WHERE id = ?5",
+                vec![
+                    title.into(),
+                    trigger_at_iso.into(),
+                    recurrence
+                        .map(|s| serde_json::Value::String(s.to_string()))
+                        .unwrap_or(serde_json::Value::Null),
+                    payload_str.into(),
+                    id.into(),
+                ],
+            )
+            .await?;
+        Ok(resp
+            .result
+            .first()
+            .and_then(|rs| rs.meta.as_ref())
+            .and_then(|m| m.changes)
+            .unwrap_or(0)
+            > 0)
+    }
+
     pub async fn delete_scheduled_action(&self, id: &str) -> Result<bool> {
         let resp = self
             .q(
