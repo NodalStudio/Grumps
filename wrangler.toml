@@ -54,7 +54,12 @@ binding = "KV"
 id = "877b7876c7c54c97b47eeb7f0e2a00e6"
 
 [triggers]
-crons = []
+# Drives cron::handle_cron -> check_and_send_recaps. Safe to run hourly: the
+# per-workspace gate inside check_and_send_recaps only proceeds on the
+# workspace's *local* Monday, and a KV dedup key (`recap:{slug}:{date}`) caps
+# it at one recap per workspace per local day, so the other 23 runs each
+# Monday are no-ops per workspace.
+crons = ["0 * * * *"]
 
 [ai]
 binding = "AI"

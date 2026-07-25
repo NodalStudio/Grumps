@@ -41,6 +41,18 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     };
 
+    // 3. Dedup via KV, written immediately after signature verification (and
+    // the parse needed to get a stable id) and before any processing.
+    let kv = ctx.kv("KV")?;
+    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
+    if kv.get(&dedup_key).text().await?.is_some() {
+        return Response::ok("ok");
+    }
+    kv.put(&dedup_key, "1")?
+        .expiration_ttl(86400)
+        .execute()
+        .await?;
+
     crate::observability::log_inbound(
         &crate::observability::request_id(&req),
         "whatsapp",
@@ -52,17 +64,6 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         inbound.is_mention_to_bot,
         inbound.is_direct_message,
     );
-
-    // 3. Dedup via KV
-    let kv = ctx.kv("KV")?;
-    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
-    if kv.get(&dedup_key).text().await?.is_some() {
-        return Response::ok("ok");
-    }
-    kv.put(&dedup_key, "1")?
-        .expiration_ttl(86400)
-        .execute()
-        .await?;
 
     // 4. Resolve or provision workspace
     let index_db = db::get_index_db(&ctx.env)?;
@@ -269,14 +270,24 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
         let meta_req = Request::new_with_init(&url, &init)?;
         let mut meta_resp = Fetch::Request(meta_req).send().await?;
+        let status = meta_resp.status_code();
+        let text = meta_resp.text().await.unwrap_or_default();
+        let json: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        if !grumps_messaging::adapter::is_send_ok("whatsapp", status, &json) {
+            console_error!(
+                "send failed: workspace={} platform=whatsapp status={} body={}",
+                workspace.slug,
+                status,
+                grumps_messaging::adapter::truncate_body(&text, 300)
+            );
+        }
 
         // Track bot's sent message_id for reply detection
-        if let Ok(json) = meta_resp.json::<serde_json::Value>().await {
-            if let Some(sent_id) = json.pointer("/messages/0/id").and_then(|v| v.as_str()) {
-                let _ = ws_db
-                    .track_bot_message(sent_id, msg.todo_id.as_deref())
-                    .await;
-            }
+        if let Some(sent_id) = json.pointer("/messages/0/id").and_then(|v| v.as_str()) {
+            let _ = ws_db
+                .track_bot_message(sent_id, msg.todo_id.as_deref())
+                .await;
         }
     }
 

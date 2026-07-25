@@ -102,3 +102,106 @@ pub enum MessagingError {
     #[error("verification failed: {0}")]
     VerificationFailed(String),
 }
+
+/// Decide whether a platform's outbound-send HTTP response counts as
+/// success. Pure: takes the already-fetched status code and parsed JSON body
+/// so the worker can `console_error!` full context on failure without this
+/// crate touching `Fetch`/`Response` (see the trait docs above — zero I/O by
+/// design keeps this crate natively testable).
+///
+/// - Any non-2xx status is always a failure.
+/// - Telegram additionally reports failures as `{"ok": false, ...}` inside a
+///   2xx body — a missing or `false` `ok` field is treated as failure too.
+/// - Other platforms (WAHA, WhatsApp Cloud API) have no universal `ok` flag;
+///   a top-level `error` key signals failure even under a 2xx status.
+pub fn is_send_ok(platform: &str, status: u16, body: &serde_json::Value) -> bool {
+    if !(200..300).contains(&status) {
+        return false;
+    }
+    match platform {
+        "telegram" => body.get("ok").and_then(|v| v.as_bool()).unwrap_or(false),
+        _ => body.get("error").is_none(),
+    }
+}
+
+/// Truncate a response body for a log line. Full bodies can be large; this
+/// keeps just enough to diagnose a send failure without blowing out log
+/// volume. Splits on a char boundary so multi-byte UTF-8 is never cut mid-
+/// codepoint.
+pub fn truncate_body(body: &str, max_len: usize) -> String {
+    if body.len() <= max_len {
+        return body.to_string();
+    }
+    let mut end = max_len;
+    while end > 0 && !body.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…", &body[..end])
+}
+
+#[cfg(test)]
+mod send_result_tests {
+    use super::*;
+
+    #[test]
+    fn non_2xx_status_is_always_a_failure() {
+        assert!(!is_send_ok(
+            "telegram",
+            500,
+            &serde_json::json!({"ok": true})
+        ));
+        assert!(!is_send_ok("whatsapp", 403, &serde_json::json!({})));
+    }
+
+    #[test]
+    fn telegram_requires_explicit_ok_true() {
+        assert!(is_send_ok(
+            "telegram",
+            200,
+            &serde_json::json!({"ok": true})
+        ));
+        assert!(!is_send_ok(
+            "telegram",
+            200,
+            &serde_json::json!({"ok": false, "description": "bad request"})
+        ));
+        // Missing `ok` (e.g. unexpected body shape) is treated as a failure,
+        // not a silent success.
+        assert!(!is_send_ok("telegram", 200, &serde_json::json!({})));
+    }
+
+    #[test]
+    fn other_platforms_default_ok_unless_error_present() {
+        assert!(is_send_ok(
+            "whatsapp",
+            200,
+            &serde_json::json!({"key": {"id": "abc"}})
+        ));
+        assert!(!is_send_ok(
+            "whatsapp",
+            200,
+            &serde_json::json!({"error": "session not connected"})
+        ));
+    }
+
+    #[test]
+    fn truncate_body_short_is_unchanged() {
+        assert_eq!(truncate_body("short", 300), "short");
+    }
+
+    #[test]
+    fn truncate_body_long_is_cut_with_ellipsis() {
+        let long = "a".repeat(400);
+        let out = truncate_body(&long, 300);
+        assert_eq!(out.chars().count(), 301); // 300 'a' + ellipsis char
+        assert!(out.ends_with('…'));
+    }
+
+    #[test]
+    fn truncate_body_respects_utf8_boundaries() {
+        // Each "é" is 2 bytes; cutting at byte 5 would land mid-codepoint.
+        let s = "ééééé";
+        let out = truncate_body(s, 5);
+        assert!(out.is_char_boundary(out.len() - '…'.len_utf8()));
+    }
+}

@@ -136,7 +136,29 @@ async fn check_and_send_recaps(
         // TODO(whatsapp): once WhatsApp is wired up, read the sent message id
         // from the response and `track_bot_message` it (as the scheduler path
         // does for Telegram) so replies to this recap are recognized.
-        let _ = Fetch::Request(req).send().await;
+        match Fetch::Request(req).send().await {
+            Ok(mut resp) => {
+                let status = resp.status_code();
+                let resp_text = resp.text().await.unwrap_or_default();
+                let resp_json: serde_json::Value =
+                    serde_json::from_str(&resp_text).unwrap_or(serde_json::Value::Null);
+                if !grumps_messaging::adapter::is_send_ok("whatsapp", status, &resp_json) {
+                    console_error!(
+                        "send failed: workspace={} platform=whatsapp status={} body={}",
+                        ws.slug,
+                        status,
+                        grumps_messaging::adapter::truncate_body(&resp_text, 300)
+                    );
+                }
+            }
+            Err(e) => {
+                console_error!(
+                    "send failed: workspace={} platform=whatsapp status=network_error body={}",
+                    ws.slug,
+                    e
+                );
+            }
+        }
 
         // Mark as sent (expires after 24h)
         kv.put(&recap_key, "1")?

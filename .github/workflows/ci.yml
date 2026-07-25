@@ -278,11 +278,29 @@ jobs:
 
       # Workspace DBs are dynamic (one per group) and can only be migrated by
       # the worker's own runtime runner. Trigger it post-deploy via the
-      # secret-gated internal endpoint. -f makes a non-2xx response fail the job.
+      # secret-gated internal endpoint. -f makes a non-2xx response fail the
+      # job. The endpoint processes one bounded chunk of workspaces per call
+      # (to stay under the Workers subrequest cap on a large fleet) and
+      # returns {done, next_offset} — loop until done:true. The 200-iteration
+      # cap (6000 workspaces at 30/chunk) is a safety net against an infinite
+      # loop if the endpoint ever stops advancing; it should never be hit.
       - name: Migrate workspace DBs
+        env:
+          MIGRATE_SECRET: ${{ secrets.MIGRATE_SECRET }}
         run: |
-          curl -fsS -X POST https://api.grumps.app/internal/migrate-workspaces \
-            -H "X-Migrate-Secret: ${{ secrets.MIGRATE_SECRET }}"
+          offset=0
+          for i in $(seq 1 200); do
+            response=$(curl -fsS -X POST "https://api.grumps.app/internal/migrate-workspaces?offset=${offset}" \
+              -H "X-Migrate-Secret: ${MIGRATE_SECRET}")
+            echo "$response"
+            done_flag=$(echo "$response" | jq -r '.done')
+            offset=$(echo "$response" | jq -r '.next_offset')
+            if [ "$done_flag" = "true" ]; then
+              exit 0
+            fi
+          done
+          echo "::error::migrate-workspaces did not report done:true within 200 chunks"
+          exit 1
 
   # Build the static landing page (14 locales) + Leptos SPA demo bundle and
   # publish to GitHub Pages. Gated on the same test jobs as deploy-worker, so a

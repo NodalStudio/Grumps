@@ -185,25 +185,35 @@ async fn handle_add_todos(
     locale: grumps_i18n::Locale,
     plan: &crate::billing::Plan,
 ) -> worker::Result<HandlerResult> {
-    // Check todo quota before inserting. Only `open` is used here, so the
+    // Enforce the todo quota per item inside the batch: a single
+    // `TODO: a\nTODO: b\n...` message can request more todos than the
+    // remaining quota allows. `todos_batch_allowance` computes how many of
+    // the requested todos actually fit (pure — see grumps_core::billing),
+    // so only the first `allowed` get inserted below and the existing quota
+    // message is appended for the rest, instead of a single all-or-nothing
+    // check against the whole batch. Only `open` is used here, so the
     // (tz-sensitive) "this week" count is irrelevant — pass UTC to skip a read.
     let (open_count, _, _, _) = ws_db.get_status_counts("UTC").await?;
-    if let Err(qe) = crate::billing::check_todo_quota(plan, open_count) {
-        return Ok(HandlerResult::one(
-            qe.render(locale),
-            Some(msg_id.to_string()),
-        ));
+    let allowed = plan.todos_batch_allowance(open_count, todos.len());
+    if allowed == 0 {
+        return Ok(match crate::billing::check_todo_quota(plan, open_count) {
+            Err(qe) => HandlerResult::one(qe.render(locale), Some(msg_id.to_string())),
+            // Only reachable if `todos` was empty to begin with.
+            Ok(()) => HandlerResult::none(),
+        });
     }
 
     let mut messages = Vec::new();
 
     // Single todo: skip the separate summary and fold the workspace link into
     // the one card instead — two messages for one todo is noisy. Multiple
-    // todos keep the summary-then-cards layout.
-    let single = todos.len() == 1;
+    // todos keep the summary-then-cards layout. "Single" reflects what's
+    // actually being created (`allowed`), not what was requested — a batch
+    // truncated down to one item still gets the single-card treatment.
+    let single = allowed == 1;
     if !single {
         messages.push(OutboundMessage {
-            text: formatter::todos_added_summary(todos.len(), slug, locale.code()),
+            text: formatter::todos_added_summary(allowed, slug, locale.code()),
             reply_to: Some(msg_id.to_string()),
             todo_id: None,
             markdown: false,
@@ -224,8 +234,9 @@ async fn handle_add_todos(
     // show the reply hint.
     let (show_hint, show_link) = card_chrome(ws_db, tz).await;
 
-    // Individual task card per todo
-    for (idx, parsed) in todos.iter().enumerate() {
+    // Individual task card per todo — only the first `allowed` (quota-limited
+    // above) are inserted.
+    for (idx, parsed) in todos.iter().take(allowed).enumerate() {
         let tags_json = serde_json::to_string(&parsed.tags).unwrap_or_else(|_| "[]".into());
         let assignee = parsed.assignee_mention.as_deref().unwrap_or("");
 
@@ -292,6 +303,20 @@ async fn handle_add_todos(
             todo_id: Some(todo_id.clone()),
             markdown: false,
         });
+    }
+
+    // The batch was truncated by quota — tell the group why the remaining
+    // lines were dropped, using the same quota message a single-item hit
+    // would show.
+    if allowed < todos.len() {
+        if let Err(qe) = crate::billing::check_todo_quota(plan, open_count + allowed as i64) {
+            messages.push(OutboundMessage {
+                text: qe.render(locale),
+                reply_to: None,
+                todo_id: None,
+                markdown: false,
+            });
+        }
     }
 
     Ok(HandlerResult::many(messages))

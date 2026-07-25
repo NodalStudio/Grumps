@@ -294,13 +294,39 @@ pub async fn whoami(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     Ok(resp)
 }
 
-/// Apply pending schema migrations to every workspace database. Iterates
-/// `workspaces_meta` and runs the idempotent runtime runner per database,
-/// collecting a per-workspace result. Returns `(migrations_applied, results)`.
+/// Max workspaces migrated per `/internal/migrate-workspaces` call. A large
+/// fleet × migration count can exceed the Workers subrequest cap mid-loop if
+/// the whole fleet is processed in one request, so the endpoint instead
+/// processes one bounded chunk per call and reports a resume cursor; CI loops
+/// until `done`.
+const MIGRATION_CHUNK_LIMIT: usize = 30;
+
+/// Split a `LIMIT limit+1 OFFSET offset` fetch (one extra row beyond `limit`,
+/// used to detect more-remaining without a separate COUNT query) into the
+/// chunk to actually process, the next resume offset, and whether this was
+/// the last chunk. Pure — testable without hitting D1.
+fn split_migration_chunk<T>(
+    mut fetched: Vec<T>,
+    limit: usize,
+    offset: usize,
+) -> (Vec<T>, usize, bool) {
+    let done = fetched.len() <= limit;
+    fetched.truncate(limit);
+    let next_offset = offset + fetched.len();
+    (fetched, next_offset, done)
+}
+
+/// Apply pending schema migrations to one bounded chunk of workspace
+/// databases (`MIGRATION_CHUNK_LIMIT`, starting at `offset`), running the
+/// idempotent runtime runner per database. Returns
+/// `(migrations_applied, results, next_offset, done)`.
 ///
 /// Shared by the deploy-time `migrate_workspaces_internal` endpoint — the
 /// migration logic lives here, the auth lives at the callsite.
-async fn run_workspace_migrations(env: &Env) -> Result<(usize, Vec<serde_json::Value>)> {
+async fn run_workspace_migrations(
+    env: &Env,
+    offset: usize,
+) -> Result<(usize, Vec<serde_json::Value>, usize, bool)> {
     let index = get_index_db(env)?;
     let client = D1RestClient::from_env(env)?;
 
@@ -309,16 +335,29 @@ async fn run_workspace_migrations(env: &Env) -> Result<(usize, Vec<serde_json::V
         slug: String,
         d1_database_id: String,
     }
-    let workspaces: Vec<WsRow> = index
-        .prepare("SELECT slug, d1_database_id FROM workspaces_meta")
-        .bind(&[])?
+    // Order deterministically so repeated calls with increasing `offset`
+    // walk the fleet without skipping or repeating a workspace.
+    // Bind as i32, not i64/usize: wasm-bindgen's `From<i64> for JsValue`
+    // produces a JS BigInt (see `big_integers!` in wasm-bindgen), which D1
+    // does not accept for an INTEGER bind param — i32 goes through
+    // `JsValue::from_f64`, a plain JS Number, which D1 expects.
+    let fetched: Vec<WsRow> = index
+        .prepare(
+            "SELECT slug, d1_database_id FROM workspaces_meta ORDER BY slug LIMIT ?1 OFFSET ?2",
+        )
+        .bind(&[
+            ((MIGRATION_CHUNK_LIMIT + 1) as i32).into(),
+            (offset as i32).into(),
+        ])?
         .all()
         .await?
         .results()?;
 
+    let (chunk, next_offset, done) = split_migration_chunk(fetched, MIGRATION_CHUNK_LIMIT, offset);
+
     let mut applied_total = 0usize;
     let mut results: Vec<serde_json::Value> = vec![];
-    for ws in &workspaces {
+    for ws in &chunk {
         match crate::migrations::apply_pending(&client, &ws.d1_database_id).await {
             Ok(applied) => {
                 applied_total += applied.len();
@@ -330,14 +369,17 @@ async fn run_workspace_migrations(env: &Env) -> Result<(usize, Vec<serde_json::V
             }
         }
     }
-    Ok((applied_total, results))
+    Ok((applied_total, results, next_offset, done))
 }
 
-/// POST /internal/migrate-workspaces — apply pending schema migrations to every
-/// workspace database. Called by CI immediately after `wrangler deploy`, so it
-/// is gated by a shared `X-Migrate-Secret` header (constant-time compared to the
-/// `MIGRATE_SECRET` worker secret) rather than a user session — CI has no JWT.
-/// Performs only idempotent, additive migrations; no destructive SQL.
+/// POST /internal/migrate-workspaces?offset=N — apply pending schema
+/// migrations to one bounded chunk of workspace databases (see
+/// `MIGRATION_CHUNK_LIMIT`). Called by CI immediately after `wrangler
+/// deploy`, so it is gated by a shared `X-Migrate-Secret` header
+/// (constant-time compared to the `MIGRATE_SECRET` worker secret) rather
+/// than a user session — CI has no JWT. Performs only idempotent, additive
+/// migrations; no destructive SQL. Response includes `{done, next_offset}`
+/// so the caller loops (`?offset={next_offset}`) until `done: true`.
 pub async fn migrate_workspaces_internal(req: Request, ctx: RouteContext<()>) -> Result<Response> {
     let provided = req.headers().get("X-Migrate-Secret")?.unwrap_or_default();
     let expected = ctx
@@ -353,12 +395,74 @@ pub async fn migrate_workspaces_internal(req: Request, ctx: RouteContext<()>) ->
         return middleware::error_with_cors(&req, 403, "auth.forbidden", "forbidden");
     }
 
-    let (applied_total, results) = run_workspace_migrations(&ctx.env).await?;
+    let offset: usize = req
+        .url()?
+        .query_pairs()
+        .find(|(k, _)| k == "offset")
+        .and_then(|(_, v)| v.parse().ok())
+        .unwrap_or(0);
+
+    let (applied_total, results, next_offset, done) =
+        run_workspace_migrations(&ctx.env, offset).await?;
 
     Response::from_json(&serde_json::json!({
         "ok": true,
         "workspaces": results.len(),
         "migrations_applied": applied_total,
         "results": results,
+        "done": done,
+        "next_offset": next_offset,
     }))
+}
+
+#[cfg(test)]
+mod migration_chunk_tests {
+    use super::*;
+
+    #[test]
+    fn chunk_smaller_than_limit_is_done() {
+        let fetched = vec![1, 2, 3];
+        let (chunk, next_offset, done) = split_migration_chunk(fetched, 30, 0);
+        assert_eq!(chunk, vec![1, 2, 3]);
+        assert_eq!(next_offset, 3);
+        assert!(done);
+    }
+
+    #[test]
+    fn chunk_exactly_at_limit_is_done() {
+        let fetched: Vec<i32> = (0..30).collect();
+        let (chunk, next_offset, done) = split_migration_chunk(fetched, 30, 0);
+        assert_eq!(chunk.len(), 30);
+        assert_eq!(next_offset, 30);
+        assert!(done);
+    }
+
+    #[test]
+    fn chunk_with_extra_row_is_not_done_and_truncates() {
+        // The fetch queries limit+1 rows; 31 rows back for a limit of 30
+        // means there's at least one more workspace beyond this chunk.
+        let fetched: Vec<i32> = (0..31).collect();
+        let (chunk, next_offset, done) = split_migration_chunk(fetched, 30, 0);
+        assert_eq!(chunk.len(), 30);
+        assert_eq!(next_offset, 30);
+        assert!(!done);
+    }
+
+    #[test]
+    fn resumes_from_a_nonzero_offset() {
+        let fetched: Vec<i32> = (0..31).collect();
+        let (chunk, next_offset, done) = split_migration_chunk(fetched, 30, 60);
+        assert_eq!(chunk.len(), 30);
+        assert_eq!(next_offset, 90);
+        assert!(!done);
+    }
+
+    #[test]
+    fn empty_fetch_is_done() {
+        let fetched: Vec<i32> = vec![];
+        let (chunk, next_offset, done) = split_migration_chunk(fetched, 30, 90);
+        assert!(chunk.is_empty());
+        assert_eq!(next_offset, 90);
+        assert!(done);
+    }
 }

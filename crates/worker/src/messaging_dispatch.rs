@@ -4,7 +4,7 @@
 //! lives in one place.
 
 use crate::db::{get_index_db, lookup_platform_channel};
-use grumps_messaging::adapter::{MessagingPlatform, OutboundMessage};
+use grumps_messaging::adapter::{is_send_ok, truncate_body, MessagingPlatform, OutboundMessage};
 use grumps_messaging::telegram::TelegramAdapter;
 use grumps_messaging::waha::WahaAdapter;
 use worker::*;
@@ -23,10 +23,10 @@ pub async fn send_to_workspace(
         .await?
         .ok_or_else(|| Error::RustError(format!("workspace not found: {ws_slug}")))?;
     match platform.as_str() {
-        "telegram" => send_via_telegram(env, &channel_id, out).await,
+        "telegram" => send_via_telegram(env, ws_slug, &channel_id, out).await,
         // DB platform string stays "whatsapp" (WAHA is transport only — see
         // the route module docs); this is the WAHA REST send path.
-        "whatsapp" => send_via_waha(env, &channel_id, out).await,
+        "whatsapp" => send_via_waha(env, ws_slug, &channel_id, out).await,
         "discord" => Err(Error::RustError(
             "send_to_workspace: Discord not wired yet — use the webhook path".into(),
         )),
@@ -36,6 +36,7 @@ pub async fn send_to_workspace(
 
 async fn send_via_telegram(
     env: &Env,
+    ws_slug: &str,
     chat_id: &str,
     out: &OutboundMessage,
 ) -> Result<Option<String>> {
@@ -55,20 +56,20 @@ async fn send_via_telegram(
         .with_body(Some(body.into()));
     let req = Request::new_with_init(&url, &init)?;
     let mut resp = Fetch::Request(req).send().await?;
-    // Best-effort: read back the sent message id for reply tracking.
-    let sent_id = resp
-        .json::<serde_json::Value>()
-        .await
-        .ok()
-        .and_then(|json| {
-            json.pointer("/result/message_id")
-                .and_then(|v| v.as_i64())
-                .map(|id| id.to_string())
-        });
+    let json = read_and_log_send_result(ws_slug, "telegram", &mut resp).await;
+    let sent_id = json
+        .pointer("/result/message_id")
+        .and_then(|v| v.as_i64())
+        .map(|id| id.to_string());
     Ok(sent_id)
 }
 
-async fn send_via_waha(env: &Env, chat_id: &str, out: &OutboundMessage) -> Result<Option<String>> {
+async fn send_via_waha(
+    env: &Env,
+    ws_slug: &str,
+    chat_id: &str,
+    out: &OutboundMessage,
+) -> Result<Option<String>> {
     let adapter = WahaAdapter::new(
         env.secret("WAHA_URL")?.to_string(),
         env.var("WAHA_SESSION")
@@ -89,15 +90,35 @@ async fn send_via_waha(env: &Env, chat_id: &str, out: &OutboundMessage) -> Resul
         .with_body(Some(body.into()));
     let req = Request::new_with_init(&url, &init)?;
     let mut resp = Fetch::Request(req).send().await?;
-    // Best-effort: read back the sent (raw) message id for reply tracking.
-    let sent_id = resp
-        .json::<serde_json::Value>()
-        .await
-        .ok()
-        .and_then(|json| {
-            json.pointer("/key/id")
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string())
-        });
+    let json = read_and_log_send_result(ws_slug, "whatsapp", &mut resp).await;
+    let sent_id = json
+        .pointer("/key/id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     Ok(sent_id)
+}
+
+/// Read back an outbound-send response and log a failure via
+/// `console_error!` (workspace slug, platform, status, truncated body) so a
+/// dropped reply leaves a server-side trace instead of vanishing silently.
+/// Returns the parsed JSON body (`Value::Null` if the body isn't valid JSON)
+/// so callers can still best-effort extract a sent-message id.
+async fn read_and_log_send_result(
+    ws_slug: &str,
+    platform: &str,
+    resp: &mut Response,
+) -> serde_json::Value {
+    let status = resp.status_code();
+    let text = resp.text().await.unwrap_or_default();
+    let json: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+    if !is_send_ok(platform, status, &json) {
+        console_error!(
+            "send failed: workspace={} platform={} status={} body={}",
+            ws_slug,
+            platform,
+            status,
+            truncate_body(&text, 300)
+        );
+    }
+    json
 }
