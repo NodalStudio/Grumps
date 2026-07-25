@@ -6,6 +6,7 @@ mod datetime;
 mod demo;
 mod i18n;
 mod pages;
+mod refresh;
 
 fn main() {
     console_error_panic_hook::set_once();

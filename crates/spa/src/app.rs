@@ -43,7 +43,6 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/todos") view=pages::todos::TodosPage />
                     <Route path=path!("/notes") view=pages::notes::NotesPage />
                     <Route path=path!("/notes/:id") view=pages::note_editor::NoteEditorPage />
-                    <Route path=path!("/files") view=pages::files::FilesPage />
                     <Route path=path!("/history") view=pages::history::HistoryPage />
                     <Route path=path!("/settings") view=pages::settings::SettingsPage />
                     <Route path=path!("/memory") view=pages::memory::MemoryPage />

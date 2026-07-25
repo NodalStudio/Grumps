@@ -116,6 +116,7 @@ pub fn CalendarPage() -> impl IntoView {
     let cal_items = LocalResource::new(move || {
         let api = api.clone();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         let (from, to) = if view_mode.get() == "week" {
             // Cover the visible week plus a one-day margin so tz-shifted
             // boundary instants aren't missed; WeekView filters precisely.

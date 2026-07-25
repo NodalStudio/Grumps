@@ -86,6 +86,12 @@ pub struct UpdateTodoRequest {
     pub tags: Option<Vec<String>>,
     pub assigned_to: Option<String>,
     pub assigned_name: Option<String>,
+
+    /// Civil date "YYYY-MM-DD" (never a UTC instant). The handler validates
+    /// the format and silently ignores anything else, mirroring
+    /// `CreateTodoRequest::deadline` — shape-only here since the value is a
+    /// domain format, not a length/range constraint.
+    pub deadline: Option<String>,
 }
 
 /// Body of `POST /api/w/:slug/notes`.

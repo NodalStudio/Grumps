@@ -37,6 +37,7 @@ pub fn MemoryPage() -> impl IntoView {
         let api = api.clone();
         let s = slug();
         let _ = refresh.get();
+        let _ = crate::refresh::use_refresh().get();
         async move { api.list_memory(&s).await.unwrap_or_default() }
     });
 

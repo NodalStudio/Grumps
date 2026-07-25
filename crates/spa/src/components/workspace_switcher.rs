@@ -32,7 +32,7 @@ pub fn WorkspaceSwitcher(current_slug: String) -> impl IntoView {
             align=MenuAlign::Start
             container_class="flex w-full"
             aria_label=Signal::derive(|| tr("workspace.switch_label"))
-            trigger_class="w-full text-left p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
+            trigger_class="w-full text-start p-3 border-2 border-ink rounded-xs cursor-pointer flex justify-between items-center"
             trigger_style="background: var(--cream-light);"
             menu_class="inset-inline-0 top-full mt-1 border-2 border-ink rounded-xs"
             menu_style="background: var(--cream-light);"

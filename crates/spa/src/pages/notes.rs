@@ -15,6 +15,7 @@ pub fn NotesPage() -> impl IntoView {
     let notes = LocalResource::new(move || {
         let api = use_api();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         async move { api.get_notes(&s).await.unwrap_or_default() }
     });
 

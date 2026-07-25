@@ -28,7 +28,7 @@ pub fn CalItem(item: CalendarItem, compact: bool) -> impl IntoView {
                 view! {
                     <span>
                         {move || tr(&t)}
-                        {src_key.map(|k| view! { <span class="opacity-70 ml-1">"(" {move || tr(&k)} ")"</span> })}
+                        {src_key.map(|k| view! { <span class="opacity-70 ms-1">"(" {move || tr(&k)} ")"</span> })}
                     </span>
                 }.into_any()
             }}
