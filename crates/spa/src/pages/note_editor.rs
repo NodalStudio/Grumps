@@ -179,7 +179,7 @@ pub fn NoteEditorPage() -> impl IntoView {
                                                                         <li>
                                                                             <button
                                                                                 type="button"
-                                                                                class="w-full text-left px-2 py-1 text-sm hover:bg-cream"
+                                                                                class="w-full text-start px-2 py-1 text-sm hover:bg-cream"
                                                                                 on:click=move |_| {
                                                                                     set_content.update(|c| {
                                                                                         if let Some(idx) = c.rfind("[[") {
