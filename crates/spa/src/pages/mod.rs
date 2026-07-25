@@ -1,6 +1,5 @@
 pub mod calendar;
 pub mod dashboard;
-pub mod files;
 pub mod global_observability;
 pub mod history;
 pub mod login;

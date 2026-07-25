@@ -70,7 +70,6 @@ pub fn Sidebar(slug: String) -> impl IntoView {
                 <NavItem rel=wbase.clone() i18n_key="sidebar.nav.overview" icon="\u{25EB}" rbase=rbase.clone() cur=cur exact=true />
                 <NavItem rel=format!("{}/todos", wbase) i18n_key="sidebar.nav.todos" icon="\u{2610}" rbase=rbase.clone() cur=cur />
                 <NavItem rel=format!("{}/notes", wbase) i18n_key="sidebar.nav.notes" icon="\u{00B6}" rbase=rbase.clone() cur=cur />
-                <NavItem rel=format!("{}/files", wbase) i18n_key="sidebar.nav.files" icon="\u{25F0}" rbase=rbase.clone() cur=cur />
                 <NavItem rel=format!("{}/history", wbase) i18n_key="sidebar.nav.history" icon="\u{21BB}" rbase=rbase.clone() cur=cur />
                 <NavItem rel=format!("{}/calendar", wbase) i18n_key="sidebar.nav.calendar" icon="\u{25A6}" rbase=rbase.clone() cur=cur />
                 <NavItem rel=format!("{}/memory", wbase) i18n_key="sidebar.nav.memory" icon="\u{25C9}" rbase=rbase.clone() cur=cur />
@@ -198,7 +197,7 @@ fn UserMenu(slug: String, rbase: String) -> impl IntoView {
                 align=MenuAlign::Start
                 container_class="flex w-full"
                 aria_label=Signal::derive(|| tr("settings.account"))
-                trigger_class="w-full flex items-center gap-2.5 px-5 py-3 cursor-pointer text-left"
+                trigger_class="w-full flex items-center gap-2.5 px-5 py-3 cursor-pointer text-start"
                 trigger_style="background: transparent;"
                 menu_class="inset-inline-0 bottom-full mb-1 border-2 border-ink rounded-xs"
                 menu_style="background: var(--cream-light);"
@@ -222,7 +221,7 @@ fn UserMenu(slug: String, rbase: String) -> impl IntoView {
                     type="button"
                     role="menuitem"
                     tabindex="-1"
-                    class="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm hover-tint"
+                    class="w-full text-start flex items-center gap-2.5 px-4 py-2 text-sm hover-tint"
                     on:click=move |_| {
                         open.set(false);
                         drawer.set(true);
@@ -245,7 +244,7 @@ fn UserMenu(slug: String, rbase: String) -> impl IntoView {
                     type="button"
                     role="menuitem"
                     tabindex="-1"
-                    class="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm hover-tint"
+                    class="w-full text-start flex items-center gap-2.5 px-4 py-2 text-sm hover-tint"
                     style="color: var(--brick);"
                     on:click=move |_| {
                         open.set(false);
