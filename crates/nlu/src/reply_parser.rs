@@ -1,6 +1,23 @@
 use crate::parser::{ParseResult, TaskCardAction};
 use grumps_core::todo::Priority;
 
+/// True if `s` looks like a bounded card-reply capture: non-empty, at most
+/// 3 words, and free of sentence punctuation. Longer or punctuated captures
+/// ("Bob can you take this today?", "I think we should wait for the client
+/// to answer") are ordinary chat that happens to start with `@`/`#`/
+/// `status:`, not a reassignment/tag/status verb — the caller falls through
+/// to normal parsing instead of swallowing the whole sentence.
+fn is_bounded_capture(s: &str) -> bool {
+    let trimmed = s.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    if trimmed.contains(['.', ',', '!', '?', ';']) {
+        return false;
+    }
+    trimmed.split_whitespace().count() <= 3
+}
+
 /// Parse a reply to a bot task card. Returns `Some` only for recognized card
 /// verbs; unrecognized text (casual chatter) and explicit `@grumps` commands
 /// return `None` so the caller can fall through to normal parsing instead of
@@ -9,7 +26,9 @@ pub fn parse_reply(text: &str) -> Option<ParseResult> {
     let lower = text.trim().to_lowercase();
     let original = text.trim();
     let action = match lower.as_str() {
-        "done" | "finished" | "complete" | "ok" | "fait" | "fini" => TaskCardAction::Done,
+        // "ok" is the default human ack to *any* bot message, not a
+        // deliberate "mark this task done" — dropped as a Done synonym.
+        "done" | "finished" | "complete" | "fait" | "fini" => TaskCardAction::Done,
         "cancel" | "delete" | "remove" | "supprimer" => TaskCardAction::Delete,
         "snooze" | "reporter" => TaskCardAction::Snooze(String::new()),
         "!high" | "!!!" => TaskCardAction::ChangePriority(Priority::High),
@@ -21,13 +40,25 @@ pub fn parse_reply(text: &str) -> Option<ParseResult> {
         // reassignment — let normal mention parsing handle it.
         _ if lower.starts_with("@grumps") => return None,
         _ if lower.starts_with('@') && original.len() > 1 => {
-            TaskCardAction::Reassign(original[1..].trim().into())
+            let captured = original[1..].trim();
+            if !is_bounded_capture(captured) {
+                return None;
+            }
+            TaskCardAction::Reassign(captured.into())
         }
         _ if lower.starts_with('#') && original.len() > 1 => {
-            TaskCardAction::AddTag(original[1..].trim().into())
+            let captured = original[1..].trim();
+            if !is_bounded_capture(captured) {
+                return None;
+            }
+            TaskCardAction::AddTag(captured.into())
         }
         _ if lower.starts_with("status:") || lower.starts_with("status ") => {
-            TaskCardAction::ChangeStatus(original[7..].trim().into())
+            let captured = original[7..].trim();
+            if !is_bounded_capture(captured) {
+                return None;
+            }
+            TaskCardAction::ChangeStatus(captured.into())
         }
         // Not a recognized card verb — fall through to normal parsing.
         _ => return None,
@@ -50,9 +81,18 @@ mod tests {
 
     #[test]
     fn done_keywords() {
-        for kw in &["done", "finished", "complete", "ok", "fait", "fini"] {
+        for kw in &["done", "finished", "complete", "fait", "fini"] {
             assert_eq!(action(kw), TaskCardAction::Done, "failed for '{kw}'");
         }
+    }
+
+    #[test]
+    fn bare_ok_no_longer_completes() {
+        // "ok" is the default human ack to *any* bot message — it must not
+        // silently mark the task done.
+        assert_eq!(parse_reply("ok"), None);
+        assert_eq!(parse_reply("OK"), None);
+        assert_eq!(parse_reply("  ok  "), None);
     }
 
     #[test]
@@ -169,6 +209,54 @@ mod tests {
         assert_eq!(
             action("status in_progress"),
             TaskCardAction::ChangeStatus("in_progress".into())
+        );
+    }
+
+    // --- bounded captures (issue #21): over ~3 words or sentence
+    // punctuation falls through to normal parsing instead of swallowing a
+    // whole sentence as a reassign/tag/status verb. ---
+
+    #[test]
+    fn reassign_unbounded_falls_through() {
+        assert_eq!(parse_reply("@Bob can you take this today?"), None);
+    }
+
+    #[test]
+    fn reassign_bounded_still_works() {
+        // Sanity: the 3-word ceiling and the punctuation check don't reject
+        // legitimate short reassignments.
+        assert_eq!(
+            action("@Bob Smith Jr"),
+            TaskCardAction::Reassign("Bob Smith Jr".into())
+        );
+    }
+
+    #[test]
+    fn add_tag_still_works() {
+        assert_eq!(action("#urgent"), TaskCardAction::AddTag("urgent".into()));
+    }
+
+    #[test]
+    fn add_tag_unbounded_falls_through() {
+        assert_eq!(
+            parse_reply("#this is definitely not a real tag, is it?"),
+            None
+        );
+    }
+
+    #[test]
+    fn change_status_still_works() {
+        assert_eq!(
+            action("status: blocked"),
+            TaskCardAction::ChangeStatus("blocked".into())
+        );
+    }
+
+    #[test]
+    fn change_status_unbounded_falls_through() {
+        assert_eq!(
+            parse_reply("status: I think we should wait for the client to answer"),
+            None
         );
     }
 
