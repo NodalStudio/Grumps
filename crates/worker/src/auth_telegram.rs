@@ -84,16 +84,12 @@ pub fn verify_widget_hash(payload: &TelegramWidgetPayload, bot_token: &str) -> b
     constant_time_eq(expected.as_bytes(), payload.hash.as_bytes())
 }
 
-pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut r = 0u8;
-    for i in 0..a.len() {
-        r |= a[i] ^ b[i];
-    }
-    r == 0
-}
+/// Re-exported from `grumps-core` so existing call sites (this module,
+/// `admin_global`'s `/internal/migrate-workspaces` secret gate) don't need to
+/// spell out the full path. The implementation lives in `grumps-core` so
+/// `grumps-messaging` (which must stay dependency-light and pure — no worker
+/// types) can share it too.
+pub(crate) use grumps_core::security::constant_time_eq;
 
 #[cfg(test)]
 mod tests {
@@ -190,13 +186,6 @@ mod tests {
         assert_eq!(p.display_name(), "telegram:1234567890");
     }
 
-    // constant_time_eq also backs the /internal/migrate-workspaces secret gate.
-    #[test]
-    fn constant_time_eq_matches_and_rejects() {
-        assert!(constant_time_eq(b"s3cr3t", b"s3cr3t"));
-        assert!(!constant_time_eq(b"s3cr3t", b"S3cr3t"));
-        assert!(!constant_time_eq(b"s3cr3t", b"s3cr3t-longer"));
-        // An empty provided secret must never match a real one.
-        assert!(!constant_time_eq(b"", b"s3cr3t"));
-    }
+    // constant_time_eq itself is exercised in grumps-core (also backs the
+    // /internal/migrate-workspaces secret gate via admin_global.rs).
 }
