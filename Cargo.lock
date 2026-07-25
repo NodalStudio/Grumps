@@ -1115,6 +1115,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "grumps-core",
+ "grumps-i18n",
  "hex",
  "hmac 0.13.0",
  "serde",
