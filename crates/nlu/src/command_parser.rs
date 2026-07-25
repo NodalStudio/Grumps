@@ -62,8 +62,8 @@ fn parse_list_command(args: &[&str]) -> ParseResult {
 }
 
 fn parse_done_command(text: &str) -> ParseResult {
-    if text.starts_with('#') {
-        if let Ok(n) = text[1..].parse::<i64>() {
+    if let Some(rest) = text.strip_prefix('#') {
+        if let Ok(n) = rest.parse::<i64>() {
             return ParseResult::CompleteSingle(CompletionTarget::BySeqNum(n));
         }
     }

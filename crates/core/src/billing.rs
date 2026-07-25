@@ -12,6 +12,9 @@ pub enum Plan {
 }
 
 impl Plan {
+    // Not the `FromStr` trait: infallible (unknown input falls back to
+    // `Free`), which the trait's `Result`-returning contract doesn't fit.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "pro" => Self::Pro,

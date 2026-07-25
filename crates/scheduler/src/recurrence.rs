@@ -248,7 +248,7 @@ fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
     match rule.freq {
         Freq::Daily => {
             let days = (date - base).num_days();
-            days > 0 && (days as u32) % rule.interval == 0
+            days > 0 && (days as u32).is_multiple_of(rule.interval)
         }
         Freq::Weekly => {
             let days = (date - base).num_days();
@@ -260,14 +260,14 @@ fn matches_rule(rule: &Rrule, date: NaiveDate, base: NaiveDate) -> bool {
             // named day land here, so the weekday is the *local* base weekday
             // (base is `from` seen in the workspace tz) — no UTC drift.
             if rule.by_day.is_empty() {
-                return days % 7 == 0 && ((days / 7) as u32) % rule.interval == 0;
+                return days % 7 == 0 && ((days / 7) as u32).is_multiple_of(rule.interval);
             }
             if !rule.by_day.contains(&date.weekday()) {
                 return false;
             }
             // INTERVAL applies to weeks.
             let weeks = (days / 7) as u32;
-            weeks % rule.interval == 0
+            weeks.is_multiple_of(rule.interval)
         }
         // For MONTHLY/YEARLY, INTERVAL counts from the base (DTSTART) period,
         // so the base period itself (offset 0) is a valid occurrence.

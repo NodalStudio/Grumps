@@ -14,6 +14,9 @@ impl Role {
         }
     }
 
+    // Not the `FromStr` trait: infallible (unrecognised input falls back to
+    // `Member`), which the trait's `Result`-returning contract doesn't fit.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         if s == "admin" {
             Self::Admin
