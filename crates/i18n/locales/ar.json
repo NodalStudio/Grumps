@@ -314,7 +314,6 @@
   "billing.quota.todos": "تم بلوغ حد المهام ({current}/{max}). الترقية: grumps.app/billing",
   "billing.quota.notes": "تم بلوغ حد الملاحظات ({current}/{max}). الترقية: grumps.app/billing",
   "billing.quota.llm": "تم بلوغ حد رسائل الذكاء الاصطناعي ({current}/{max}). الترقية: grumps.app/billing",
-  "agent.files.web_only": "📁 قائمة الملفات في مساحة العمل عبر الويب.",
   "agent.notes.search_empty": "🔍 لا توجد ملاحظات تطابق «{query}».",
   "page.note_editor.untitled": "(بدون عنوان)",
   "page.note_editor.created": "أُنشئ في {date}",

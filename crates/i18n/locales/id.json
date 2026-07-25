@@ -314,7 +314,6 @@
   "billing.quota.todos": "Batas todo tercapai ({current}/{max}). Upgrade: grumps.app/billing",
   "billing.quota.notes": "Batas catatan tercapai ({current}/{max}). Upgrade: grumps.app/billing",
   "billing.quota.llm": "Batas pesan AI tercapai ({current}/{max}). Upgrade: grumps.app/billing",
-  "agent.files.web_only": "📁 Daftar file ada di ruang kerja web.",
   "agent.notes.search_empty": "🔍 Tidak ada catatan cocok dengan \"{query}\".",
   "page.note_editor.untitled": "(tanpa judul)",
   "page.note_editor.created": "Dibuat {date}",

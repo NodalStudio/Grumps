@@ -314,7 +314,6 @@
   "billing.quota.todos": "Aufgaben-Limit erreicht ({current}/{max}). Upgrade: grumps.app/billing",
   "billing.quota.notes": "Notizen-Limit erreicht ({current}/{max}). Upgrade: grumps.app/billing",
   "billing.quota.llm": "KI-Nachrichten-Limit erreicht ({current}/{max}). Upgrade: grumps.app/billing",
-  "agent.files.web_only": "📁 Dateiliste im Web-Workspace.",
   "agent.notes.search_empty": "🔍 Keine Notizen passen zu „{query}\".",
   "page.note_editor.untitled": "(ohne Titel)",
   "page.note_editor.created": "Erstellt am {date}",

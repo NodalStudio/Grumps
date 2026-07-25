@@ -314,7 +314,6 @@
   "billing.quota.todos": "Limite todo raggiunto ({current}/{max}). Esegui l'upgrade: grumps.app/billing",
   "billing.quota.notes": "Limite note raggiunto ({current}/{max}). Esegui l'upgrade: grumps.app/billing",
   "billing.quota.llm": "Limite messaggi IA raggiunto ({current}/{max}). Esegui l'upgrade: grumps.app/billing",
-  "agent.files.web_only": "📁 L'elenco file è nello spazio web.",
   "agent.notes.search_empty": "🔍 Nessuna nota corrisponde a «{query}».",
   "page.note_editor.untitled": "(senza titolo)",
   "page.note_editor.created": "Creato il {date}",

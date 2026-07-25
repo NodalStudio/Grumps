@@ -314,7 +314,6 @@
   "billing.quota.todos": "已达待办上限 ({current}/{max})。升级: grumps.app/billing",
   "billing.quota.notes": "已达便签上限 ({current}/{max})。升级: grumps.app/billing",
   "billing.quota.llm": "已达 AI 消息上限 ({current}/{max})。升级: grumps.app/billing",
-  "agent.files.web_only": "📁 文件列表在网页工作区。",
   "agent.notes.search_empty": "🔍 没有匹配 \"{query}\" 的便签。",
   "page.note_editor.untitled": "(无标题)",
   "page.note_editor.created": "创建于 {date}",

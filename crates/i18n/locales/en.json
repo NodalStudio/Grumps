@@ -325,7 +325,6 @@
   "billing.quota.todos": "Todo limit reached ({current}/{max}). Upgrade to add more: grumps.app/billing",
   "billing.quota.notes": "Note limit reached ({current}/{max}). Upgrade: grumps.app/billing",
   "billing.quota.llm": "AI message limit reached ({current}/{max}). Upgrade: grumps.app/billing",
-  "agent.files.web_only": "📁 File listing is on the web workspace.",
   "agent.notes.search_empty": "🔍 No notes matching \"{query}\".",
   "page.note_editor.untitled": "(untitled)",
   "page.note_editor.created": "Created {date}",

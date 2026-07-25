@@ -314,7 +314,6 @@
   "billing.quota.todos": "Límite de tareas alcanzado ({current}/{max}). Actualiza para añadir más: grumps.app/billing",
   "billing.quota.notes": "Límite de notas alcanzado ({current}/{max}). Actualiza: grumps.app/billing",
   "billing.quota.llm": "Límite de mensajes IA alcanzado ({current}/{max}). Actualiza: grumps.app/billing",
-  "agent.files.web_only": "📁 La lista de archivos está en el espacio web.",
   "agent.notes.search_empty": "🔍 No hay notas que coincidan con «{query}».",
   "page.note_editor.untitled": "(sin título)",
   "page.note_editor.created": "Creado {date}",
