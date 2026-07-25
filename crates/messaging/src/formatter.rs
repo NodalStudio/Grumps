@@ -1,4 +1,3 @@
-use crate::i18n;
 use grumps_core::todo::Priority;
 
 /// Literal reply hint appended to the first ~5 task cards of a workspace
@@ -18,10 +17,12 @@ const CARD_REPLY_HINT: &str = "↩ done · snooze · edit · @name";
 /// the caller asks for them (degressive hint, once-a-day link — see
 /// `handler::card_chrome`).
 ///
-/// `deadline_display` and all other content are pre-localized by the caller
-/// (this crate does not depend on `grumps-i18n`, see crate-level docs);
-/// the only thing this function localizes internally is nothing — it is
-/// pure layout.
+/// `deadline_display` and all other content are pre-localized by the caller.
+/// This crate does depend on `grumps-i18n` (see [`note_list`], [`status_summary`],
+/// [`recap_message`], [`help_text`]), but `task_card` itself stays pure
+/// layout — its inputs are always pre-localized upstream and its only
+/// literal string, [`CARD_REPLY_HINT`], is deliberately English (stable
+/// command-keyword API, not display prose).
 #[allow(clippy::too_many_arguments)]
 pub fn task_card(
     seq_num: i64,
@@ -76,17 +77,16 @@ pub fn task_card(
 
 /// Summary after adding todos.
 pub fn todos_added_summary(count: usize, workspace_slug: &str, lang: &str) -> String {
-    let label = if count == 1 {
-        i18n::t("todo.added", lang)
-    } else {
-        i18n::t("todos.added", lang)
-    };
-    format!("✅ {} {}\n🔗 grumps.app/w/{}", count, label, workspace_slug)
+    let locale = grumps_i18n::Locale::from_code(lang);
+    let label = grumps_i18n::t_plural(locale, "agent.todo_added", count as i64, &[]);
+    format!("✅ {}\n🔗 grumps.app/w/{}", label, workspace_slug)
 }
 
 /// One row for [`todo_list`], with locale-aware display fields precomputed by
-/// the caller (deadline localization, sort bucket) so this crate stays free
-/// of any `grumps-i18n` dependency — see crate-level docs. `sort_key` is
+/// the caller (deadline localization, sort bucket) — the per-item count
+/// header is also pre-rendered via `t_plural` on the worker side, since it
+/// needs the `ListFilter` variant the worker already has in scope. `sort_key`
+/// is
 /// `(group, date_ordinal, priority_rank, seq_num)`:
 /// - `group`: 0 = overdue, 1 = today, 2 = dated (future), 3 = undated.
 /// - `date_ordinal`: proleptic-Gregorian ordinal day for group 2, else 0.
@@ -110,12 +110,17 @@ pub struct TodoListItem {
 /// `filter_label` is only consulted for the empty-state personality message,
 /// unchanged from the previous format.
 pub fn todo_list(items: &[TodoListItem], filter_label: &str, header: &str, lang: &str) -> String {
+    let locale = grumps_i18n::Locale::from_code(lang);
     if items.is_empty() {
         return match filter_label {
-            "open" => i18n::t("empty.todos_open", lang).to_string(),
-            "done" => i18n::t("empty.todos_done", lang).to_string(),
-            "mine" => i18n::t("empty.todos_mine", lang).to_string(),
-            _ => format!("No todos matching \"{}\".", filter_label),
+            "open" => grumps_i18n::t(locale, "agent.empty.todos_open", &[]),
+            "done" => grumps_i18n::t(locale, "agent.empty.todos_done", &[]),
+            "mine" => grumps_i18n::t(locale, "agent.empty.todos_mine", &[]),
+            _ => grumps_i18n::t(
+                locale,
+                "agent.empty.todos_filtered",
+                &[("filter", filter_label)],
+            ),
         };
     }
 
@@ -158,19 +163,20 @@ pub fn todo_list(items: &[TodoListItem], filter_label: &str, header: &str, lang:
 /// Format note list.
 pub fn note_list(notes: &[(String, Option<String>, String, String)], lang: &str) -> String {
     // Tuple: (id, title, source, created_at)
+    let locale = grumps_i18n::Locale::from_code(lang);
     if notes.is_empty() {
-        return i18n::t("empty.notes", lang).to_string();
+        return grumps_i18n::t(locale, "agent.empty.notes", &[]);
     }
     let mut lines = vec![
         format!(
-            "📝 {} note{}:",
-            notes.len(),
-            if notes.len() > 1 { "s" } else { "" }
+            "📝 {}:",
+            grumps_i18n::t_plural(locale, "agent.notes.count", notes.len() as i64, &[])
         ),
         String::new(),
     ];
+    let untitled = grumps_i18n::t(locale, "agent.notes.untitled", &[]);
     for (_id, title, source, created_at) in notes {
-        let t = title.as_deref().unwrap_or("(untitled)");
+        let t = title.as_deref().unwrap_or(untitled.as_str());
         let badge = if source == "chat" { "💬" } else { "🌐" };
         lines.push(format!("• {} {} — {}", badge, t, created_at));
     }
@@ -184,15 +190,28 @@ pub fn status_summary(
     notes: i64,
     files: i64,
     workspace_slug: &str,
-    _lang: &str,
+    lang: &str,
 ) -> String {
-    vec![
-        "📊 Status".into(),
+    let locale = grumps_i18n::Locale::from_code(lang);
+    [
+        format!("📊 {}", grumps_i18n::t(locale, "agent.status.title", &[])),
         "━━━━━━━━━━━━━━━━━━━".into(),
-        format!("☐ {} open", open_todos),
-        format!("✅ {} done this week", done_week),
-        format!("📝 {} notes", notes),
-        format!("📎 {} files", files),
+        format!(
+            "☐ {}",
+            grumps_i18n::t_plural(locale, "agent.status.open", open_todos, &[])
+        ),
+        format!(
+            "✅ {}",
+            grumps_i18n::t_plural(locale, "agent.status.done_week", done_week, &[])
+        ),
+        format!(
+            "📝 {}",
+            grumps_i18n::t_plural(locale, "agent.notes.count", notes, &[])
+        ),
+        format!(
+            "📎 {}",
+            grumps_i18n::t_plural(locale, "agent.status.files", files, &[])
+        ),
         String::new(),
         format!("🔗 grumps.app/w/{}", workspace_slug),
     ]
@@ -200,6 +219,7 @@ pub fn status_summary(
 }
 
 /// Format a weekly/daily recap message.
+#[allow(clippy::too_many_arguments)]
 pub fn recap_message(
     slug: &str,
     open: i64,
@@ -208,14 +228,30 @@ pub fn recap_message(
     high_priority: &[(i64, String, Option<String>, Option<String>)],
     new_notes: i64,
     reminders: i64,
-    _lang: &str,
+    lang: &str,
 ) -> String {
     use chrono::Utc;
+    let locale = grumps_i18n::Locale::from_code(lang);
     let today = Utc::now().format("%A %B %-d").to_string();
-    let mut lines = vec![format!("📋 Grumps Recap — {}", today), String::new()];
+    let mut lines = vec![
+        format!(
+            "📋 {} — {}",
+            grumps_i18n::t(locale, "agent.recap.title", &[]),
+            today
+        ),
+        String::new(),
+    ];
 
     if !high_priority.is_empty() {
-        lines.push(format!("🔴 High priority ({})", high_priority.len()));
+        lines.push(format!(
+            "🔴 {}",
+            grumps_i18n::t_plural(
+                locale,
+                "agent.recap.high_priority",
+                high_priority.len() as i64,
+                &[]
+            )
+        ));
         for (seq, title, assignee, deadline) in high_priority {
             let a = assignee
                 .as_ref()
@@ -230,10 +266,28 @@ pub fn recap_message(
         lines.push(String::new());
     }
 
-    lines.push(format!("📌 Open todos: {} ({} assigned)", open, assigned));
-    lines.push(format!("✅ Completed this week: {}", done_week));
-    lines.push(format!("📝 New notes: {}", new_notes));
-    lines.push(format!("⏰ Upcoming reminders: {}", reminders));
+    let assigned_str = assigned.to_string();
+    lines.push(format!(
+        "📌 {}",
+        grumps_i18n::t_plural(
+            locale,
+            "agent.recap.open",
+            open,
+            &[("assigned", &assigned_str)]
+        )
+    ));
+    lines.push(format!(
+        "✅ {}",
+        grumps_i18n::t_plural(locale, "agent.recap.done_week", done_week, &[])
+    ));
+    lines.push(format!(
+        "📝 {}",
+        grumps_i18n::t_plural(locale, "agent.recap.new_notes", new_notes, &[])
+    ));
+    lines.push(format!(
+        "⏰ {}",
+        grumps_i18n::t_plural(locale, "agent.recap.reminders", reminders, &[])
+    ));
     lines.push(String::new());
     lines.push(format!("🔗 grumps.app/w/{}", slug));
 
@@ -672,16 +726,22 @@ mod tests {
         assert_eq!(order, vec![12, 5, 1, 14, 3, 9]);
     }
 
-    // --- note_list / status_summary / recap_message (unchanged) ---------------
+    // --- note_list ---------------------------------------------------------
 
     #[test]
-    fn test_note_list_empty() {
+    fn test_note_list_empty_en() {
         let result = note_list(&[], "en");
         assert_eq!(result, "No notes. The group memory is blank.");
     }
 
     #[test]
-    fn test_note_list_with_items() {
+    fn test_note_list_empty_fr() {
+        let result = note_list(&[], "fr");
+        assert_eq!(result, "Aucune note. La mémoire du groupe est vide.");
+    }
+
+    #[test]
+    fn test_note_list_with_items_en() {
         let notes = vec![
             (
                 "abc123".to_string(),
@@ -702,8 +762,98 @@ mod tests {
         assert!(result.contains("🌐 (untitled) — 2026-04-02"));
     }
 
+    // Single note: exercises the "one" CLDR category, not just "other".
     #[test]
-    fn test_status_summary() {
+    fn test_note_list_single_en() {
+        let notes = vec![(
+            "abc123".to_string(),
+            Some("WiFi password".to_string()),
+            "chat".to_string(),
+            "2026-04-01".to_string(),
+        )];
+        let result = note_list(&notes, "en");
+        assert!(result.starts_with("📝 1 note:\n"));
+    }
+
+    #[test]
+    fn test_note_list_with_items_fr() {
+        let notes = vec![(
+            "abc123".to_string(),
+            None,
+            "chat".to_string(),
+            "2026-04-01".to_string(),
+        )];
+        let result = note_list(&notes, "fr");
+        assert!(result.contains("📝 1 note:"));
+        assert!(result.contains("💬 (sans titre) — 2026-04-01"));
+    }
+
+    // Russian few/many: 2 -> few, 5 -> many.
+    #[test]
+    fn test_note_list_russian_plural_few() {
+        let notes: Vec<_> = (0..2)
+            .map(|i| {
+                (
+                    format!("id{i}"),
+                    None,
+                    "chat".to_string(),
+                    "2026-04-01".to_string(),
+                )
+            })
+            .collect();
+        let result = note_list(&notes, "ru");
+        assert!(result.starts_with("📝 2 заметки:\n"));
+    }
+
+    #[test]
+    fn test_note_list_russian_plural_many() {
+        let notes: Vec<_> = (0..5)
+            .map(|i| {
+                (
+                    format!("id{i}"),
+                    None,
+                    "chat".to_string(),
+                    "2026-04-01".to_string(),
+                )
+            })
+            .collect();
+        let result = note_list(&notes, "ru");
+        assert!(result.starts_with("📝 5 заметок:\n"));
+    }
+
+    #[test]
+    fn test_note_list_arabic_dual() {
+        let notes: Vec<_> = (0..2)
+            .map(|i| {
+                (
+                    format!("id{i}"),
+                    None,
+                    "chat".to_string(),
+                    "2026-04-01".to_string(),
+                )
+            })
+            .collect();
+        let result = note_list(&notes, "ar");
+        assert!(result.starts_with("📝 ملاحظتان:\n"));
+    }
+
+    #[test]
+    fn test_note_list_zh_cn() {
+        let notes = vec![(
+            "abc123".to_string(),
+            Some("WiFi 密码".to_string()),
+            "chat".to_string(),
+            "2026-04-01".to_string(),
+        )];
+        let result = note_list(&notes, "zh-CN");
+        assert!(result.contains("📝 1 条笔记:"));
+        assert!(result.contains("💬 WiFi 密码 — 2026-04-01"));
+    }
+
+    // --- status_summary ------------------------------------------------------
+
+    #[test]
+    fn test_status_summary_en() {
         let result = status_summary(5, 3, 12, 7, "my-team", "en");
         assert!(result.contains("📊 Status"));
         assert!(result.contains("☐ 5 open"));
@@ -711,6 +861,41 @@ mod tests {
         assert!(result.contains("📝 12 notes"));
         assert!(result.contains("📎 7 files"));
         assert!(result.contains("🔗 grumps.app/w/my-team"));
+    }
+
+    #[test]
+    fn test_status_summary_fr() {
+        let result = status_summary(5, 3, 12, 7, "my-team", "fr");
+        assert!(result.contains("📊 Statut"));
+        assert!(result.contains("☐ 5 ouvertes"));
+        assert!(result.contains("✅ 3 terminées cette semaine"));
+        assert!(result.contains("📝 12 notes"));
+        assert!(result.contains("📎 7 fichiers"));
+        assert!(result.contains("🔗 grumps.app/w/my-team"));
+    }
+
+    #[test]
+    fn test_status_summary_ru_many() {
+        let result = status_summary(5, 3, 12, 7, "my-team", "ru");
+        assert!(result.contains("📊 Статус"));
+        assert!(result.contains("☐ 5 открыто"));
+        assert!(result.contains("📎 7 файлов"));
+    }
+
+    #[test]
+    fn test_status_summary_ar() {
+        let result = status_summary(1, 0, 0, 2, "my-team", "ar");
+        assert!(result.contains("📊 الحالة"));
+        assert!(result.contains("☐ مفتوحة واحدة"));
+        assert!(result.contains("📎 ملفان"));
+    }
+
+    #[test]
+    fn test_status_summary_zh_cn() {
+        let result = status_summary(5, 3, 12, 7, "my-team", "zh-CN");
+        assert!(result.contains("📊 状态"));
+        assert!(result.contains("☐ 5 项未完成"));
+        assert!(result.contains("📎 7 个文件"));
     }
 
     #[test]
@@ -727,8 +912,10 @@ mod tests {
         assert!(result.contains("@grumps done #42"));
     }
 
+    // --- recap_message -----------------------------------------------------------
+
     #[test]
-    fn test_recap_with_high_priority() {
+    fn test_recap_with_high_priority_en() {
         let high = vec![
             (
                 12i64,
@@ -756,7 +943,7 @@ mod tests {
     }
 
     #[test]
-    fn test_recap_no_high_priority() {
+    fn test_recap_no_high_priority_en() {
         let result = recap_message("abc123", 3, 1, 2, &[], 0, 0, "en");
         assert!(!result.contains("🔴 High priority"));
         assert!(result.contains("📌 Open todos: 3 (1 assigned)"));
@@ -767,7 +954,7 @@ mod tests {
     }
 
     #[test]
-    fn test_recap_all_zeros() {
+    fn test_recap_all_zeros_en() {
         let result = recap_message("empty-ws", 0, 0, 0, &[], 0, 0, "en");
         assert!(result.contains("📋 Grumps Recap —"));
         assert!(!result.contains("🔴 High priority"));
@@ -776,5 +963,58 @@ mod tests {
         assert!(result.contains("📝 New notes: 0"));
         assert!(result.contains("⏰ Upcoming reminders: 0"));
         assert!(result.contains("🔗 grumps.app/w/empty-ws"));
+    }
+
+    #[test]
+    fn test_recap_fr() {
+        let high = vec![(
+            1i64,
+            "Faire les courses".to_string(),
+            Some("Marie".to_string()),
+            None,
+        )];
+        let result = recap_message("ws", 4, 2, 1, &high, 1, 1, "fr");
+        assert!(result.contains("📋 Récap Grumps —"));
+        assert!(result.contains("🔴 Priorité haute (1)"));
+        assert!(result.contains("📌 Tâches ouvertes : 4 (2 assignées)"));
+        assert!(result.contains("✅ Terminées cette semaine : 1"));
+        assert!(result.contains("📝 Nouvelles notes : 1"));
+        assert!(result.contains("⏰ Rappels à venir : 1"));
+    }
+
+    #[test]
+    fn test_recap_ru() {
+        let result = recap_message("ws", 5, 2, 3, &[], 2, 0, "ru");
+        assert!(result.contains("📋 Сводка Grumps —"));
+        assert!(result.contains("📌 Открытых задач: 5 (2 назначено)"));
+    }
+
+    #[test]
+    fn test_recap_ar() {
+        let result = recap_message("ws", 2, 0, 0, &[], 0, 0, "ar");
+        assert!(result.contains("📋 ملخص Grumps —"));
+        assert!(result.contains("📌 مهمتان مفتوحتان (0 مُسندة)"));
+    }
+
+    #[test]
+    fn test_recap_zh_cn() {
+        let result = recap_message("ws", 3, 1, 2, &[], 0, 0, "zh-CN");
+        assert!(result.contains("📋 Grumps 摘要 —"));
+        assert!(result.contains("📌 未完成待办：3（已分配 1）"));
+        assert!(result.contains("✅ 本周完成：2"));
+    }
+
+    // --- todos_added_summary / empty-state filtered fallback (grumps-i18n) ---
+
+    #[test]
+    fn test_todo_list_empty_filtered_en() {
+        let result = todo_list(&[], "all", "", "en");
+        assert_eq!(result, "No todos matching \"all\".");
+    }
+
+    #[test]
+    fn test_todo_list_empty_filtered_fr() {
+        let result = todo_list(&[], "@bob", "", "fr");
+        assert_eq!(result, "Aucune tâche ne correspond à « @bob ».");
     }
 }
