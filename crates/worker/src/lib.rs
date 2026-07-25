@@ -90,6 +90,10 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
         )
         .get_async("/auth/me", routes::auth::handle_me)
         .post_async("/auth/logout", routes::auth::handle_logout)
+        // Auth — magic-link redemption (WhatsApp `@grumps link`). Top-level,
+        // browser-navigated (302 redirect), not workspace-scoped — no
+        // `extract::route` guard applies since there's no session yet.
+        .get_async("/auth/link", routes::auth::handle_link_redeem)
         .get_async("/auth/sessions", routes::sessions::list_sessions)
         .delete_async("/auth/sessions/:id", routes::sessions::revoke_specific)
         .post_async(

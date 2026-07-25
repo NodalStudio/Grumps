@@ -1,4 +1,6 @@
 use crate::auth_telegram::{verify_widget_hash, TelegramWidgetPayload};
+use crate::d1_rest::D1RestClient;
+use crate::magic_link;
 use crate::observability::log_event;
 use crate::rate_limit::{check_rate_limit, check_rate_limit_key};
 use crate::{
@@ -560,7 +562,7 @@ pub async fn handle_telegram_verify(mut req: Request, ctx: RouteContext<()>) -> 
     let slugs: Vec<String> = workspaces.iter().map(|w| w.slug.clone()).collect();
 
     let jwt_secret = ctx.env.secret("JWT_SECRET")?.to_string();
-    let csrf = random_b64_token(32);
+    let csrf = middleware::random_b64_token(32);
     let jwt = middleware::create_jwt_with_csrf(
         &user_id,
         slugs,
@@ -602,42 +604,6 @@ fn describe_ua(ua: &str) -> String {
     .map(|(_, v)| *v)
     .unwrap_or("device");
     format!("{} on {}", browser, os)
-}
-
-fn random_b64_token(len_bytes: usize) -> String {
-    // No rand crate on wasm — derive entropy from two UUIDs.
-    let mut buf = Vec::with_capacity(len_bytes);
-    while buf.len() < len_bytes {
-        buf.extend_from_slice(uuid::Uuid::new_v4().as_bytes());
-    }
-    buf.truncate(len_bytes);
-    base64_url_encode(&buf)
-}
-
-fn base64_url_encode(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-    let mut out = String::new();
-    let mut i = 0;
-    while i + 3 <= bytes.len() {
-        let (a, b, c) = (bytes[i], bytes[i + 1], bytes[i + 2]);
-        out.push(ALPHABET[(a >> 2) as usize] as char);
-        out.push(ALPHABET[(((a & 0b11) << 4) | (b >> 4)) as usize] as char);
-        out.push(ALPHABET[(((b & 0b1111) << 2) | (c >> 6)) as usize] as char);
-        out.push(ALPHABET[(c & 0b111111) as usize] as char);
-        i += 3;
-    }
-    let rem = bytes.len() - i;
-    if rem == 1 {
-        let a = bytes[i];
-        out.push(ALPHABET[(a >> 2) as usize] as char);
-        out.push(ALPHABET[((a & 0b11) << 4) as usize] as char);
-    } else if rem == 2 {
-        let (a, b) = (bytes[i], bytes[i + 1]);
-        out.push(ALPHABET[(a >> 2) as usize] as char);
-        out.push(ALPHABET[(((a & 0b11) << 4) | (b >> 4)) as usize] as char);
-        out.push(ALPHABET[((b & 0b1111) << 2) as usize] as char);
-    }
-    out
 }
 
 #[derive(Serialize)]
@@ -737,4 +703,168 @@ pub async fn handle_logout(req: Request, ctx: RouteContext<()>) -> Result<Respon
     }
 
     Ok(resp)
+}
+
+/// Uniform failure for `GET /auth/link` — identical for a missing token, an
+/// expired one, a reused one, or any downstream error while redeeming a
+/// genuinely valid one. No token echo, no distinguishing status/body: an
+/// attacker probing tokens can't learn "this one existed" from the response.
+fn link_redeem_failure() -> Result<Response> {
+    let url = Url::parse("https://grumps.app/login?error=link_invalid")
+        .map_err(|e| Error::RustError(e.to_string()))?;
+    Response::redirect(url)
+}
+
+/// `GET /auth/link?token=...` — redeems a magic-link token minted by
+/// `magic_link::handle_workspace_link` from `@grumps link` on WhatsApp.
+/// Mirrors `handle_telegram_verify`'s session-mint tail (same
+/// `create_jwt_with_csrf` call, same cookie flags/domain, same D1 session
+/// row) so a magic-link session is indistinguishable from a widget one.
+///
+/// Security-critical ordering (see `magic_link.rs`'s module doc for the
+/// full write-up): the KV entry is looked up and deleted *before* anything
+/// else runs, so the token is single-use even if two redemption requests
+/// race — the second one's lookup already returns `None`. The token value
+/// itself is never logged, and every failure path (missing/expired/reused
+/// token, or any DB/JWT error afterward) returns the exact same redirect.
+pub async fn handle_link_redeem(req: Request, ctx: RouteContext<()>) -> Result<Response> {
+    let token = req
+        .url()?
+        .query_pairs()
+        .find(|(k, _)| k == "token")
+        .map(|(_, v)| v.to_string());
+    let Some(token) = token.filter(|t| !t.is_empty()) else {
+        return link_redeem_failure();
+    };
+
+    let kv = match ctx.env.kv("KV") {
+        Ok(k) => k,
+        Err(_) => return link_redeem_failure(),
+    };
+    let kv_key = format!("magiclink:{}", token);
+    // The token IS the KV key, so this lookup is a direct point read, not a
+    // linear scan a naive `==` compare would leak timing on — see
+    // `magic_link.rs`'s module doc.
+    let raw = kv.get(&kv_key).text().await.unwrap_or(None);
+    // Delete immediately after the lookup, before any validation or session
+    // work below — enforces single-use even under a concurrent redemption
+    // race, as far as KV's eventual consistency allows.
+    let _ = kv.delete(&kv_key).await;
+
+    let now = chrono::Utc::now().timestamp();
+    let entry = match magic_link::classify_redemption(raw.as_deref(), now) {
+        Ok(e) => e,
+        Err(()) => {
+            log_event("auth.link_invalid", &serde_json::json!({}));
+            return link_redeem_failure();
+        }
+    };
+
+    let index_db = match crate::db::get_index_db(&ctx.env) {
+        Ok(db) => db,
+        Err(_) => return link_redeem_failure(),
+    };
+
+    // Role for a first-time identity: read from the workspace's own members
+    // table if we can reach it, else default to "member". Idempotent for a
+    // returning identity — `upsert_identity_user`'s workspace link is
+    // `ON CONFLICT DO NOTHING`, so an existing row's role is untouched.
+    let role = resolve_role(&ctx.env, &entry).await;
+
+    let user_id = match crate::db::upsert_identity_user(
+        &index_db,
+        "whatsapp",
+        &entry.platform_user_id,
+        &entry.workspace_slug,
+        &role,
+        None,
+    )
+    .await
+    {
+        Ok(uid) => uid,
+        Err(_) => return link_redeem_failure(),
+    };
+
+    let sid = uuid::Uuid::new_v4().to_string();
+    let ua = req.headers().get("User-Agent").ok().flatten();
+    let country = req.headers().get("CF-IPCountry").ok().flatten();
+    let device_label = ua.as_deref().map(describe_ua);
+    if crate::db::create_session(
+        &index_db,
+        &sid,
+        &user_id,
+        ua.as_deref(),
+        device_label.as_deref(),
+        country.as_deref(),
+    )
+    .await
+    .is_err()
+    {
+        return link_redeem_failure();
+    }
+
+    // Same claims shape as the widget flow: the session carries exactly the
+    // workspaces this user_id belongs to, freshly read from `user_workspaces`
+    // (so it includes the membership `upsert_identity_user` just wrote).
+    let workspaces = match crate::db::list_user_workspaces_with_names(&index_db, &user_id).await {
+        Ok(w) => w,
+        Err(_) => return link_redeem_failure(),
+    };
+    let slugs: Vec<String> = workspaces.iter().map(|w| w.slug.clone()).collect();
+
+    let jwt_secret = match ctx.env.secret("JWT_SECRET") {
+        Ok(s) => s.to_string(),
+        Err(_) => return link_redeem_failure(),
+    };
+    let csrf = middleware::random_b64_token(32);
+    // `tg_user_id: None` — this session didn't come from the Telegram
+    // Widget, so it never grants the super-admin gate (which only trusts
+    // `claims.tg_user_id` / the legacy `claims.phone` path).
+    let jwt =
+        match middleware::create_jwt_with_csrf(&user_id, slugs, &sid, &csrf, None, &jwt_secret) {
+            Ok(j) => j,
+            Err(_) => return link_redeem_failure(),
+        };
+
+    log_event(
+        "auth.link_redeemed",
+        &serde_json::json!({ "user_id": user_id, "sid": sid, "workspace_slug": entry.workspace_slug }),
+    );
+
+    let env_kind = ctx
+        .env
+        .var("ENVIRONMENT")
+        .map(|v| v.to_string())
+        .unwrap_or_default();
+    let dest = format!("https://grumps.app/w/{}", entry.workspace_slug);
+    let dest_url = match Url::parse(&dest) {
+        Ok(u) => u,
+        Err(_) => return link_redeem_failure(),
+    };
+    let mut resp = Response::redirect(dest_url)?;
+    middleware::set_auth_cookies(&mut resp, &jwt, &csrf, &env_kind)?;
+    Ok(resp)
+}
+
+/// Best-effort role lookup in the requesting workspace's own D1 (`members`
+/// table), keyed by the `member_id` the KV entry was minted with. Falls
+/// back to `"member"` on any failure (workspace gone, D1 unreachable, no
+/// such member row) — never blocks redemption on this being resolvable.
+async fn resolve_role(env: &Env, entry: &magic_link::MagicLinkEntry) -> String {
+    const DEFAULT_ROLE: &str = "member";
+    let Ok(index_db) = crate::db::get_index_db(env) else {
+        return DEFAULT_ROLE.to_string();
+    };
+    let Ok(Some(ws)) = crate::db::lookup_workspace_by_slug(&index_db, &entry.workspace_slug).await
+    else {
+        return DEFAULT_ROLE.to_string();
+    };
+    let Ok(d1_client) = D1RestClient::from_env(env) else {
+        return DEFAULT_ROLE.to_string();
+    };
+    let ws_db = crate::db::WorkspaceDb::new(&d1_client, ws.d1_database_id);
+    match ws_db.get_member_role(&entry.member_id).await {
+        Ok(Some(role)) => role,
+        _ => DEFAULT_ROLE.to_string(),
+    }
 }
