@@ -42,9 +42,28 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         return Response::error("Bad secret", 403);
     }
 
+    // KV dedup, written immediately after signature verification and before
+    // any processing. The my_chat_member and DM auto-provisioning branches
+    // below have side effects (workspace archive/provision) just like the
+    // main message flow, so dedup has to guard all of them, not just the
+    // text-message path — keyed on Telegram's own `update_id`, present on
+    // every update type, one check covers every branch.
+    let update: Option<TgUpdate> = serde_json::from_slice(&body).ok();
+    let kv = ctx.kv("KV")?;
+    if let Some(update_id) = update.as_ref().map(|u| u.update_id) {
+        let dedup_key = format!("msg:tg:upd:{update_id}");
+        if kv.get(&dedup_key).text().await?.is_some() {
+            return Response::ok("ok");
+        }
+        kv.put(&dedup_key, "1")?
+            .expiration_ttl(86400)
+            .execute()
+            .await?;
+    }
+
     // Typed parse of my_chat_member — routes based on status transition.
-    if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
-        if let Some(mcm) = update.my_chat_member {
+    if let Some(update) = &update {
+        if let Some(mcm) = &update.my_chat_member {
             let transition =
                 route_chat_member(&mcm.old_chat_member.status, &mcm.new_chat_member.status);
             let new_status = mcm.new_chat_member.status.as_str();
@@ -61,9 +80,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
                 return Response::ok("ok");
             }
             return match transition {
-                Transition::FirstAddAsMember => handle_first_add(&ctx, &tg, &mcm, false).await,
-                Transition::FirstAddAsAdmin => handle_first_add(&ctx, &tg, &mcm, true).await,
-                Transition::Promotion => handle_promotion(&ctx, &tg, &mcm).await,
+                Transition::FirstAddAsMember => handle_first_add(&ctx, &tg, mcm, false).await,
+                Transition::FirstAddAsAdmin => handle_first_add(&ctx, &tg, mcm, true).await,
+                Transition::Promotion => handle_promotion(&ctx, &tg, mcm).await,
                 Transition::Ignore => Response::ok("ok"),
             };
         }
@@ -71,7 +90,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
     // DM auto-provisioning: a private-chat message from a user we haven't seen
     // in that DM before creates a personal workspace with the user as sole admin.
-    if let Ok(update) = serde_json::from_slice::<TgUpdate>(&body) {
+    if let Some(update) = &update {
         if let Some(msg) = &update.message {
             if msg.chat.chat_type == "private" {
                 if let Some(from) = &msg.from {
@@ -154,13 +173,8 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         inbound.is_direct_message,
     );
 
-    // KV dedup
-    let kv = ctx.kv("KV")?;
-    let key = format!("msg:tg:{}", inbound.message_id);
-    if kv.get(&key).text().await?.is_some() {
-        return Response::ok("ok");
-    }
-    kv.put(&key, "1")?.expiration_ttl(86400).execute().await?;
+    // KV dedup already happened above (keyed on update_id, right after
+    // signature verification) — no second check needed here.
 
     // Resolve/provision workspace
     let index_db = db::get_index_db(&ctx.env)?;
@@ -395,13 +409,23 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
             .with_body(Some(body.into()));
         let req = Request::new_with_init(&url, &init)?;
         let mut resp = Fetch::Request(req).send().await?;
+        let status = resp.status_code();
+        let text = resp.text().await.unwrap_or_default();
+        let json: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        if !grumps_messaging::adapter::is_send_ok("telegram", status, &json) {
+            console_error!(
+                "send failed: workspace={} platform=telegram status={} body={}",
+                workspace.slug,
+                status,
+                grumps_messaging::adapter::truncate_body(&text, 300)
+            );
+        }
         // Track bot message
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
-            if let Some(msg_id) = json.pointer("/result/message_id").and_then(|v| v.as_i64()) {
-                let _ = ws_db
-                    .track_bot_message(&msg_id.to_string(), msg.todo_id.as_deref())
-                    .await;
-            }
+        if let Some(msg_id) = json.pointer("/result/message_id").and_then(|v| v.as_i64()) {
+            let _ = ws_db
+                .track_bot_message(&msg_id.to_string(), msg.todo_id.as_deref())
+                .await;
         }
     }
 

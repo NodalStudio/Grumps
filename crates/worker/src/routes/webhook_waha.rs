@@ -31,6 +31,21 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         }
     };
 
+    // 3. Dedup via KV, written immediately after signature verification (and
+    // the parse needed to get a stable id) and before any processing.
+    // Platform string stays "whatsapp" (WAHA is transport only — DB rows,
+    // dedup keys and downstream logic are unchanged); the serialized WAHA
+    // message id is unique per event so it's a safe key.
+    let kv = ctx.kv("KV")?;
+    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
+    if kv.get(&dedup_key).text().await?.is_some() {
+        return Response::ok("ok");
+    }
+    kv.put(&dedup_key, "1")?
+        .expiration_ttl(86400)
+        .execute()
+        .await?;
+
     crate::observability::log_inbound(
         &crate::observability::request_id(&req),
         "whatsapp",
@@ -42,19 +57,6 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         inbound.is_mention_to_bot,
         inbound.is_direct_message,
     );
-
-    // 3. Dedup via KV. Platform string stays "whatsapp" (WAHA is transport
-    // only — DB rows, dedup keys and downstream logic are unchanged); the
-    // serialized WAHA message id is unique per event so it's a safe key.
-    let kv = ctx.kv("KV")?;
-    let dedup_key = format!("msg:whatsapp:{}", inbound.message_id);
-    if kv.get(&dedup_key).text().await?.is_some() {
-        return Response::ok("ok");
-    }
-    kv.put(&dedup_key, "1")?
-        .expiration_ttl(86400)
-        .execute()
-        .await?;
 
     // 4. Resolve or provision workspace
     let index_db = db::get_index_db(&ctx.env)?;
@@ -263,17 +265,27 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
 
         let send_req = Request::new_with_init(&url, &init)?;
         let mut send_resp = Fetch::Request(send_req).send().await?;
+        let status = send_resp.status_code();
+        let text = send_resp.text().await.unwrap_or_default();
+        let json: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        if !grumps_messaging::adapter::is_send_ok("whatsapp", status, &json) {
+            console_error!(
+                "send failed: workspace={} platform=whatsapp status={} body={}",
+                workspace.slug,
+                status,
+                grumps_messaging::adapter::truncate_body(&text, 300)
+            );
+        }
 
         // Track bot's sent message_id for reply detection. WAHA's `sendText`
         // returns the *raw* id at `key.id` — unlike the serialized
         // `{fromMe}_{chatJid}_{rawId}` form inbound webhooks carry — and the
         // adapter normalizes inbound quote ids to raw form so the two meet.
-        if let Ok(json) = send_resp.json::<serde_json::Value>().await {
-            if let Some(sent_id) = json.pointer("/key/id").and_then(|v| v.as_str()) {
-                let _ = ws_db
-                    .track_bot_message(sent_id, msg.todo_id.as_deref())
-                    .await;
-            }
+        if let Some(sent_id) = json.pointer("/key/id").and_then(|v| v.as_str()) {
+            let _ = ws_db
+                .track_bot_message(sent_id, msg.todo_id.as_deref())
+                .await;
         }
     }
 
