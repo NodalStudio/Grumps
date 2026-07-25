@@ -8,6 +8,7 @@ mod durable_objects;
 mod error;
 mod extract;
 mod handler;
+mod magic_link;
 mod middleware;
 mod migrations;
 mod provisioning;

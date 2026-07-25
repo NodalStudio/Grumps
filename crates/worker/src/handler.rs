@@ -1,5 +1,6 @@
 // crates/worker/src/handler.rs
 use crate::db::WorkspaceDb;
+use crate::magic_link;
 use chrono::Datelike;
 use grumps_messaging::adapter::OutboundMessage;
 use grumps_messaging::formatter;
@@ -44,6 +45,7 @@ impl HandlerResult {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn handle_message(
     env: Option<&Env>,
     raw_text: &str,
@@ -56,6 +58,14 @@ pub async fn handle_message(
     workspace_slug: &str,
     ws_locale: &str,
     ws_plan: &str,
+    // Below: only consumed by the `WorkspaceLink` arm (magic-link mint +
+    // DM-only delivery for platforms without a web login widget). Threaded
+    // through the full signature rather than re-deriving from `ws_db`
+    // because `sender_id`/`is_direct_message` are per-message inbound
+    // fields, not workspace state.
+    platform: &str,
+    sender_id: &str,
+    is_direct_message: bool,
 ) -> worker::Result<HandlerResult> {
     let locale = grumps_i18n::Locale::from_code(ws_locale);
     // Explicit @grumps directives (silence / unsilence / memory) are handled
@@ -139,10 +149,18 @@ pub async fn handle_message(
             formatter::help_text(locale.code()),
             None,
         )),
-        ParseResult::WorkspaceLink => Ok(HandlerResult::one(
-            format!("grumps.app/w/{}", workspace_slug),
-            None,
-        )),
+        ParseResult::WorkspaceLink => {
+            magic_link::handle_workspace_link(
+                env,
+                member_id,
+                workspace_slug,
+                sender_id,
+                platform,
+                is_direct_message,
+                locale,
+            )
+            .await
+        }
         ParseResult::Status => handle_status(ws_db, workspace_slug, locale).await,
         ParseResult::QuotedTodo => {
             handle_quoted_todo(

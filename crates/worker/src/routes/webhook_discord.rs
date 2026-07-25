@@ -234,6 +234,9 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
         &workspace.slug,
         &workspace.locale,
         &workspace.plan,
+        &inbound.platform,
+        &inbound.sender_id,
+        inbound.is_direct_message,
     )
     .await?;
 
