@@ -470,17 +470,20 @@ impl<'a> WorkspaceDb<'a> {
     /// List notes for the agent's `list_notes` tool. Unlike `get_notes` (which
     /// powers the SPA list endpoint and only surfaces the title), this returns
     /// each note's own content as `text` — a title-less note is otherwise
-    /// invisible to the agent — capped by `limit`.
+    /// invisible to the agent — capped by `limit`. Includes `title` (may be
+    /// null) so a later `update_note`/`delete_note` call can reference the
+    /// note by title, not just id.
     pub async fn list_notes_for_agent(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         #[derive(Deserialize)]
         struct Row {
             id: String,
+            title: Option<String>,
             content: String,
             created_at: String,
         }
         let resp = self
             .q(
-                "SELECT id, content, created_at FROM notes ORDER BY created_at DESC LIMIT ?1",
+                "SELECT id, title, content, created_at FROM notes ORDER BY created_at DESC LIMIT ?1",
                 vec![limit.into()],
             )
             .await?;
@@ -490,6 +493,7 @@ impl<'a> WorkspaceDb<'a> {
             .map(|r| {
                 serde_json::json!({
                     "id": r.id,
+                    "title": r.title,
                     "text": r.content,
                     "created_at": r.created_at,
                 })
@@ -605,6 +609,24 @@ impl<'a> WorkspaceDb<'a> {
 
     pub async fn get_note_by_id(&self, note_id: &str) -> Result<Option<NoteRow>> {
         let resp = self.q("SELECT id, title, content, COALESCE(pinned, 0) as pinned, source, created_by, created_at, updated_at FROM notes WHERE id = ?1", vec![note_id.into()]).await?;
+        extract_first(&resp)
+    }
+
+    /// Case/whitespace-insensitive title lookup, via the same `title_norm`
+    /// column the wikilink resolver populates — the id-or-title fallback for
+    /// the agent's `update_note`/`delete_note` tools. Most-recent match wins
+    /// on a duplicate title (same tie-break as `get_note_links`'s outgoing
+    /// link resolution).
+    pub async fn get_note_by_title(&self, title: &str) -> Result<Option<NoteRow>> {
+        let title_norm = grumps_core::wikilink::normalize_title(title);
+        if title_norm.is_empty() {
+            return Ok(None);
+        }
+        let resp = self.q(
+            "SELECT id, title, content, COALESCE(pinned, 0) as pinned, source, created_by, created_at, updated_at \
+             FROM notes WHERE title_norm = ?1 ORDER BY updated_at DESC LIMIT 1",
+            vec![title_norm.into()],
+        ).await?;
         extract_first(&resp)
     }
 

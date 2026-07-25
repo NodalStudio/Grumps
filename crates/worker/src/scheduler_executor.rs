@@ -83,14 +83,29 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                 language,
                 timezone,
                 created_todos: std::cell::RefCell::new(Vec::new()),
+                completed_todos: std::cell::RefCell::new(Vec::new()),
+                updated_todos: std::cell::RefCell::new(Vec::new()),
+                deleted_todos: std::cell::RefCell::new(Vec::new()),
+                updated_notes: std::cell::RefCell::new(Vec::new()),
+                deleted_notes: std::cell::RefCell::new(Vec::new()),
+                cancelled_scheduled: std::cell::RefCell::new(Vec::new()),
+                updated_scheduled: std::cell::RefCell::new(Vec::new()),
             };
 
             let run_result = grumps_agent::loop_::run_oneshot(&ctx, &instruction).await;
             // Same seam as the chat path (handler::route_via_agent): the model's
-            // own reply is deliberately terse about anything create_todo made
-            // (see prompt.rs RULES), so render the real task card here from
-            // what the tool call recorded on ctx.
+            // own reply is deliberately terse about anything create_todo /
+            // complete_todo / update_* / delete_* / cancel_scheduled made (see
+            // prompt.rs RULES), so render the real task card / localized ack
+            // here from what each tool call recorded on ctx.
             let created_todos = ctx.drain_created_todos();
+            let completed_todos = ctx.drain_completed_todos();
+            let updated_todos = ctx.drain_updated_todos();
+            let deleted_todos = ctx.drain_deleted_todos();
+            let updated_notes = ctx.drain_updated_notes();
+            let deleted_notes = ctx.drain_deleted_notes();
+            let cancelled_scheduled = ctx.drain_cancelled_scheduled();
+            let updated_scheduled = ctx.drain_updated_scheduled();
             match run_result {
                 Ok(result) => {
                     console_log!(
@@ -98,8 +113,8 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                         result.turns,
                         result.total_tokens
                     );
+                    let locale = grumps_i18n::Locale::from_code(&ctx.language);
                     if !created_todos.is_empty() {
-                        let locale = grumps_i18n::Locale::from_code(&ctx.language);
                         let tz = grumps_core::timeutil::tz_or_utc(&ctx.timezone);
                         let today = grumps_core::timeutil::today_in_tz(tz);
                         // Same batch rule as handle_add_todos/route_via_agent:
@@ -118,7 +133,7 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                                 deadline_display.as_deref(),
                                 c.priority,
                                 &c.tags,
-                                false, // create_todo (agent tool) doesn't support recurrence yet
+                                c.recurring,
                                 show_hint && idx == 0,
                                 if show_link && idx == 0 {
                                     Some(ws_slug)
@@ -128,6 +143,18 @@ pub async fn execute_action(env: &Env, ws_slug: &str, action: &ScheduledAction) 
                             );
                             let _ = send_to_group(env, &ws, &db, &card, Some(&c.id)).await;
                         }
+                    }
+                    for m in crate::handler::mutation_ack_messages(
+                        locale,
+                        completed_todos,
+                        updated_todos,
+                        deleted_todos,
+                        updated_notes,
+                        deleted_notes,
+                        cancelled_scheduled,
+                        updated_scheduled,
+                    ) {
+                        let _ = send_to_group(env, &ws, &db, &m.text, m.todo_id.as_deref()).await;
                     }
                     Ok(())
                 }

@@ -65,6 +65,42 @@ pub struct ChatMessage {
     pub created_at: String,
 }
 
+/// Minimal todo row for seq→id resolution and mutation tools
+/// (`complete_todo`/`update_todo`/`delete_todo`). `status` lets a tool refuse
+/// a no-op (e.g. completing an already-done todo); `recurrence` drives the
+/// same next-occurrence spawn the command path's Done arm performs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodoBrief {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+    pub status: String,
+    pub recurrence: Option<String>,
+}
+
+/// The newly-spawned occurrence of a recurring todo — mirrors the worker's
+/// `db::NextOccurrence`, shaped so the tool layer can push it onto
+/// `ToolContext::created_todos` and get the exact same task-card rendering
+/// `create_todo` gets (see `tools::crud::complete_todo`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NextOccurrenceBrief {
+    pub id: String,
+    pub seq_num: i64,
+    pub title: String,
+    pub priority: i32,
+    pub tags: Vec<String>,
+    pub assigned_name: Option<String>,
+    pub deadline: Option<String>,
+}
+
+/// Minimal note row for `update_note`/`delete_note`'s id-or-title resolution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteBrief {
+    pub id: String,
+    pub title: Option<String>,
+    pub content: String,
+}
+
 #[async_trait::async_trait(?Send)]
 pub trait AgentDb {
     // --- memory ---
@@ -101,6 +137,54 @@ pub trait AgentDb {
     /// List notes for the `list_notes` tool, most recent first, capped at `limit`.
     async fn list_notes(&self, limit: i64) -> worker::Result<Vec<serde_json::Value>>;
 
+    // --- todo mutation (complete_todo/update_todo/delete_todo tools) ---
+    /// Resolve a human-facing seq number to the row mutation tools need.
+    async fn get_todo_by_seq(&self, seq_num: i64) -> worker::Result<Option<TodoBrief>>;
+    /// Mark done — same call the deterministic card-reply Done arm uses.
+    async fn complete_todo(&self, todo_id: &str, completed_by: &str) -> worker::Result<()>;
+    async fn delete_todo(&self, todo_id: &str) -> worker::Result<()>;
+    /// Partial update — `None` leaves a field unchanged (same CASE-WHEN
+    /// semantics as the card-reply Edit/Reassign/ChangePriority/ChangeStatus
+    /// arms, which all share this one call).
+    #[allow(clippy::too_many_arguments)]
+    async fn update_todo(
+        &self,
+        todo_id: &str,
+        title: Option<&str>,
+        status: Option<&str>,
+        priority: Option<i32>,
+        assigned_to: Option<&str>,
+        assigned_name: Option<&str>,
+    ) -> worker::Result<()>;
+    /// Set (non-empty) or clear (empty string) a todo's deadline.
+    async fn set_todo_deadline(&self, todo_id: &str, deadline: &str) -> worker::Result<()>;
+    /// Append one normalized tag (dedup, trim+lowercase) — same call the
+    /// card-reply AddTag arm uses.
+    async fn add_todo_tag(&self, todo_id: &str, tag: &str) -> worker::Result<()>;
+    /// Spawn the next occurrence of a recurring todo — same call the
+    /// card-reply Done arm uses when the completed todo has a recurrence.
+    async fn create_next_recurrence(
+        &self,
+        todo: &TodoBrief,
+        recurrence: &str,
+        tz: chrono_tz::Tz,
+    ) -> worker::Result<NextOccurrenceBrief>;
+
+    // --- note mutation (update_note/delete_note tools) ---
+    async fn get_note_by_id(&self, note_id: &str) -> worker::Result<Option<NoteBrief>>;
+    /// Case/whitespace-insensitive title lookup (same `title_norm` column the
+    /// wikilink resolver uses) — the id-or-title fallback for `update_note`/
+    /// `delete_note` when the model only has the note's title.
+    async fn get_note_by_title(&self, title: &str) -> worker::Result<Option<NoteBrief>>;
+    async fn update_note(
+        &self,
+        note_id: &str,
+        title: &str,
+        content: &str,
+        editor_id: &str,
+    ) -> worker::Result<()>;
+    async fn delete_note(&self, note_id: &str) -> worker::Result<()>;
+
     // --- events ---
     async fn create_event(&self, e: &NewEvent) -> worker::Result<String>;
     async fn list_events_in_range(&self, from: &str, to: &str) -> worker::Result<Vec<Event>>;
@@ -129,6 +213,24 @@ pub trait AgentDb {
         from: &str,
         to: &str,
     ) -> worker::Result<Vec<ScheduledAction>>;
+    /// Fetch one scheduled action by id (`cancel_scheduled`/`update_scheduled`
+    /// read the existing row first so a partial update can fall back to the
+    /// current title/trigger_at/recurrence for omitted fields).
+    async fn get_scheduled_action(&self, id: &str) -> worker::Result<Option<ScheduledAction>>;
+    /// Update title/trigger_at/recurrence/payload of an existing action.
+    /// Returns `false` if no row matched `id`. The DO alarm is re-armed by
+    /// the caller after the agent run returns (see `route_via_agent` /
+    /// `scheduler_executor::execute_action`), not here.
+    async fn update_scheduled_action(
+        &self,
+        id: &str,
+        title: &str,
+        trigger_at_iso: &str,
+        recurrence: Option<&str>,
+        payload: &serde_json::Value,
+    ) -> worker::Result<bool>;
+    /// Returns `false` if no row matched `id`.
+    async fn delete_scheduled_action(&self, id: &str) -> worker::Result<bool>;
 
     // --- todos with deadlines (for calendar aggregation) ---
     async fn list_todos_with_deadline(

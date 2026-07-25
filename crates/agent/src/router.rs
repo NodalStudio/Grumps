@@ -3,7 +3,9 @@
 
 use crate::db::AgentDb;
 use crate::llm::gemini;
-use crate::tools::{self, CreatedTodoCard, ToolContext};
+use crate::tools::{
+    self, CreatedTodoCard, NoteAckCard, ScheduledAckCard, TodoAckCard, ToolContext,
+};
 use serde::Serialize;
 use std::cell::RefCell;
 use worker::*;
@@ -15,10 +17,44 @@ pub struct RouteResult {
     /// Whether the agent already sent the message via sink (true) or expects the
     /// caller to send `final_text` (false).
     pub already_sent: bool,
-    /// Todos created via `create_todo` during this run. The caller renders a
-    /// real task card for each (see `formatter::task_card`) instead of relying
-    /// on the model's own prose — see `ToolContext::created_todos`.
+    /// Todos created via `create_todo` during this run (also receives the
+    /// spawned next-occurrence card from `complete_todo`). The caller renders
+    /// a real task card for each (see `formatter::task_card`) instead of
+    /// relying on the model's own prose — see `ToolContext::created_todos`.
     pub created_todos: Vec<CreatedTodoCard>,
+    /// Todos completed via `complete_todo` during this run.
+    pub completed_todos: Vec<TodoAckCard>,
+    /// Todos mutated via `update_todo` during this run.
+    pub updated_todos: Vec<TodoAckCard>,
+    /// Todos removed via `delete_todo` during this run.
+    pub deleted_todos: Vec<TodoAckCard>,
+    /// Notes mutated via `update_note` during this run.
+    pub updated_notes: Vec<NoteAckCard>,
+    /// Notes removed via `delete_note` during this run.
+    pub deleted_notes: Vec<NoteAckCard>,
+    /// Scheduled actions removed via `cancel_scheduled` during this run.
+    pub cancelled_scheduled: Vec<ScheduledAckCard>,
+    /// Scheduled actions mutated via `update_scheduled` during this run.
+    pub updated_scheduled: Vec<ScheduledAckCard>,
+}
+
+/// Drain every mutation accumulator on `ctx` into a `RouteResult`. All three
+/// `route_message` exit points set `already_sent: true` (the agent always
+/// sends its own reply via the sink before returning), so that's the only
+/// field this doesn't fill in.
+fn drain_route_result(ctx: &ToolContext<'_>, final_text: Option<String>) -> RouteResult {
+    RouteResult {
+        final_text,
+        already_sent: true,
+        created_todos: ctx.drain_created_todos(),
+        completed_todos: ctx.drain_completed_todos(),
+        updated_todos: ctx.drain_updated_todos(),
+        deleted_todos: ctx.drain_deleted_todos(),
+        updated_notes: ctx.drain_updated_notes(),
+        deleted_notes: ctx.drain_deleted_notes(),
+        cancelled_scheduled: ctx.drain_cancelled_scheduled(),
+        updated_scheduled: ctx.drain_updated_scheduled(),
+    }
 }
 
 #[async_trait::async_trait(?Send)]
@@ -60,16 +96,19 @@ pub async fn route_message<'a>(
         language,
         timezone,
         created_todos: RefCell::new(Vec::new()),
+        completed_todos: RefCell::new(Vec::new()),
+        updated_todos: RefCell::new(Vec::new()),
+        deleted_todos: RefCell::new(Vec::new()),
+        updated_notes: RefCell::new(Vec::new()),
+        deleted_notes: RefCell::new(Vec::new()),
+        cancelled_scheduled: RefCell::new(Vec::new()),
+        updated_scheduled: RefCell::new(Vec::new()),
     };
 
     // 1. If there's an active session, go straight to agent loop (multi-turn context).
     if has_active_session {
         let result = crate::loop_::run_loop(&ctx, text).await?;
-        return Ok(RouteResult {
-            final_text: result.final_text,
-            already_sent: true,
-            created_todos: ctx.drain_created_todos(),
-        });
+        return Ok(drain_route_result(&ctx, result.final_text));
     }
 
     // 2. Otherwise, classify via Gemini Flash.
@@ -95,11 +134,7 @@ pub async fn route_message<'a>(
                 // Format a short confirmation reply
                 let msg = format_crud_confirmation(locale, &classified.intent, &result);
                 sink.send(&msg).await?;
-                return Ok(RouteResult {
-                    final_text: Some(msg),
-                    already_sent: true,
-                    created_todos: ctx.drain_created_todos(),
-                });
+                return Ok(drain_route_result(&ctx, Some(msg)));
             }
             Err(e) => {
                 console_log!(
@@ -113,11 +148,7 @@ pub async fn route_message<'a>(
 
     // 4. Otherwise, escalate to the full Sonnet agent loop.
     let result = crate::loop_::run_loop(&ctx, text).await?;
-    Ok(RouteResult {
-        final_text: result.final_text,
-        already_sent: true,
-        created_todos: ctx.drain_created_todos(),
-    })
+    Ok(drain_route_result(&ctx, result.final_text))
 }
 
 fn format_crud_confirmation(locale: &str, intent: &str, result: &serde_json::Value) -> String {

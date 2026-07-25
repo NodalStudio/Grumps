@@ -1060,8 +1060,18 @@ async fn route_via_agent(
             // so (unlike the multi-todo add path) the link isn't already
             // spoken for elsewhere.
             let (show_hint, show_link) = card_chrome(ws_db, tz).await;
-            let cards = route_result
-                .created_todos
+            let grumps_agent::router::RouteResult {
+                created_todos,
+                completed_todos,
+                updated_todos,
+                deleted_todos,
+                updated_notes,
+                deleted_notes,
+                cancelled_scheduled,
+                updated_scheduled,
+                ..
+            } = route_result;
+            let mut cards: Vec<OutboundMessage> = created_todos
                 .into_iter()
                 .enumerate()
                 .map(|(idx, c)| {
@@ -1075,7 +1085,7 @@ async fn route_via_agent(
                             deadline_display.as_deref(),
                             c.priority,
                             &c.tags,
-                            false, // create_todo (agent tool) doesn't support recurrence yet
+                            c.recurring,
                             show_hint && idx == 0,
                             if show_link && idx == 0 {
                                 Some(ws_slug)
@@ -1089,6 +1099,22 @@ async fn route_via_agent(
                     }
                 })
                 .collect();
+
+            // Same seam as created_todos above: the agent's own reply is
+            // deliberately terse about anything it completed/updated/deleted
+            // (see the RULES in prompt.rs) — the real, localized
+            // acknowledgement is rendered here from what each tool recorded.
+            cards.extend(mutation_ack_messages(
+                locale,
+                completed_todos,
+                updated_todos,
+                deleted_todos,
+                updated_notes,
+                deleted_notes,
+                cancelled_scheduled,
+                updated_scheduled,
+            ));
+
             Ok(HandlerResult::many(cards))
         }
         Err(e) => {
@@ -1103,6 +1129,108 @@ async fn route_via_agent(
             ))
         }
     }
+}
+
+/// Render the localized acknowledgement for every non-create mutation an
+/// agent tool call performed during a run — the single-render-path
+/// counterpart to the `created_todos` → task-card mapping above. Shared by
+/// `route_via_agent` (chat path) and `scheduler_executor::execute_action`
+/// (scheduled `agent_task`/`follow_up` path) so a "cancel the standup
+/// reminder" instruction acks identically whether triggered live or by a
+/// scheduled follow-up.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn mutation_ack_messages(
+    locale: grumps_i18n::Locale,
+    completed_todos: Vec<grumps_agent::tools::TodoAckCard>,
+    updated_todos: Vec<grumps_agent::tools::TodoAckCard>,
+    deleted_todos: Vec<grumps_agent::tools::TodoAckCard>,
+    updated_notes: Vec<grumps_agent::tools::NoteAckCard>,
+    deleted_notes: Vec<grumps_agent::tools::NoteAckCard>,
+    cancelled_scheduled: Vec<grumps_agent::tools::ScheduledAckCard>,
+    updated_scheduled: Vec<grumps_agent::tools::ScheduledAckCard>,
+) -> Vec<OutboundMessage> {
+    let mut out = Vec::new();
+    for c in completed_todos {
+        // Reuse the exact ack the deterministic `done #3` free-text command
+        // path sends (`handle_mark_done`) — same key, same params.
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(
+                locale,
+                "agent.todo.completed",
+                &[("seq", &c.seq_num.to_string()), ("title", &c.title)],
+            ),
+            reply_to: None,
+            todo_id: Some(c.id),
+            markdown: false,
+        });
+    }
+    for c in updated_todos {
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(
+                locale,
+                "agent.tool.todo_updated",
+                &[("seq", &c.seq_num.to_string()), ("title", &c.title)],
+            ),
+            reply_to: None,
+            todo_id: Some(c.id),
+            markdown: false,
+        });
+    }
+    for c in deleted_todos {
+        // Reuse the exact ack the deterministic `delete #3` free-text command
+        // path sends (`handle_delete`) — same key, same params.
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(
+                locale,
+                "agent.todo.deleted",
+                &[("seq", &c.seq_num.to_string()), ("title", &c.title)],
+            ),
+            reply_to: None,
+            todo_id: None, // the todo no longer exists — nothing to reply-anchor to
+            markdown: false,
+        });
+    }
+    for _ in updated_notes {
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(locale, "agent.tool.note_updated", &[]),
+            reply_to: None,
+            todo_id: None,
+            markdown: false,
+        });
+    }
+    for _ in deleted_notes {
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(locale, "agent.tool.note_deleted", &[]),
+            reply_to: None,
+            todo_id: None,
+            markdown: false,
+        });
+    }
+    for c in cancelled_scheduled {
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(
+                locale,
+                "agent.tool.scheduled_cancelled",
+                &[("title", &c.title)],
+            ),
+            reply_to: None,
+            todo_id: None,
+            markdown: false,
+        });
+    }
+    for c in updated_scheduled {
+        out.push(OutboundMessage {
+            text: grumps_i18n::t(
+                locale,
+                "agent.tool.scheduled_updated",
+                &[("title", &c.title)],
+            ),
+            reply_to: None,
+            todo_id: None,
+            markdown: false,
+        });
+    }
+    out
 }
 
 /// Fast-path for silence/unsilence/explicit-memory commands addressed to
