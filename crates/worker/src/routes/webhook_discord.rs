@@ -1,3 +1,16 @@
+// NOT REGISTERED — see the comment in crates/worker/src/lib.rs at the
+// `/webhook/discord` route. `DiscordAdapter::verify_signature` is currently a
+// no-op stub (crates/messaging/src/discord.rs), so wiring this handler up to
+// a live route would accept unauthenticated, forged Discord messages into the
+// full agent pipeline. This module, the adapter, and their tests are kept
+// intact so re-enabling the surface is a one-line change once real Ed25519
+// verification lands — do not delete pending that follow-up.
+//
+// `#![allow(dead_code)]`: with no route registered, nothing in the crate
+// calls into this module anymore, so it would otherwise fail
+// `cargo clippy -- -D warnings`. Remove this allow when the route comes back.
+#![allow(dead_code)]
+
 use crate::{d1_rest::D1RestClient, db, handler, provisioning};
 use grumps_messaging::adapter::MessagingPlatform;
 use grumps_messaging::discord::DiscordAdapter;
