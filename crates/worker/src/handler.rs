@@ -139,7 +139,10 @@ pub async fn handle_message(
             grumps_i18n::t(locale, "agent.files.web_only", &[]),
             None,
         )),
-        ParseResult::Help => Ok(HandlerResult::one_markdown(formatter::help_text(), None)),
+        ParseResult::Help => Ok(HandlerResult::one_markdown(
+            formatter::help_text(locale.code()),
+            None,
+        )),
         ParseResult::WorkspaceLink => Ok(HandlerResult::one(
             format!("grumps.app/w/{}", workspace_slug),
             None,

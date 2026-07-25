@@ -294,40 +294,216 @@ pub fn recap_message(
     lines.join("\n")
 }
 
-/// Help text.
-pub fn help_text() -> String {
-    vec![
-        "📋 *Grumps* — Gets it done.",
-        "",
-        "*Add todos:*",
-        "  TODO:",
-        "  • Item one",
-        "  • Item two @person !high #tag",
-        "  _or_ @grumps buy bread @Bob",
-        "",
-        "*Complete:*",
-        "  DONE: • bread",
-        "  _or_ reply \"done\" to a task card",
-        "  _or_ @grumps done #42",
-        "",
-        "*List:*",
-        "  @grumps list",
-        "  @grumps list all / mine / done",
-        "  @grumps list @person / #tag",
-        "",
-        "*Notes:*",
-        "  NOTE: wifi password is XYZ",
-        "  @grumps notes / @grumps note wifi",
-        "",
-        "*Reply + @grumps:*",
-        "  Reply to any msg + @grumps todo",
-        "  Reply to any msg + @grumps note",
-        "",
-        "*Other:*",
-        "  @grumps delete #42",
-        "  @grumps link / help",
-    ]
-    .join("\n")
+/// One entry in the static help command table: a literal (English) command
+/// syntax paired with an i18n key for its localized one-line description.
+/// Command keywords are the stable API surface (product decision — see
+/// [`CARD_REPLY_HINT`]) and are never localized; only the description is.
+struct HelpCmd {
+    /// Literal syntax as the user would type it. May contain embedded `\n`
+    /// for a multi-line block example (e.g. `TODO:` with sample bullets).
+    syntax: &'static str,
+    /// i18n key for the localized description, or `None` when the syntax
+    /// is self-explanatory and no gloss is needed.
+    desc_key: Option<&'static str>,
+}
+
+struct HelpSection {
+    title_key: &'static str,
+    cmds: &'static [HelpCmd],
+}
+
+/// Drives [`help_text`]. This is the single source of truth for what Grumps
+/// documents as usable — cross-checked by hand against the actual parser
+/// behavior in `grumps-nlu::{command_parser, reply_parser, block_parser}`
+/// and `handler::try_fast_commands` (crates/worker/src/handler.rs) so help
+/// and parsing cannot silently drift apart. Does **not** document `files` —
+/// that command is being removed separately.
+const HELP_TABLE: &[HelpSection] = &[
+    HelpSection {
+        title_key: "help.section.add",
+        cmds: &[
+            HelpCmd {
+                syntax: "TODO:\n  • Item one\n  • Item two @name !high #tag",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "@grumps <text>",
+                desc_key: Some("help.cmd.mention_add"),
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.complete",
+        cmds: &[
+            HelpCmd {
+                syntax: "DONE:\n  • item text",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "@grumps done #N / <text>",
+                desc_key: None,
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.list",
+        cmds: &[
+            HelpCmd {
+                syntax: "@grumps list",
+                desc_key: Some("help.cmd.list_open"),
+            },
+            HelpCmd {
+                syntax: "@grumps list all / mine / done",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "@grumps list @name / #tag",
+                desc_key: None,
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.notes",
+        cmds: &[
+            HelpCmd {
+                syntax: "NOTE: content",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "NOTE [title]: content",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "@grumps notes",
+                desc_key: Some("help.cmd.notes_list"),
+            },
+            HelpCmd {
+                syntax: "@grumps note <text>",
+                desc_key: Some("help.cmd.notes_search"),
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.quoted",
+        cmds: &[
+            HelpCmd {
+                syntax: "reply to any message + @grumps todo",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "reply to any message + @grumps note",
+                desc_key: None,
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.card_reply",
+        cmds: &[
+            HelpCmd {
+                syntax: "done",
+                desc_key: Some("help.cmd.card_done"),
+            },
+            HelpCmd {
+                syntax: "snooze <when>",
+                desc_key: Some("help.cmd.card_snooze"),
+            },
+            HelpCmd {
+                syntax: "edit <text>",
+                desc_key: Some("help.cmd.card_edit"),
+            },
+            HelpCmd {
+                syntax: "cancel",
+                desc_key: Some("help.cmd.card_cancel"),
+            },
+            HelpCmd {
+                syntax: "@name",
+                desc_key: Some("help.cmd.card_reassign"),
+            },
+            HelpCmd {
+                syntax: "#tag",
+                desc_key: Some("help.cmd.card_tag"),
+            },
+            HelpCmd {
+                syntax: "!high / !low",
+                desc_key: Some("help.cmd.card_priority"),
+            },
+            HelpCmd {
+                syntax: "status: <text>",
+                desc_key: Some("help.cmd.card_status"),
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.quiet",
+        cmds: &[
+            HelpCmd {
+                syntax: "@grumps quiet",
+                desc_key: Some("help.cmd.quiet_on"),
+            },
+            HelpCmd {
+                syntax: "@grumps come back",
+                desc_key: Some("help.cmd.quiet_off"),
+            },
+            HelpCmd {
+                syntax: "@grumps remember that <fact>",
+                desc_key: Some("help.cmd.remember"),
+            },
+        ],
+    },
+    HelpSection {
+        title_key: "help.section.other",
+        cmds: &[
+            HelpCmd {
+                syntax: "@grumps delete #N",
+                desc_key: None,
+            },
+            HelpCmd {
+                syntax: "@grumps status",
+                desc_key: Some("help.cmd.status"),
+            },
+            HelpCmd {
+                syntax: "@grumps link",
+                desc_key: Some("help.cmd.link"),
+            },
+            HelpCmd {
+                syntax: "@grumps help",
+                desc_key: None,
+            },
+        ],
+    },
+];
+
+/// Help text, built entirely from [`HELP_TABLE`] so the printed command
+/// list and the parser cannot silently diverge.
+pub fn help_text(lang: &str) -> String {
+    let locale = grumps_i18n::Locale::from_code(lang);
+    let mut lines = vec![format!(
+        "📋 *Grumps* — {}",
+        grumps_i18n::t(locale, "help.header", &[])
+    )];
+    for section in HELP_TABLE {
+        lines.push(String::new());
+        lines.push(format!(
+            "*{}:*",
+            grumps_i18n::t(locale, section.title_key, &[])
+        ));
+        for cmd in section.cmds {
+            let mut syntax_lines = cmd.syntax.split('\n');
+            let first = syntax_lines.next().unwrap_or_default();
+            match cmd.desc_key {
+                Some(key) => lines.push(format!(
+                    "  {} — {}",
+                    first,
+                    grumps_i18n::t(locale, key, &[])
+                )),
+                None => lines.push(format!("  {}", first)),
+            }
+            for rest in syntax_lines {
+                lines.push(format!("  {}", rest));
+            }
+        }
+    }
+    lines.join("\n")
 }
 
 #[cfg(test)]
@@ -898,18 +1074,71 @@ mod tests {
         assert!(result.contains("📎 7 个文件"));
     }
 
+    // --- help_text -------------------------------------------------------------
+
     #[test]
-    fn test_help_text_key_sections() {
-        let result = help_text();
+    fn test_help_text_key_sections_en() {
+        let result = help_text("en");
         assert!(result.contains("*Grumps*"));
+        assert!(result.contains("Gets it done."));
         assert!(result.contains("*Add todos:*"));
         assert!(result.contains("*Complete:*"));
         assert!(result.contains("*List:*"));
         assert!(result.contains("*Notes:*"));
         assert!(result.contains("*Reply + @grumps:*"));
+        assert!(result.contains("*Reply to a card:*"));
+        assert!(result.contains("*Quiet mode:*"));
         assert!(result.contains("*Other:*"));
         assert!(result.contains("@grumps list"));
-        assert!(result.contains("@grumps done #42"));
+        assert!(result.contains("@grumps done #N / <text>"));
+        assert!(result.contains("snooze <when> — reschedule"));
+        assert!(result.contains("@grumps remember that <fact>"));
+        // Command keywords stay English no matter the locale.
+        assert!(result.contains("TODO:"));
+        assert!(result.contains("DONE:"));
+        assert!(result.contains("NOTE:"));
+        assert!(result.contains("NOTE [title]:"));
+    }
+
+    #[test]
+    fn test_help_text_fr_localizes_prose_not_keywords() {
+        let result = help_text("fr");
+        assert!(result.contains("*Grumps*"));
+        assert!(result.contains("Ça fait le travail."));
+        assert!(result.contains("*Ajouter des tâches:*"));
+        assert!(result.contains("*Terminer:*"));
+        assert!(result.contains("*Répondre à une carte:*"));
+        assert!(result.contains("*Mode silencieux:*"));
+        // Keywords are never translated.
+        assert!(result.contains("TODO:"));
+        assert!(result.contains("@grumps list"));
+        assert!(result.contains("@grumps remember that <fact>"));
+        assert!(result.contains("réassigner"));
+    }
+
+    #[test]
+    fn test_help_text_ru() {
+        let result = help_text("ru");
+        assert!(result.contains("*Добавить задачи:*"));
+        assert!(result.contains("*Тихий режим:*"));
+        assert!(result.contains("TODO:"));
+    }
+
+    #[test]
+    fn test_help_text_ar() {
+        let result = help_text("ar");
+        assert!(result.contains("*إضافة مهام:*"));
+        assert!(result.contains("*الرد على بطاقة:*"));
+        assert!(result.contains("TODO:"));
+        assert!(result.contains("@grumps quiet"));
+    }
+
+    #[test]
+    fn test_help_text_zh_cn() {
+        let result = help_text("zh-CN");
+        assert!(result.contains("*添加待办:*"));
+        assert!(result.contains("*静音模式:*"));
+        assert!(result.contains("TODO:"));
     }
 
     // --- recap_message -----------------------------------------------------------
