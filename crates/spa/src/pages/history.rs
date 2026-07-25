@@ -12,6 +12,7 @@ pub fn HistoryPage() -> impl IntoView {
     let history = LocalResource::new(move || {
         let api = use_api();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         async move { api.get_history(&s).await.unwrap_or_default() }
     });
 

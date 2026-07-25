@@ -1,3 +1,5 @@
+use crate::components::ui::button::{Button, ButtonSize, ButtonVariant};
+use crate::i18n::tr;
 use leptos::prelude::*;
 use leptos::IntoView;
 
@@ -6,6 +8,12 @@ use leptos::IntoView;
 /// This lets pages pass a `move || expensive_lookup()` closure that re-runs
 /// reactively when its dependencies change (e.g. when SessionContext is
 /// populated by AuthGate after the initial render).
+///
+/// Every header carries a manual refresh button — it bumps the shared
+/// counter from `crate::refresh` that workspace pages read inside their
+/// `LocalResource` to refetch on demand (see `refresh.rs`). Outside the
+/// workspace layout (dashboard, login) the button still renders but is
+/// inert: `use_refresh()` falls back to an unwired signal nobody reads.
 #[component]
 pub fn PageHeader<T>(
     title: T,
@@ -18,6 +26,7 @@ pub fn PageHeader<T>(
 where
     T: IntoView + 'static,
 {
+    let refresh_sig = crate::refresh::use_refresh();
     view! {
         <div class="px-8 h-24 pb-5 border-b-2 border-ink flex items-end justify-between gap-4" style="background: var(--cream-light);">
             <div>
@@ -27,7 +36,18 @@ where
                     (!s.is_empty()).then(|| view! { <p class="text-[13px] mt-0.5" style="color: var(--ink-40);">{s}</p> })
                 }}
             </div>
-            {children.map(|c| view! { <div class="flex gap-2 items-center">{c()}</div> })}
+            <div class="flex gap-2 items-center">
+                <Button
+                    variant=ButtonVariant::Ghost
+                    size=ButtonSize::Sm
+                    icon_only=true
+                    aria_label=tr("common.refresh")
+                    on_click=move |_| refresh_sig.update(|n| *n = n.wrapping_add(1))
+                >
+                    "\u{21BB}"
+                </Button>
+                {children.map(|c| view! { <div class="flex gap-2 items-center">{c()}</div> })}
+            </div>
         </div>
     }
 }

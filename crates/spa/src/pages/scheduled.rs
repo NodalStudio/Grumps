@@ -47,6 +47,7 @@ pub fn ScheduledActionsPage() -> impl IntoView {
         let api = api.clone();
         let s = slug();
         let _ = refresh.get();
+        let _ = crate::refresh::use_refresh().get();
         async move { api.list_scheduled_actions(&s).await.unwrap_or_default() }
     });
 

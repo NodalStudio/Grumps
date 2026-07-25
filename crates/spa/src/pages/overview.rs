@@ -51,6 +51,7 @@ pub fn OverviewPage() -> impl IntoView {
     let info = LocalResource::new(move || {
         let api = api1.clone();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         async move { api.get_workspace_info(&s).await.ok() }
     });
 
@@ -59,6 +60,7 @@ pub fn OverviewPage() -> impl IntoView {
     let week_items = LocalResource::new(move || {
         let api = api2.clone();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         let y = today_y;
         let m = today_m;
         let last = days_in_month(y, m);
@@ -72,6 +74,7 @@ pub fn OverviewPage() -> impl IntoView {
     let memories = LocalResource::new(move || {
         let api = api3.clone();
         let s = slug();
+        let _ = crate::refresh::use_refresh().get();
         async move {
             let all = api.list_memory(&s).await.unwrap_or_default();
             let pinned: Vec<MemoryItem> = all.into_iter().filter(|m| m.pinned).take(5).collect();

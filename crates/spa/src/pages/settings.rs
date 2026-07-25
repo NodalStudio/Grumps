@@ -28,6 +28,7 @@ pub fn SettingsPage() -> impl IntoView {
         let api = api.clone();
         let s = slug();
         let _ = refresh.get();
+        let _ = crate::refresh::use_refresh().get();
         async move {
             if let Ok(settings) = api.get_settings(&s).await {
                 set_quiet.set(settings.quiet_mode.unwrap_or(false));

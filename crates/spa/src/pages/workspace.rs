@@ -36,6 +36,16 @@ pub fn WorkspaceLayout() -> impl IntoView {
     let tz_sig = crate::datetime::provide_timezone("UTC");
     let api = crate::api::use_api();
 
+    // Global "refetch on focus" trigger (issue #22): pages that list data a
+    // chat command can also mutate (todos, notes, memory, …) read this
+    // counter inside their `LocalResource` alongside their own local
+    // signals, so switching back to this tab — or hitting the manual
+    // refresh button in `PageHeader` — refetches instead of showing stale
+    // data. `note_editor.rs` deliberately does NOT subscribe: refetching
+    // mid-edit would stomp on unsaved local changes.
+    let refresh_sig = crate::refresh::provide_refresh();
+    crate::refresh::install_focus_refresh(refresh_sig);
+
     // Load the workspace timezone whenever the active workspace changes; on
     // first visit (no explicit source yet), adopt the browser's timezone so
     // chat-only groups still get a sane default. An Effect (not a one-shot
