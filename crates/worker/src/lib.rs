@@ -67,8 +67,15 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             "/webhook/telegram",
             routes::webhook_telegram::handle_incoming,
         )
-        // Discord webhook
-        .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
+        // Discord webhook — DISABLED. `DiscordAdapter::verify_signature`
+        // (crates/messaging/src/discord.rs) is a no-op stub pending real
+        // Ed25519 verification, which would let anyone who knows a channel id
+        // inject forged messages into the full pipeline (agent tools,
+        // first-member auto-admin). A broken half-platform is worse than no
+        // platform, so the route stays unregistered until that lands. The
+        // adapter, its parsing logic, and its tests are kept intact — only
+        // the HTTP entry point is removed. See crates/worker/src/routes/webhook_discord.rs.
+        // .post_async("/webhook/discord", routes::webhook_discord::handle_incoming)
         // WAHA webhook (self-hosted WhatsApp gateway; no GET verify — WAHA has
         // no challenge handshake, unlike the Meta Cloud API route above)
         .post_async("/webhook/waha", routes::webhook_waha::handle_incoming)

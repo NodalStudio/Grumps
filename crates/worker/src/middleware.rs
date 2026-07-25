@@ -405,11 +405,13 @@ pub async fn verify_session(req: &Request, env: &Env) -> std::result::Result<Cla
                 .map_err(|_| AuthError::SessionRevoked)?;
         }
 
-        // CSRF on mutations.
+        // CSRF on mutations. Constant-time compare — a naive `==` leaks the
+        // correct prefix length through response timing.
         if is_mutation_method(req) {
             let header = req.headers().get("X-CSRF-Token").ok().flatten();
             match (header, claims.csrf.clone()) {
-                (Some(h), Some(c)) if h == c => {}
+                (Some(h), Some(c))
+                    if grumps_core::security::constant_time_eq(h.as_bytes(), c.as_bytes()) => {}
                 (None, _) => return Err(AuthError::CsrfMissing),
                 _ => return Err(AuthError::CsrfMismatch),
             }

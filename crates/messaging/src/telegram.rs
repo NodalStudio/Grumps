@@ -41,8 +41,13 @@ impl MessagingPlatform for TelegramAdapter {
     }
 
     fn verify_signature(&self, _payload: &[u8], secret: &str) -> Result<(), MessagingError> {
-        // Telegram uses X-Telegram-Bot-Api-Secret-Token header
-        if secret == self.webhook_secret {
+        // Telegram uses X-Telegram-Bot-Api-Secret-Token header. Constant-time
+        // compare — a naive `==` leaks the correct prefix length through
+        // response timing.
+        if grumps_core::security::constant_time_eq(
+            secret.as_bytes(),
+            self.webhook_secret.as_bytes(),
+        ) {
             Ok(())
         } else {
             Err(MessagingError::InvalidSignature)

@@ -28,6 +28,9 @@ TG_BOT_USERNAME = "HeyGrumpsBot"
 #   CF_ACCOUNT_ID, BRAVE_API_KEY (optional),
 #   MIGRATE_SECRET (shared secret CI presents to POST /internal/migrate-workspaces;
 #     mirror the same value into the GitHub `MIGRATE_SECRET` repo secret),
+#   STRIPE_WEBHOOK_SECRET (the Stripe CLI/Dashboard "signing secret" for the
+#     `/webhook/stripe` endpoint — verifies the `Stripe-Signature` header;
+#     POST /webhook/stripe rejects every event outright while this is unset),
 #   SUPER_ADMIN_TELEGRAM_IDS (optional, comma-separated Telegram numeric ids
 #     — the Widget login does not expose phone numbers, so super-admin is
 #     identified by Telegram user id),
