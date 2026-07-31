@@ -26,6 +26,22 @@ impl WahaAdapter {
             webhook_hmac,
         }
     }
+
+    /// PUT {base}/api/{session}/groups/{group_id}/description
+    /// Verb is PUT (unlike sendText's POST); the worker helper hardcodes it —
+    /// builders stay verb-agnostic.
+    pub fn build_set_group_description_request(
+        &self,
+        group_id: &str,
+        description: &str,
+    ) -> (String, String) {
+        let url = format!(
+            "{}/api/{}/groups/{}/description",
+            self.base_url, self.session, group_id
+        );
+        let body = serde_json::json!({ "description": description });
+        (url, body.to_string())
+    }
 }
 
 /// `payload.replyTo.id` (and `payload.id`) arrive in WAHA's serialized form
@@ -644,6 +660,41 @@ mod tests {
         let msg = OutboundMessage::text("hi".into());
         let (url, _) = a.build_send_request("x", &msg).unwrap();
         assert_eq!(url, "http://localhost:3000/api/sendText");
+    }
+
+    // --- build_set_group_description_request ---
+
+    #[test]
+    fn build_set_group_description_request_url_and_body() {
+        let a = adapter();
+        let (url, body) = a.build_set_group_description_request(
+            "120363000000000001@g.us",
+            "Grumps workspace: grumps.app/w/test",
+        );
+        assert_eq!(
+            url,
+            "http://localhost:3000/api/default/groups/120363000000000001@g.us/description"
+        );
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(
+            parsed,
+            serde_json::json!({ "description": "Grumps workspace: grumps.app/w/test" })
+        );
+    }
+
+    #[test]
+    fn build_set_group_description_request_trims_trailing_slash_from_base_url() {
+        let a = WahaAdapter::new(
+            "http://localhost:3000/".into(),
+            "default".into(),
+            "key".into(),
+            "hmac".into(),
+        );
+        let (url, _) = a.build_set_group_description_request("120363000000000001@g.us", "desc");
+        assert_eq!(
+            url,
+            "http://localhost:3000/api/default/groups/120363000000000001@g.us/description"
+        );
     }
 
     // --- misc trait surface ---

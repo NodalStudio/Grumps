@@ -127,8 +127,10 @@ pub async fn update_locale(
 
     db::update_workspace_locale(&index_db, &ws.slug, resolved.code()).await?;
 
-    // Side effect: re-apply the Telegram group description in the new locale.
-    // Other platforms are no-ops for now.
+    // Side effect: re-apply the group description in the new locale. WhatsApp
+    // groups are gated on `@g.us` to exclude DM workspaces and Meta Cloud API
+    // channels (phone-number ids), which have no group description concept.
+    // Other platforms (DM-only) are no-ops.
     if let Ok(Some((platform, channel_id))) = db::lookup_platform_channel(&index_db, &ws.slug).await
     {
         if platform == "telegram" {
@@ -140,6 +142,20 @@ pub async fn update_locale(
             );
             let _ = crate::routes::webhook_telegram::call_set_description(&tg, &channel_id, &desc)
                 .await;
+        } else if platform == "whatsapp" && channel_id.ends_with("@g.us") {
+            if let Ok(wa) = crate::routes::webhook_waha::build_adapter(&ctx) {
+                let desc = grumps_i18n::t(
+                    resolved,
+                    "whatsapp.onboarding.description",
+                    &[("slug", &ws.slug)],
+                );
+                let _ = crate::routes::webhook_waha::call_set_group_description(
+                    &wa,
+                    &channel_id,
+                    &desc,
+                )
+                .await;
+            }
         }
     }
 
