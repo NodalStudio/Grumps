@@ -4,8 +4,13 @@ const SLUG = 'test-grp1';
 
 // Smoke tests for every left-nav page in a workspace. Each just verifies the
 // route loads without a runtime error and the page header is visible.
+//
+// 'files' is deliberately excluded: it has no registered route in
+// crates/spa/src/app.rs yet (backend endpoint doesn't exist either) — a
+// known, still-open gap, not a regression (see FINDINGS.md's April "Files
+// page (placeholder; backend endpoint missing)" note, still true today).
 test.describe('Workspace pages — smoke', () => {
-  for (const path of ['todos', 'notes', 'files', 'history', 'calendar', 'memory', 'scheduled', 'settings']) {
+  for (const path of ['todos', 'notes', 'history', 'calendar', 'memory', 'scheduled', 'settings']) {
     test(`/${path} renders without error`, async ({ authedPage }) => {
       const errors: string[] = [];
       authedPage.on('pageerror', (e) => errors.push(e.message));
@@ -38,7 +43,8 @@ test.describe('Calendar page', () => {
   test('switching to agenda view does not crash', async ({ authedPage }) => {
     await authedPage.goto(`/w/${SLUG}/calendar?lang=en`);
     await expect(authedPage.locator('h2').first()).toBeVisible();
-    await authedPage.getByRole('button', { name: 'Agenda', exact: false }).click();
+    // The Month/Week/Agenda switcher is a `tablist`/`tab` (ARIA), not buttons.
+    await authedPage.getByRole('tab', { name: 'Agenda', exact: false }).click();
     // After click, the page should still have a heading.
     await expect(authedPage.locator('h2').first()).toBeVisible();
   });
@@ -58,9 +64,19 @@ test.describe('Settings page', () => {
   });
 });
 
-test.describe('Global settings page', () => {
-  test('renders display_name field', async ({ authedPage }) => {
-    await authedPage.goto('/settings');
-    await expect(authedPage.locator('h2, h1').first()).toBeVisible({ timeout: 10_000 });
+test.describe('Account drawer (sidebar entry point)', () => {
+  // A bare `/settings` route (no workspace) used to host a separate global
+  // settings page with a display_name field; app.rs's router no longer
+  // registers it (it 404s) — display_name editing moved into the global
+  // account drawer (account_drawer.rs), reachable from both the dashboard
+  // header (see dashboard.spec.ts) and, here, the sidebar's account menu.
+  test('sidebar account menu opens the drawer with the display_name field', async ({ authedPage }) => {
+    await authedPage.goto(`/w/${SLUG}`);
+    await authedPage.getByRole('button', { name: 'Account' }).click();
+    await authedPage.getByRole('menuitem', { name: 'Account' }).click();
+    // `exact: true` — a substring match would also hit the drawer's own
+    // "Linked accounts" sub-heading.
+    await expect(authedPage.getByRole('heading', { name: 'Account', exact: true })).toBeVisible();
+    await expect(authedPage.getByLabel(/display name/i)).toBeVisible();
   });
 });

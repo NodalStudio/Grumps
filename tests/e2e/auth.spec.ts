@@ -1,4 +1,4 @@
-import { test, expect, csrf } from './fixtures';
+import { test, expect, csrf, loginAs } from './fixtures';
 
 test.describe('Auth flow', () => {
   test('login page renders TG widget and WhatsApp magic-link hint', async ({ page }) => {
@@ -26,7 +26,11 @@ test.describe('Auth flow', () => {
     await expect(authedPage.getByRole('heading', { name: 'Old Group' })).toBeVisible();
   });
 
-  test('logout clears cookies and redirects to /login', async ({ authedPage, page }) => {
+  test('logout clears cookies and redirects to /login', async ({ page }) => {
+    // Ends its OWN session, so it must not use the suite's shared
+    // `authedPage` session (see fixtures.ts) — a disposable login instead.
+    await page.goto('/login');
+    await loginAs(page);
     const t = await csrf(page);
     const resp = await page.request.post('/auth/logout', {
       headers: { 'X-CSRF-Token': t },
