@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "Админ.",
   "telegram.onboarding.description": "Пространство Grumps: grumps.app/w/{slug}\nДелает. Без болтовни.",
   "telegram.onboarding.dm_welcome": "Grumps. Ваше личное пространство готово: grumps.app/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@{bot} help — всё остальное\n\nДелает. Без болтовни.",
+  "whatsapp.onboarding.description": "Пространство Grumps: grumps.app/w/{slug}\nДелает. Без болтовни.",
+  "whatsapp.onboarding.welcome": "Grumps. Ваше пространство: grumps.app/w/{slug}\n\nTODO: <пункт> — добавляет задачу\nNOTE: <текст> — закрепляет заметку\n@grumps help — всё остальное\n\nДелает. Без болтовни.",
   "workspace.default_name.personal": "Личное",
   "workspace.switch_label": "Сменить рабочее пространство",
   "workspace.add_to_group": "+ Добавить Grumps в группу",

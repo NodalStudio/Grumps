@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "एडमिन।",
   "telegram.onboarding.description": "Grumps वर्कस्पेस: grumps.app/w/{slug}\nकाम करता है। बकवास नहीं।",
   "telegram.onboarding.dm_welcome": "Grumps। आपका निजी वर्कस्पेस तैयार है: grumps.app/w/{slug}\n\nTODO: <आइटम> — कार्य जोड़ता है\nNOTE: <टेक्स्ट> — जानकारी पिन करता है\n@{bot} help — बाकी सब\n\nकाम करता है। बकवास नहीं।",
+  "whatsapp.onboarding.description": "Grumps वर्कस्पेस: grumps.app/w/{slug}\nकाम करता है। बकवास नहीं।",
+  "whatsapp.onboarding.welcome": "Grumps। आपका वर्कस्पेस: grumps.app/w/{slug}\n\nTODO: <आइटम> — कार्य जोड़ता है\nNOTE: <टेक्स्ट> — जानकारी पिन करता है\n@grumps help — बाकी सब\n\nकाम करता है। बकवास नहीं।",
   "workspace.default_name.personal": "निजी",
   "workspace.switch_label": "वर्कस्पेस बदलें",
   "workspace.add_to_group": "+ Grumps को किसी समूह में जोड़ें",

@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "مشرف.",
   "telegram.onboarding.description": "مساحة عمل Grumps: grumps.app/w/{slug}\nينجز. بلا ثرثرة.",
   "telegram.onboarding.dm_welcome": "Grumps. مساحة عملك الشخصية جاهزة: grumps.app/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@{bot} help — كل شيء آخر\n\nينجز. بلا ثرثرة.",
+  "whatsapp.onboarding.description": "مساحة عمل Grumps: grumps.app/w/{slug}\nينجز. بلا ثرثرة.",
+  "whatsapp.onboarding.welcome": "Grumps. مساحة عملك: grumps.app/w/{slug}\n\nTODO: <عنصر> — يضيف مهمة\nNOTE: <نص> — يثبّت ملاحظة\n@grumps help — كل شيء آخر\n\nينجز. بلا ثرثرة.",
   "workspace.default_name.personal": "شخصي",
   "workspace.switch_label": "تبديل مساحة العمل",
   "workspace.add_to_group": "+ أضف Grumps إلى مجموعة",

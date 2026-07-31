@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "관리자.",
   "telegram.onboarding.description": "Grumps 워크스페이스: grumps.app/w/{slug}\n해냅니다. 잡담 없음.",
   "telegram.onboarding.dm_welcome": "Grumps. 개인 워크스페이스가 준비됐습니다: grumps.app/w/{slug}\n\nTODO: <항목> — 작업 추가\nNOTE: <내용> — 정보 고정\n@{bot} help — 그 외 전부\n\n해냅니다. 잡담 없음.",
+  "whatsapp.onboarding.description": "Grumps 워크스페이스: grumps.app/w/{slug}\n해냅니다. 잡담 없음.",
+  "whatsapp.onboarding.welcome": "Grumps. 워크스페이스: grumps.app/w/{slug}\n\nTODO: <항목> — 작업 추가\nNOTE: <내용> — 정보 고정\n@grumps help — 그 외 전부\n\n해냅니다. 잡담 없음.",
   "workspace.default_name.personal": "개인",
   "workspace.switch_label": "워크스페이스 전환",
   "workspace.add_to_group": "+ 그룹에 Grumps 추가",

@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "Yönetici.",
   "telegram.onboarding.description": "Grumps çalışma alanı: grumps.app/w/{slug}\nİşi bitirir. Laf yok.",
   "telegram.onboarding.dm_welcome": "Grumps. Kişisel çalışma alanın hazır: grumps.app/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@{bot} help — geri kalan her şey\n\nİşi bitirir. Laf yok.",
+  "whatsapp.onboarding.description": "Grumps çalışma alanı: grumps.app/w/{slug}\nİşi bitirir. Laf yok.",
+  "whatsapp.onboarding.welcome": "Grumps. Çalışma alanınız: grumps.app/w/{slug}\n\nTODO: <öğe> — görev ekler\nNOTE: <metin> — bilgi sabitler\n@grumps help — geri kalan her şey\n\nİşi bitirir. Laf yok.",
   "workspace.default_name.personal": "Kişisel",
   "workspace.switch_label": "Çalışma alanını değiştir",
   "workspace.add_to_group": "+ Grumps'u bir gruba ekle",

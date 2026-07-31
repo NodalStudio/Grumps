@@ -62,25 +62,29 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     let index_db = db::get_index_db(&ctx.env)?;
     let d1_client = D1RestClient::from_env(&ctx.env)?;
 
-    let workspace = match db::lookup_workspace(&index_db, "whatsapp", &inbound.channel_id).await? {
-        Some(ws) => ws,
-        None => {
-            let (slug, db_id) = provisioning::provision_workspace(
-                &d1_client,
-                &index_db,
-                "whatsapp",
-                &inbound.channel_id,
-            )
-            .await?;
-            db::WorkspaceMetaRow {
-                slug,
-                d1_database_id: db_id,
-                name: None,
-                plan: "free".into(),
-                locale: "en".into(),
+    let (workspace, newly_provisioned) =
+        match db::lookup_workspace(&index_db, "whatsapp", &inbound.channel_id).await? {
+            Some(ws) => (ws, false),
+            None => {
+                let (slug, db_id) = provisioning::provision_workspace(
+                    &d1_client,
+                    &index_db,
+                    "whatsapp",
+                    &inbound.channel_id,
+                )
+                .await?;
+                (
+                    db::WorkspaceMetaRow {
+                        slug,
+                        d1_database_id: db_id,
+                        name: None,
+                        plan: "free".into(),
+                        locale: "en".into(),
+                    },
+                    true,
+                )
             }
-        }
-    };
+        };
 
     let ws_db = db::WorkspaceDb::new(&d1_client, workspace.d1_database_id.clone());
 
@@ -92,6 +96,26 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     // Register in Index DB
     let role = if is_first { "admin" } else { "member" };
     let _ = db::upsert_index_user(&index_db, &inbound.sender_id, &workspace.slug, role).await;
+
+    // First message in a group provisions the workspace → onboard: write the
+    // workspace URL into the group description (best-effort; restricted groups
+    // reject it) and send the welcome BEFORE the handler's reply to this
+    // triggering message (which may itself be a TODO: command).
+    if newly_provisioned && !inbound.is_direct_message {
+        let locale = grumps_i18n::Locale::from_code(&workspace.locale);
+        let desc = grumps_i18n::t(
+            locale,
+            "whatsapp.onboarding.description",
+            &[("slug", &workspace.slug)],
+        );
+        let _ = call_set_group_description(&wa, &inbound.channel_id, &desc).await;
+        let welcome = grumps_i18n::t(
+            locale,
+            "whatsapp.onboarding.welcome",
+            &[("slug", &workspace.slug)],
+        );
+        send_waha_text(&wa, &inbound.channel_id, &welcome).await;
+    }
 
     // 6. Parse message text
     let text = match &inbound.text {
@@ -295,7 +319,7 @@ pub async fn handle_incoming(mut req: Request, ctx: RouteContext<()>) -> Result<
     Response::ok("ok")
 }
 
-fn build_adapter(ctx: &RouteContext<()>) -> Result<WahaAdapter> {
+pub(crate) fn build_adapter(ctx: &RouteContext<()>) -> Result<WahaAdapter> {
     Ok(WahaAdapter::new(
         ctx.env.secret("WAHA_URL")?.to_string(),
         ctx.env
@@ -305,4 +329,83 @@ fn build_adapter(ctx: &RouteContext<()>) -> Result<WahaAdapter> {
         ctx.env.secret("WAHA_API_KEY")?.to_string(),
         ctx.env.secret("WAHA_WEBHOOK_HMAC")?.to_string(),
     ))
+}
+
+/// Call the WAHA group-description endpoint. WAHA returns the literal body
+/// `true`/`false` — `false` means the bot lacks permission (e.g. an
+/// "admins only" group setting), not a network/HTTP failure, so it's
+/// distinguished from a non-2xx status only in the log line. Never
+/// propagates an error — the caller treats this as best-effort.
+pub(crate) async fn call_set_group_description(
+    wa: &WahaAdapter,
+    group_id: &str,
+    description: &str,
+) -> Result<bool> {
+    let (url, body) = wa.build_set_group_description_request(group_id, description);
+    let headers = Headers::new();
+    headers.set("X-Api-Key", &wa.api_key)?;
+    headers.set("Content-Type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Put)
+        .with_headers(headers)
+        .with_body(Some(body.into()));
+    let req = Request::new_with_init(&url, &init)?;
+    let mut resp = match Fetch::Request(req).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            console_log!("set group description network error: {}", e);
+            return Ok(false);
+        }
+    };
+    let status = resp.status_code();
+    let text = resp.text().await.unwrap_or_default();
+    if !(200..300).contains(&status) || text.trim() == "false" {
+        console_log!(
+            "set group description failed: status={} body={}",
+            status,
+            grumps_messaging::adapter::truncate_body(&text, 300)
+        );
+        return Ok(false);
+    }
+    Ok(true)
+}
+
+/// Best-effort single sendText call — used for the onboarding welcome, which
+/// has no todo card to track (unlike the main send loop's `track_bot_message`).
+/// Logs on failure but never propagates — the webhook must still return 200 OK.
+async fn send_waha_text(wa: &WahaAdapter, chat_id: &str, text: &str) {
+    let msg = grumps_messaging::adapter::OutboundMessage::text(text.to_string());
+    let result: Result<()> = async {
+        let (url, body) = wa
+            .build_send_request(chat_id, &msg)
+            .map_err(|e| Error::RustError(format!("{:?}", e)))?;
+
+        let headers = Headers::new();
+        headers.set("X-Api-Key", &wa.api_key)?;
+        headers.set("Content-Type", "application/json")?;
+
+        let mut init = RequestInit::new();
+        init.with_method(Method::Post)
+            .with_headers(headers)
+            .with_body(Some(body.into()));
+
+        let send_req = Request::new_with_init(&url, &init)?;
+        let mut send_resp = Fetch::Request(send_req).send().await?;
+        let status = send_resp.status_code();
+        let text = send_resp.text().await.unwrap_or_default();
+        let json: serde_json::Value =
+            serde_json::from_str(&text).unwrap_or(serde_json::Value::Null);
+        if !grumps_messaging::adapter::is_send_ok("whatsapp", status, &json) {
+            console_log!(
+                "send_waha_text failed: status={} body={}",
+                status,
+                grumps_messaging::adapter::truncate_body(&text, 300)
+            );
+        }
+        Ok(())
+    }
+    .await;
+    if let Err(e) = result {
+        console_log!("send_waha_text error: {}", e);
+    }
 }

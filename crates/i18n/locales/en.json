@@ -266,6 +266,8 @@
   "telegram.onboarding.promoted.without_description": "Admin.",
   "telegram.onboarding.description": "Grumps workspace: grumps.app/w/{slug}\nGets it done. No small talk.",
   "telegram.onboarding.dm_welcome": "Grumps. Your personal workspace is ready: grumps.app/w/{slug}\n\nTODO: <item> — adds a task\nNOTE: <text> — pins info\n@{bot} help — everything else\n\nGets it done. No small talk.",
+  "whatsapp.onboarding.description": "Grumps workspace: grumps.app/w/{slug}\nGets it done. No small talk.",
+  "whatsapp.onboarding.welcome": "Grumps. Your workspace: grumps.app/w/{slug}\n\nTODO: <item> — adds a task\nNOTE: <text> — pins info\n@grumps help — everything else\n\nGets it done. No small talk.",
   "workspace.default_name.personal": "Personal",
   "workspace.switch_label": "Switch workspace",
   "workspace.add_to_group": "+ Add Grumps to a group",
