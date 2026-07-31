@@ -200,6 +200,10 @@ jobs:
       #   SUPER_ADMIN_TELEGRAM_IDS: the dev-bypass user's tg id, seeded below
       #     — lets `scheduled.spec.ts`'s force-fire test run instead of
       #     self-skipping.
+      #   CF_ACCOUNT_ID / CF_API_TOKEN: `D1RestClient::from_env` requires both
+      #     secrets before it can issue any per-workspace query, even against
+      #     the shim (which ignores auth and matches any account id in the
+      #     URL). Without them every shim-backed route 500s.
       - name: Write local .dev.vars
         run: |
           cat > .dev.vars <<'EOF'
@@ -209,6 +213,8 @@ jobs:
           TG_BOT_TOKEN=ci-test-bot-token
           TG_WEBHOOK_SECRET=f36638579db4005af0e80f584ae9d4492472f953f3c74b6361d106827738a9db
           SUPER_ADMIN_TELEGRAM_IDS=6108569905
+          CF_ACCOUNT_ID=ci-local-account
+          CF_API_TOKEN=ci-test-token-not-real
           EOF
 
       - name: Migrate + seed local INDEX_DB (SQLite)
@@ -275,6 +281,14 @@ jobs:
           echo "Worker ready. Waiting for SPA on :8080 …"
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 5; done
           cd tests && npx playwright test
+
+      # Spec failures usually surface as opaque non-OK API responses; the
+      # worker/shim logs carry the actual server-side error.
+      - name: Dump worker + shim logs on failure
+        if: failure()
+        run: |
+          echo "=== wrangler.log (tail) ==="; tail -n 200 /tmp/wrangler.log || true
+          echo "=== d1-shim.log (tail) ==="; tail -n 100 /tmp/d1-shim.log || true
 
       - name: Upload Playwright report on failure
         if: failure()
