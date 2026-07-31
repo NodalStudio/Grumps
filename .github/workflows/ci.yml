@@ -283,12 +283,15 @@ jobs:
           cd tests && npx playwright test
 
       # Spec failures usually surface as opaque non-OK API responses; the
-      # worker/shim logs carry the actual server-side error.
+      # worker/shim logs carry the actual server-side error. dmesg + ps cover
+      # the "worker process died mid-run" class (OOM kill, workerd abort).
       - name: Dump worker + shim logs on failure
         if: failure()
         run: |
-          echo "=== wrangler.log (tail) ==="; tail -n 200 /tmp/wrangler.log || true
+          echo "=== wrangler.log (tail) ==="; tail -n 3000 /tmp/wrangler.log || true
           echo "=== d1-shim.log (tail) ==="; tail -n 100 /tmp/d1-shim.log || true
+          echo "=== surviving processes ==="; ps aux | grep -E "wrangler|workerd|trunk|d1-shim" | grep -v grep || true
+          echo "=== dmesg (tail) ==="; sudo dmesg | tail -n 40 || true
 
       - name: Upload Playwright report on failure
         if: failure()
