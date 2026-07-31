@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "Admin.",
   "telegram.onboarding.description": "Workspace Grumps: grumps.app/w/{slug}\nSelesai. Tanpa basa-basi.",
   "telegram.onboarding.dm_welcome": "Grumps. Workspace pribadimu siap: grumps.app/w/{slug}\n\nTODO: <item> — menambah tugas\nNOTE: <teks> — menyematkan info\n@{bot} help — sisanya\n\nSelesai. Tanpa basa-basi.",
+  "whatsapp.onboarding.description": "Workspace Grumps: grumps.app/w/{slug}\nSelesai. Tanpa basa-basi.",
+  "whatsapp.onboarding.welcome": "Grumps. Workspace-mu: grumps.app/w/{slug}\n\nTODO: <item> — menambah tugas\nNOTE: <teks> — menyematkan info\n@grumps help — sisanya\n\nSelesai. Tanpa basa-basi.",
   "workspace.default_name.personal": "Pribadi",
   "workspace.switch_label": "Ganti ruang kerja",
   "workspace.add_to_group": "+ Tambahkan Grumps ke grup",

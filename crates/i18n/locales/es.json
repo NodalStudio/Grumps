@@ -253,6 +253,8 @@
   "telegram.onboarding.promoted.without_description": "Admin.",
   "telegram.onboarding.description": "Espacio Grumps: grumps.app/w/{slug}\nHecho. Sin cháchara.",
   "telegram.onboarding.dm_welcome": "Grumps. Tu espacio personal está listo: grumps.app/w/{slug}\n\nTODO: <ítem> — añade una tarea\nNOTE: <texto> — fija una nota\n@{bot} help — todo lo demás\n\nHecho. Sin cháchara.",
+  "whatsapp.onboarding.description": "Espacio Grumps: grumps.app/w/{slug}\nHecho. Sin cháchara.",
+  "whatsapp.onboarding.welcome": "Grumps. Tu espacio: grumps.app/w/{slug}\n\nTODO: <ítem> — añade una tarea\nNOTE: <texto> — fija una nota\n@grumps help — todo lo demás\n\nHecho. Sin cháchara.",
   "workspace.default_name.personal": "Personal",
   "workspace.switch_label": "Cambiar de espacio",
   "workspace.add_to_group": "+ Añadir Grumps a un grupo",
