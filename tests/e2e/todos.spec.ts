@@ -14,14 +14,15 @@ test.describe('Todos', () => {
 
   test('filter "Done" reveals completed todos', async ({ authedPage }) => {
     await authedPage.goto('/w/test-grp1/todos');
-    await authedPage.getByRole('button', { name: 'Done', exact: true }).click();
+    // The Open/All/Done/Mine filter switcher is a `tablist`/`tab` (ARIA).
+    await authedPage.getByRole('tab', { name: 'Done', exact: true }).click();
     await expect(authedPage.getByText('Pay the rent')).toBeVisible();
     await expect(authedPage.getByText('Buy milk')).toHaveCount(0);
   });
 
   test('filter "All" shows every todo', async ({ authedPage }) => {
     await authedPage.goto('/w/test-grp1/todos');
-    await authedPage.getByRole('button', { name: 'All', exact: true }).click();
+    await authedPage.getByRole('tab', { name: 'All', exact: true }).click();
     await expect(authedPage.getByText('Buy milk')).toBeVisible();
     await expect(authedPage.getByText('Pay the rent')).toBeVisible();
   });
@@ -38,7 +39,8 @@ test.describe('Todos', () => {
     await authedPage.goto('/w/test-grp1/todos');
     const row = authedPage.locator('.todo-row').filter({ hasText: 'Toggle target' });
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await row.locator('.todo-checkbox').click();
+    // Checkbox component (checkbox.rs) — no dedicated class, just role=checkbox.
+    await row.getByRole('checkbox').click();
     await expect(authedPage.getByText('Toggle target')).toHaveCount(0, { timeout: 5_000 });
 
     // Cleanup.

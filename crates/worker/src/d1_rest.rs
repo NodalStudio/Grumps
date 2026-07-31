@@ -4,7 +4,17 @@ use worker::*;
 pub struct D1RestClient {
     account_id: String,
     api_token: String,
+    rest_base: String,
 }
+
+/// Default D1 REST API origin. Overridden by the `D1_REST_BASE` var (set via
+/// `wrangler dev --var D1_REST_BASE:http://127.0.0.1:8788` in the e2e CI job)
+/// to point at `scripts/d1-shim`, a local better-sqlite3-backed stand-in that
+/// implements the same request/response contract — lets the per-workspace
+/// e2e specs (todos, notes, members, memory, ...) run hermetically, with no
+/// live Cloudflare account involved. Production leaves the var unset, so
+/// this is a no-op there. See issue #9 for the fuller design.
+const DEFAULT_REST_BASE: &str = "https://api.cloudflare.com";
 
 #[derive(Debug, Serialize)]
 struct D1Query {
@@ -41,6 +51,10 @@ impl D1RestClient {
         Ok(Self {
             account_id: env.secret("CF_ACCOUNT_ID")?.to_string(),
             api_token: env.secret("CF_API_TOKEN")?.to_string(),
+            rest_base: env
+                .var("D1_REST_BASE")
+                .map(|v| v.to_string())
+                .unwrap_or_else(|_| DEFAULT_REST_BASE.to_string()),
         })
     }
 
@@ -51,8 +65,8 @@ impl D1RestClient {
         params: Vec<serde_json::Value>,
     ) -> Result<D1Response> {
         let url = format!(
-            "https://api.cloudflare.com/client/v4/accounts/{}/d1/database/{}/query",
-            self.account_id, database_id
+            "{}/client/v4/accounts/{}/d1/database/{}/query",
+            self.rest_base, self.account_id, database_id
         );
         let body = serde_json::to_string(&D1Query {
             sql: sql.to_string(),
@@ -124,8 +138,8 @@ impl D1RestClient {
 
     pub async fn create_database(&self, name: &str) -> Result<String> {
         let url = format!(
-            "https://api.cloudflare.com/client/v4/accounts/{}/d1/database",
-            self.account_id
+            "{}/client/v4/accounts/{}/d1/database",
+            self.rest_base, self.account_id
         );
         let body = serde_json::json!({"name": name});
 

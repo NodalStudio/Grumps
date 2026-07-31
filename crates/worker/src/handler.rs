@@ -1240,6 +1240,256 @@ pub(crate) fn mutation_ack_messages(
 /// mention to open the message and bails on `TODO:`/`DONE:`/`NOTE:` blocks,
 /// so a bullet line that happens to *contain* "@grumps quiet" is parsed as
 /// a todo instead of silencing the bot.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use grumps_agent::tools::{NoteAckCard, ScheduledAckCard, TodoAckCard};
+    use grumps_i18n::Locale;
+
+    // --- HandlerResult constructors: the shape every dispatch arm returns ---
+
+    #[test]
+    fn handler_result_none_is_empty() {
+        assert!(HandlerResult::none().messages.is_empty());
+    }
+
+    #[test]
+    fn handler_result_one_carries_reply_to_and_is_not_markdown() {
+        let r = HandlerResult::one("hi".to_string(), Some("msg-1".to_string()));
+        assert_eq!(r.messages.len(), 1);
+        assert_eq!(r.messages[0].text, "hi");
+        assert_eq!(r.messages[0].reply_to.as_deref(), Some("msg-1"));
+        assert!(!r.messages[0].markdown);
+        assert!(r.messages[0].todo_id.is_none());
+    }
+
+    #[test]
+    fn handler_result_one_markdown_flags_markdown() {
+        // Used by the Help arm — Telegram needs `parse_mode: Markdown` for it.
+        let r = HandlerResult::one_markdown("*bold*".to_string(), None);
+        assert!(r.messages[0].markdown);
+    }
+
+    #[test]
+    fn handler_result_many_preserves_order() {
+        let msgs = vec![
+            OutboundMessage {
+                text: "first".into(),
+                reply_to: None,
+                todo_id: None,
+                markdown: false,
+            },
+            OutboundMessage {
+                text: "second".into(),
+                reply_to: None,
+                todo_id: None,
+                markdown: false,
+            },
+        ];
+        let r = HandlerResult::many(msgs);
+        assert_eq!(r.messages.len(), 2);
+        assert_eq!(r.messages[0].text, "first");
+        assert_eq!(r.messages[1].text, "second");
+    }
+
+    // --- Help arm: the one dispatch arm with no DB dependency at all ---
+
+    #[test]
+    fn help_arm_renders_markdown_help_text() {
+        let text = formatter::help_text(Locale::En.code());
+        let r = HandlerResult::one_markdown(text, None);
+        assert!(r.messages[0].markdown);
+        assert!(!r.messages[0].text.is_empty());
+    }
+
+    // --- deadline_display_info: drives both the task card and the list ---
+
+    #[test]
+    fn deadline_display_info_no_deadline_sorts_last() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, ordinal) = deadline_display_info(Locale::En, None, today);
+        assert_eq!(display, None);
+        assert_eq!(bucket, 3, "undated bucket sorts after dated ones");
+        assert_eq!(ordinal, 0);
+    }
+
+    #[test]
+    fn deadline_display_info_unparseable_shown_raw_and_sorted_undated() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, _) = deadline_display_info(Locale::En, Some("next sprint"), today);
+        assert_eq!(display.as_deref(), Some("next sprint"));
+        assert_eq!(bucket, 3);
+    }
+
+    #[test]
+    fn deadline_display_info_overdue_gets_warning_glyph_and_bucket_zero() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, _) = deadline_display_info(Locale::En, Some("2026-06-10"), today);
+        assert!(display.unwrap().starts_with('⚠'));
+        assert_eq!(bucket, 0, "overdue sorts first");
+    }
+
+    #[test]
+    fn deadline_display_info_today_uses_localized_today_bucket_one() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, ordinal) =
+            deadline_display_info(Locale::En, Some("2026-06-15"), today);
+        assert_eq!(display.as_deref(), Some("today"));
+        assert_eq!(bucket, 1);
+        assert_eq!(ordinal, 0);
+    }
+
+    #[test]
+    fn deadline_display_info_tomorrow_uses_localized_tomorrow_bucket_two() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, ordinal) =
+            deadline_display_info(Locale::En, Some("2026-06-16"), today);
+        assert_eq!(display.as_deref(), Some("tomorrow"));
+        assert_eq!(bucket, 2);
+        assert!(ordinal > 0, "future dates carry a real ordinal for sorting");
+    }
+
+    #[test]
+    fn deadline_display_info_future_shows_weekday_and_day() {
+        // 2026-06-20 is a Saturday.
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        let (display, bucket, _) = deadline_display_info(Locale::En, Some("2026-06-20"), today);
+        assert_eq!(display.as_deref(), Some("Sat 20"));
+        assert_eq!(bucket, 2);
+    }
+
+    // --- resolve_snooze_date: reply "snooze" / "snooze <text>" ---
+
+    #[test]
+    fn resolve_snooze_date_bare_means_tomorrow() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        assert_eq!(
+            resolve_snooze_date("", today).as_deref(),
+            Some("2026-06-16")
+        );
+        assert_eq!(
+            resolve_snooze_date("   ", today).as_deref(),
+            Some("2026-06-16"),
+            "whitespace-only input is treated as bare"
+        );
+    }
+
+    #[test]
+    fn resolve_snooze_date_explicit_iso_passes_through() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        assert_eq!(
+            resolve_snooze_date("2026-08-01", today).as_deref(),
+            Some("2026-08-01")
+        );
+    }
+
+    #[test]
+    fn resolve_snooze_date_unparseable_returns_none() {
+        let today = chrono::NaiveDate::from_ymd_opt(2026, 6, 15).unwrap();
+        assert_eq!(resolve_snooze_date("blorp nonsense", today), None);
+    }
+
+    // --- mutation_ack_messages: the agent-tool-mutation -> reply mapping ---
+
+    #[test]
+    fn mutation_ack_messages_empty_input_yields_no_messages() {
+        let out = mutation_ack_messages(
+            Locale::En,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        assert!(out.is_empty());
+    }
+
+    #[test]
+    fn mutation_ack_messages_reuses_the_same_copy_as_the_deterministic_commands() {
+        // completed/deleted acks intentionally reuse `agent.todo.completed` /
+        // `agent.todo.deleted` — the same keys the deterministic `done #N` /
+        // `delete #N` free-text commands use (see handle_complete_single /
+        // handle_delete) — so the bot's voice doesn't change based on how a
+        // mutation was triggered.
+        let completed = vec![TodoAckCard {
+            id: "t1".into(),
+            seq_num: 3,
+            title: "Buy milk".into(),
+        }];
+        let deleted = vec![TodoAckCard {
+            id: "t2".into(),
+            seq_num: 4,
+            title: "Old task".into(),
+        }];
+        let out = mutation_ack_messages(
+            Locale::En,
+            completed,
+            vec![],
+            deleted,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+        );
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].text, "✅ #3 \"Buy milk\" — done.");
+        assert_eq!(out[0].todo_id.as_deref(), Some("t1"));
+        assert_eq!(out[1].text, "🗑️ #4 \"Old task\" — deleted.");
+        assert_eq!(
+            out[1].todo_id, None,
+            "the todo no longer exists, nothing to reply-anchor to"
+        );
+    }
+
+    #[test]
+    fn mutation_ack_messages_covers_every_kind_in_call_order() {
+        let updated_todos = vec![TodoAckCard {
+            id: "t5".into(),
+            seq_num: 5,
+            title: "Renamed".into(),
+        }];
+        let updated_notes = vec![NoteAckCard {
+            id: "n1".into(),
+            title: None,
+        }];
+        let deleted_notes = vec![NoteAckCard {
+            id: "n2".into(),
+            title: None,
+        }];
+        let cancelled_scheduled = vec![ScheduledAckCard {
+            id: "s1".into(),
+            title: "Standup".into(),
+        }];
+        let updated_scheduled = vec![ScheduledAckCard {
+            id: "s2".into(),
+            title: "Weekly sync".into(),
+        }];
+        let out = mutation_ack_messages(
+            Locale::En,
+            vec![],
+            updated_todos,
+            vec![],
+            updated_notes,
+            deleted_notes,
+            cancelled_scheduled,
+            updated_scheduled,
+        );
+        let texts: Vec<&str> = out.iter().map(|m| m.text.as_str()).collect();
+        assert_eq!(
+            texts,
+            vec![
+                "✏️ #5 \"Renamed\" — updated.",
+                "📝 Note updated.",
+                "🗑️ Note deleted.",
+                "🗑️ Cancelled: \"Standup\".",
+                "✏️ Updated: \"Weekly sync\".",
+            ]
+        );
+    }
+}
+
 async fn try_fast_commands(
     env: &Env,
     ws_db: &WorkspaceDb<'_>,

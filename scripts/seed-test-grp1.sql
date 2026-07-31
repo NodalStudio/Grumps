@@ -1,8 +1,10 @@
 -- Seed for the "Roommates" test workspace D1 (test-grp1).
--- 5 members, 6 todos with mixed priorities/statuses, 2 notes, activity log.
+-- 5 members, 6 todos with mixed priorities/statuses, 2 notes, 3 pinned
+-- memory facts, activity log.
 
 DELETE FROM activity_log;
 DELETE FROM bot_messages;
+DELETE FROM memory_entries;
 DELETE FROM notes;
 DELETE FROM todos;
 DELETE FROM members;
@@ -34,3 +36,11 @@ INSERT INTO activity_log (id, actor, action, target_type, target_id, source) VAL
   ('a1', 'm-alice', 'todo.create',   'todo', 't-buy-milk', 'chat'),
   ('a2', 'm-alice', 'todo.complete', 'todo', 't-rent',     'chat'),
   ('a3', 'm-bob',   'note.create',   'note', 'n-numbers',  'web');
+
+-- 3 pinned facts, referenced verbatim by tests/e2e/memory.spec.ts (list
+-- count >= 3, and the overview "What I know" widget UI test looks for the
+-- "Rent is 1450 EUR" text specifically).
+INSERT INTO memory_entries (id, key, value, kind, source, pinned, created_by) VALUES
+  ('mem-rent',  'rent',  'Rent is 1450 EUR, due on the 1st of the month.', 'fact', 'chat', 1, 'm-alice'),
+  ('mem-wifi',  'wifi',  'WiFi: GrumpsHouse5G, password roommates2025.',   'fact', 'chat', 1, 'm-alice'),
+  ('mem-trash', 'trash', 'Bob handles trash pickup on Tuesdays.',          'fact', 'chat', 1, 'm-bob');

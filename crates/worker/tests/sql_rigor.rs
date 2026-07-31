@@ -209,6 +209,184 @@ fn todo_tags_read_modify_write_dedupes_and_lowercases() {
     );
 }
 
+/// Schema slice shared by the `scheduled_actions` tests below: 0001 for
+/// `members` (the `created_by` FK target), 0004 for `scheduled_actions`
+/// itself.
+fn conn_scheduling() -> Connection {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(include_str!("../../../migrations/workspace/0001_init.sql"))
+        .expect("apply 0001_init");
+    c.execute_batch(include_str!(
+        "../../../migrations/workspace/0004_scheduling.sql"
+    ))
+    .expect("apply 0004_scheduling");
+    c
+}
+
+/// `WorkspaceDb::update_scheduled_action` — mirrors the exact UPDATE shape:
+/// title/trigger_at/recurrence/payload are editable, `action_type` and
+/// `status` are deliberately excluded from the SET list (type is fixed at
+/// creation, status is scheduler-managed). Also proves the "no row matched"
+/// case the method surfaces as `Ok(false)` via `changes == 0`.
+#[test]
+fn update_scheduled_action_edits_only_the_editable_columns() {
+    let c = conn_scheduling();
+    c.execute(
+        "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload, status) \
+         VALUES ('a1', 'reminder', 'old title', '2026-06-01T09:00:00Z', 'FREQ=DAILY', '{}', 'pending')",
+        [],
+    )
+    .unwrap();
+
+    // Exact query shape from `WorkspaceDb::update_scheduled_action`.
+    const UPDATE_SQL: &str = "UPDATE scheduled_actions SET title = ?1, trigger_at = ?2, recurrence = ?3, payload = ?4 WHERE id = ?5";
+    let changes = c
+        .execute(
+            UPDATE_SQL,
+            rusqlite::params![
+                "new title",
+                "2026-06-02T09:00:00Z",
+                "FREQ=WEEKLY",
+                "{\"text\":\"hi\"}",
+                "a1"
+            ],
+        )
+        .unwrap();
+    assert_eq!(changes, 1, "one row updated maps to Ok(true)");
+
+    let (title, trigger_at, recurrence, payload, action_type, status): (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = c
+        .query_row(
+            "SELECT title, trigger_at, recurrence, payload, action_type, status FROM scheduled_actions WHERE id = 'a1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+        )
+        .unwrap();
+    assert_eq!(title, "new title");
+    assert_eq!(trigger_at, "2026-06-02T09:00:00Z");
+    assert_eq!(recurrence, "FREQ=WEEKLY");
+    assert_eq!(payload, "{\"text\":\"hi\"}");
+    // Not in the SET list: untouched by the update.
+    assert_eq!(action_type, "reminder", "action_type is not editable");
+    assert_eq!(
+        status, "pending",
+        "status is scheduler-managed, not editable"
+    );
+
+    // Missing id: zero rows affected -> the method returns Ok(false).
+    let changes = c
+        .execute(
+            UPDATE_SQL,
+            rusqlite::params![
+                "x",
+                "2026-01-01T00:00:00Z",
+                "FREQ=DAILY",
+                "{}",
+                "does-not-exist"
+            ],
+        )
+        .unwrap();
+    assert_eq!(changes, 0, "no matching row maps to Ok(false)");
+}
+
+/// `WorkspaceDb::set_todo_deadline` — `NULLIF(?1,'')` means passing an empty
+/// string clears the deadline instead of storing an empty string, which
+/// would otherwise poison every `date(deadline)` comparison used elsewhere
+/// (e.g. `list_todos_with_deadline_in_range`).
+#[test]
+fn set_todo_deadline_empty_string_clears_via_nullif() {
+    let c = conn();
+    c.execute(
+        "INSERT INTO todos (id, seq_num, title, deadline) VALUES ('t1', 1, 'ship it', NULL)",
+        [],
+    )
+    .unwrap();
+
+    // Exact query shape from `WorkspaceDb::set_todo_deadline`.
+    const SET_DEADLINE_SQL: &str =
+        "UPDATE todos SET deadline = NULLIF(?1,''), updated_at = datetime('now') WHERE id = ?2";
+
+    c.execute(SET_DEADLINE_SQL, rusqlite::params!["2026-07-01", "t1"])
+        .unwrap();
+    let deadline: Option<String> = c
+        .query_row("SELECT deadline FROM todos WHERE id = 't1'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(deadline.as_deref(), Some("2026-07-01"));
+
+    c.execute(SET_DEADLINE_SQL, rusqlite::params!["", "t1"])
+        .unwrap();
+    let deadline: Option<String> = c
+        .query_row("SELECT deadline FROM todos WHERE id = 't1'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    assert_eq!(
+        deadline, None,
+        "empty string is normalized to NULL, not stored literally"
+    );
+}
+
+/// `WorkspaceDb::reschedule_action_after_failure` — a transient send failure
+/// on a recurring action must NOT flip it to `'failed'` (that's
+/// `mark_action_failed`, a separate method for the terminal case). It
+/// records the error, advances `trigger_at` past the missed occurrence, and
+/// keeps `status = 'pending'` so the DO alarm keeps firing; `fire_count`
+/// still increments because an attempt was made.
+#[test]
+fn reschedule_action_after_failure_stays_pending_and_records_error() {
+    let c = conn_scheduling();
+    c.execute(
+        "INSERT INTO scheduled_actions (id, action_type, title, trigger_at, recurrence, payload, status, fire_count) \
+         VALUES ('a1', 'reminder', 'weekly standup', '2026-06-01T09:00:00Z', 'FREQ=WEEKLY', '{}', 'pending', 3)",
+        [],
+    )
+    .unwrap();
+
+    // Exact query shape from `WorkspaceDb::reschedule_action_after_failure`.
+    const RESCHEDULE_SQL: &str = "UPDATE scheduled_actions SET status='pending', trigger_at=?1, last_error=?2, last_fired_at=datetime('now'), fire_count=fire_count+1 WHERE id=?3";
+    c.execute(
+        RESCHEDULE_SQL,
+        rusqlite::params!["2026-06-08T09:00:00Z", "send failed: 503", "a1"],
+    )
+    .unwrap();
+
+    let (status, trigger_at, last_error, fire_count, last_fired_at): (
+        String,
+        String,
+        Option<String>,
+        i64,
+        Option<String>,
+    ) = c
+        .query_row(
+            "SELECT status, trigger_at, last_error, fire_count, last_fired_at FROM scheduled_actions WHERE id = 'a1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .unwrap();
+    assert_eq!(
+        status, "pending",
+        "recurring action survives a transient failure"
+    );
+    assert_eq!(
+        trigger_at, "2026-06-08T09:00:00Z",
+        "advanced past the missed occurrence"
+    );
+    assert_eq!(last_error.as_deref(), Some("send failed: 503"));
+    assert_eq!(
+        fire_count, 4,
+        "fire_count still increments on a failed attempt"
+    );
+    assert!(last_fired_at.is_some());
+}
+
 #[test]
 fn timezone_seed_default_is_utc() {
     let c = conn();

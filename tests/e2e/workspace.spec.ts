@@ -23,17 +23,23 @@ test.describe('Workspace overview', () => {
 });
 
 test.describe('Workspace switcher', () => {
+  // The trigger `<button>` (workspace_switcher.rs) carries a fixed
+  // `aria-label="workspace.switch_label"` ("Switch workspace") that overrides
+  // the visible workspace-name text for accessible-name purposes — the name
+  // is NOT "Roommates". Rows inside the panel are `<a role="menuitem">`,
+  // whose explicit role overrides the implicit `link` role, so they must be
+  // queried as `menuitem`, not `link`.
   test('opens dropdown and lists all workspaces', async ({ authedPage }) => {
     await authedPage.goto('/w/test-grp1');
-    await authedPage.getByRole('button', { name: /Roommates/i }).click();
-    await expect(authedPage.getByRole('link', { name: /Personal/ })).toBeVisible();
-    await expect(authedPage.getByRole('link', { name: /Old Group/ })).toBeVisible();
+    await authedPage.getByRole('button', { name: 'Switch workspace' }).click();
+    await expect(authedPage.getByRole('menuitem', { name: /Personal/ })).toBeVisible();
+    await expect(authedPage.getByRole('menuitem', { name: /Old Group/ })).toBeVisible();
   });
 
   test('switches workspace via dropdown', async ({ authedPage }) => {
     await authedPage.goto('/w/test-grp1');
-    await authedPage.getByRole('button', { name: /Roommates/i }).click();
-    await authedPage.getByRole('link', { name: /Personal/ }).click();
+    await authedPage.getByRole('button', { name: 'Switch workspace' }).click();
+    await authedPage.getByRole('menuitem', { name: /Personal/ }).click();
     await authedPage.waitForURL(/\/w\/test-dm1/);
   });
 });

@@ -1,0 +1,17 @@
+{
+  "name": "grumps-d1-shim",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local stand-in for the Cloudflare D1 HTTP API, backed by better-sqlite3. Lets the e2e suite exercise per-workspace routes (crates/worker/src/d1_rest.rs) hermetically, without a live Cloudflare account. See D1_REST_BASE in d1_rest.rs and issue #9.",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.1"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.1": true
+  }
+}

@@ -143,7 +143,8 @@ test.describe('Events API', () => {
     const ev = await created.json();
 
     await authedPage.goto(`/w/${SLUG}/calendar?lang=en`);
-    await authedPage.getByRole('button', { name: /Agenda/i }).click();
+    // The Month/Week/Agenda switcher is a `tablist`/`tab` (ARIA), not buttons.
+    await authedPage.getByRole('tab', { name: /Agenda/i }).click();
     await expect(authedPage.getByText(distinctTitle)).toBeVisible({ timeout: 10_000 });
 
     await authedPage.request.delete(`/api/w/${SLUG}/events/${ev.id}`, {

@@ -240,7 +240,7 @@ are not touched by the deploy.
 
 - File name: `NNNN_snake_case.sql` — 4 digits, strictly sequential,
   never reuse or renumber. One logical change per file. Leading
-  comment explains the "why". (Version 6 is an intentional gap.)
+  comment explains the "why".
 - `ALTER TABLE … ADD COLUMN` prefers `NOT NULL DEFAULT '<x>'` so
   existing rows populate automatically. Only fall back to NULL if
   there's no sensible default.

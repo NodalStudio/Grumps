@@ -20,6 +20,12 @@ package-lock.json
 .env
 .env.local
 
+# Playwright run artifacts + the e2e shared-session cookie cache
+# (tests/e2e/fixtures.ts) — regenerated every run, machine/run-specific.
+tests/test-results/
+tests/playwright-report/
+tests/.auth-cache.json
+
 # Editor / tooling local config — only the runtime artefacts under
 # .claude/ are ignored. Everything else (commands, settings, etc.)
 # is tracked.
