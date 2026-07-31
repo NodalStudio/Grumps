@@ -3,5 +3,8 @@
     "wrangler": "^4.82.2",
     "@tailwindcss/cli": "^4.3.2",
     "tailwindcss": "^4.3.2"
+  },
+  "allowScripts": {
+    "workerd@1.20260722.1": true
   }
 }
