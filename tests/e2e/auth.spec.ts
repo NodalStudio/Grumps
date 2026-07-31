@@ -1,18 +1,15 @@
 import { test, expect, csrf } from './fixtures';
 
 test.describe('Auth flow', () => {
-  test('login page renders 3 platform buttons (TG active, WA/DC disabled)', async ({ page }) => {
+  test('login page renders TG widget and WhatsApp magic-link hint', async ({ page }) => {
     await page.goto('/login');
     await expect(page.getByText('GRUMPS.', { exact: false })).toBeVisible();
     // TG widget is loaded via 3rd-party script — assert the placeholder div exists.
     await expect(page.locator('#tg-widget-container')).toBeVisible();
-    await expect(page.getByText(/Log in with WhatsApp/i)).toBeVisible();
-    await expect(page.getByText(/Log in with Discord/i)).toBeVisible();
-    // Both placeholders are disabled.
-    const wa = page.getByRole('button', { name: /Log in with WhatsApp/i });
-    const dc = page.getByRole('button', { name: /Log in with Discord/i });
-    await expect(wa).toBeDisabled();
-    await expect(dc).toBeDisabled();
+    // WhatsApp login happens via the in-chat magic link; the hint replaced the
+    // old disabled WA/DC placeholder buttons.
+    await expect(page.getByText(/@grumps link/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Log in with/i })).toHaveCount(0);
   });
 
   test('GET /auth/me without cookies returns 401 with CORS headers', async ({ page }) => {
