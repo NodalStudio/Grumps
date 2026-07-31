@@ -229,6 +229,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+// Loopback only — the shim fronts an unauthenticated SQLite database and
+// must never be reachable from the network, even briefly on a dev machine.
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`[d1-shim] listening on http://127.0.0.1:${PORT}`);
 });
